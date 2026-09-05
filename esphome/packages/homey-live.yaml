@@ -4,10 +4,23 @@ http_request:
   timeout: 8s
 
 globals:
+  - id: charge_pending
+    type: bool
+    initial_value: "false"
+  - id: charger_is_charging
+    type: bool
+    initial_value: "false"
+  - id: charge_target
+    type: bool
+    initial_value: "true"
   - id: electricity_peak_w
     type: float
     restore_value: false
     initial_value: "1000.0"
+  - id: show_tomorrow_prices
+    type: bool
+    restore_value: false
+    initial_value: "false"
 
 esphome:
   on_boot:
@@ -76,6 +89,24 @@ interval:
       - script.execute: refresh_homey_weather
 
 script:
+  - id: charge_wait_timeout
+    mode: restart
+    then:
+      - delay: 3min
+      - if:
+          condition:
+            lambda: return id(charge_pending);
+          then:
+            - globals.set:
+                id: charge_pending
+                value: "false"
+            - lvgl.button.update:
+                id: force_charge_button
+                text: "${charge_failed}"
+                bg_color: 0xA65050
+                state:
+                  disabled: false
+            - lambda: lv_obj_add_flag(id(force_charge_button), LV_OBJ_FLAG_CLICKABLE);
   - id: update_clock
     mode: restart
     then:
@@ -84,6 +115,100 @@ script:
           if (now.is_valid()) {
             lv_label_set_text_fmt(id(clock_label), "%02d:%02d  EnergyDeck", now.hour, now.minute);
           }
+
+  # Homey has separate trigger endpoints for Advanced and regular Flows. Try
+  # the Advanced Flow endpoint first; a non-success response falls back to the
+  # regular Flow endpoint. The UI only reports success after Homey confirms it.
+  - id: trigger_charge_advanced_flow
+    mode: single
+    then:
+      - http_request.post:
+          url: "${homey_address}/api/manager/flow/advancedflow/${homey_charge_flow_id}/trigger"
+          request_headers:
+            Authorization: "Bearer ${homey_token}"
+            Accept: "application/json"
+            Content-Type: "application/json"
+          body: "{}"
+          capture_response: true
+          max_response_buffer_size: 1024
+          on_response:
+            then:
+              - if:
+                  condition:
+                    lambda: return response->status_code >= 200 && response->status_code < 300;
+                  then:
+                    - lvgl.button.update:
+                        id: force_charge_button
+                        text: "${charge_starting}"
+                        bg_color: 0x626A70
+                    - logger.log: "Advanced charging Flow started"
+                    - delay: 2s
+                    - script.execute: refresh_homey_charger
+                  else:
+                    - logger.log:
+                        format: "Advanced Flow trigger returned HTTP %d; trying regular Flow"
+                        args: [response->status_code]
+                        level: WARN
+                    - script.execute: trigger_charge_regular_flow
+          on_error:
+            then:
+              - script.execute: trigger_charge_regular_flow
+
+  - id: trigger_charge_regular_flow
+    mode: single
+    then:
+      - http_request.post:
+          url: "${homey_address}/api/manager/flow/flow/${homey_charge_flow_id}/trigger"
+          request_headers:
+            Authorization: "Bearer ${homey_token}"
+            Accept: "application/json"
+            Content-Type: "application/json"
+          body: "{}"
+          capture_response: true
+          max_response_buffer_size: 1024
+          on_response:
+            then:
+              - if:
+                  condition:
+                    lambda: return response->status_code >= 200 && response->status_code < 300;
+                  then:
+                    - lvgl.button.update:
+                        id: force_charge_button
+                        text: "${charge_starting}"
+                        bg_color: 0x626A70
+                    - logger.log: "Charging Flow started"
+                    - delay: 2s
+                    - script.execute: refresh_homey_charger
+                  else:
+                    - globals.set:
+                        id: charge_pending
+                        value: "false"
+                    - lambda: lv_obj_add_flag(id(force_charge_button), LV_OBJ_FLAG_CLICKABLE);
+                    - lvgl.button.update:
+                        id: force_charge_button
+                        text: "${charge_failed}"
+                        bg_color: 0xA65050
+                        state:
+                          disabled: false
+                    - logger.log:
+                        format: "Charging Flow trigger failed with HTTP %d"
+                        args: [response->status_code]
+                        level: ERROR
+          on_error:
+            then:
+              - globals.set:
+                  id: charge_pending
+                  value: "false"
+              - lambda: lv_obj_add_flag(id(force_charge_button), LV_OBJ_FLAG_CLICKABLE);
+              - lvgl.button.update:
+                  id: force_charge_button
+                  text: "${charge_failed}"
+                  bg_color: 0xA65050
+                  state:
+                    disabled: false
+              - logger.log:
+                  format: "Charging Flow request failed"
+                  level: ERROR
 
   - id: refresh_homey_fast_cycle
     mode: single
@@ -127,13 +252,11 @@ script:
                     const char *encoded = variable["value"];
                     if (encoded == nullptr) return false;
 
-                    // The Logic-variable value is JSON stored inside Homey's
-                    // outer JSON response. Building a second ArduinoJson tree
-                    // for the ~10 kB value is needlessly expensive on the ESP.
-                    // Read the 96 numeric `value` fields directly instead.
-                    const char *prices_start = strstr(encoded, "\"pricesPerInterval\"");
+                    // Version 2 stores compact numeric arrays for both days.
+                    const char *day_start = strstr(encoded, id(show_tomorrow_prices) ? "\"tomorrow\"" : "\"today\"");
+                    const char *prices_start = day_start != nullptr ? strstr(day_start, "\"values\":[") : nullptr;
                     if (prices_start == nullptr) {
-                      ESP_LOGW("homey", "pricesPerInterval is missing from the price variable");
+                      ESP_LOGW("homey", "Selected day is missing from the price variable");
                       return false;
                     }
 
@@ -145,14 +268,15 @@ script:
                       const float vat_multiplier = 1.0f + (${vat_percent}f / 100.0f);
                       const float supplier_fee = ${supplier_fee_incl_vat_ct}f / 100.0f;
 
-                      const char *cursor = prices_start;
+                      const char *cursor = strchr(prices_start, '[');
+                      if (cursor == nullptr) return false;
+                      cursor++;
                       for (size_t i = 0; i < 96; i++) {
-                        cursor = strstr(cursor, "\"value\":");
-                        if (cursor == nullptr) {
+                        while (*cursor == ' ' || *cursor == ',') cursor++;
+                        if (*cursor == '\0' || *cursor == ']') {
                           ESP_LOGW("homey", "Expected 96 price values, received %zu", i);
                           return false;
                         }
-                        cursor += 8;
                         char *end = nullptr;
                         const float market_price = strtof(cursor, &end);
                         if (end == cursor) {
@@ -163,6 +287,43 @@ script:
                         prices[i] = (market_price + energy_tax) * vat_multiplier + supplier_fee;
                         minimum = std::min(minimum, prices[i]);
                         maximum = std::max(maximum, prices[i]);
+                      }
+
+                      // Compare complete all-in day averages. This deliberately
+                      // uses the same tax, VAT and supplier fee as the graph.
+                      auto day_average = [&](const char *day_key, float &average) -> bool {
+                        const char *section = strstr(encoded, day_key);
+                        const char *values = section != nullptr ? strstr(section, "\"values\":[") : nullptr;
+                        const char *p = values != nullptr ? strchr(values, '[') : nullptr;
+                        if (p == nullptr) return false;
+                        p++;
+                        float total = 0.0f;
+                        for (size_t i = 0; i < 96; i++) {
+                          while (*p == ' ' || *p == ',') p++;
+                          char *end = nullptr;
+                          const float market = strtof(p, &end);
+                          if (end == p) return false;
+                          total += (market + energy_tax) * vat_multiplier + supplier_fee;
+                          p = end;
+                        }
+                        average = total / 96.0f;
+                        return true;
+                      };
+                      float today_average = 0.0f;
+                      float tomorrow_average = 0.0f;
+                      if (day_average("\"today\"", today_average) &&
+                          day_average("\"tomorrow\"", tomorrow_average)) {
+                        const float difference_ct = (tomorrow_average - today_average) * 100.0f;
+                        if (difference_ct < -0.05f) {
+                          lv_label_set_text_fmt(id(tomorrow_average_label), "${tomorrow_cheaper_format}", -difference_ct);
+                          lv_obj_set_style_text_color(id(tomorrow_average_label), lv_color_hex(0x7FE0A2), LV_PART_MAIN);
+                        } else if (difference_ct > 0.05f) {
+                          lv_label_set_text_fmt(id(tomorrow_average_label), "${tomorrow_dearer_format}", difference_ct);
+                          lv_obj_set_style_text_color(id(tomorrow_average_label), lv_color_hex(0xEA665F), LV_PART_MAIN);
+                        } else {
+                          lv_label_set_text(id(tomorrow_average_label), "${tomorrow_same_price}");
+                          lv_obj_set_style_text_color(id(tomorrow_average_label), lv_color_hex(0xA9B8AE), LV_PART_MAIN);
+                        }
                       }
 
                       const float span = std::max(0.001f, maximum - minimum);
@@ -179,9 +340,16 @@ script:
                       auto now = id(energydeck_time).now();
                       int current = now.is_valid() ? now.hour * 4 + now.minute / 15 : 0;
                       current = std::max(0, std::min(95, current));
-                      lv_obj_set_style_border_color(bars[current], lv_color_hex(0xF7FFF9), LV_PART_INDICATOR);
-                      lv_obj_set_style_border_width(bars[current], 1, LV_PART_INDICATOR);
-                      lv_label_set_text_fmt(id(price_now_label), "%.1f", prices[current] * 100.0f);
+                      if (id(show_tomorrow_prices)) {
+                        lv_obj_add_flag(id(price_current_marker), LV_OBJ_FLAG_HIDDEN);
+                      } else {
+                        lv_obj_clear_flag(id(price_current_marker), LV_OBJ_FLAG_HIDDEN);
+                        lv_obj_set_x(id(price_current_marker), 46 + current * 4);
+                        lv_obj_set_style_bg_color(bars[current], lv_color_hex(0xF7FFF9), LV_PART_INDICATOR);
+                        lv_obj_set_style_border_color(bars[current], lv_color_hex(0xF7FFF9), LV_PART_INDICATOR);
+                        lv_obj_set_style_border_width(bars[current], 1, LV_PART_INDICATOR);
+                        lv_label_set_text_fmt(id(price_now_label), "%.1f", prices[current] * 100.0f);
+                      }
 
                       const int start_minutes = current * 15;
                       const int end_minutes = start_minutes + 15;
@@ -226,7 +394,7 @@ script:
 
                       lv_label_set_text(id(homey_status_label), "${homey_status}");
                       lv_obj_set_style_text_color(id(homey_status_label), lv_color_hex(0x62D98A), LV_PART_MAIN);
-                      ESP_LOGI("homey", "Prices: 96 intervals loaded, current %.1f ct/kWh", prices[current] * 100.0f);
+                      ESP_LOGI("homey", "Prices: 96 %s intervals loaded", id(show_tomorrow_prices) ? "tomorrow" : "today");
                       return true;
                   });
 
@@ -329,14 +497,37 @@ script:
             then:
               - lambda: |-
                   auto set_button = [](bool enabled, const char *text, uint32_t color) {
+                    if (id(charge_pending)) {
+                      enabled = false;
+                      text = "${charge_starting}";
+                      color = 0x626A70;
+                    }
                     lv_obj_t *button = id(force_charge_button);
                     lv_obj_t *label = lv_obj_get_child(button, 0);
+                    const bool complete_style = color == 0x2E7D4F;
+                    const bool stop_style = color == 0xB94343;
+                    lv_obj_clear_state(button, LV_STATE_DISABLED);
                     if (enabled) {
-                      lv_obj_clear_state(button, LV_STATE_DISABLED);
+                      lv_obj_add_flag(button, LV_OBJ_FLAG_CLICKABLE);
                     } else {
-                      lv_obj_add_state(button, LV_STATE_DISABLED);
+                      // Keep the calm dashboard styling while preventing taps.
+                      // LV_STATE_DISABLED applies LVGL's default grey theme.
+                      lv_obj_clear_flag(button, LV_OBJ_FLAG_CLICKABLE);
                     }
                     lv_obj_set_style_bg_color(button, lv_color_hex(color), LV_PART_MAIN);
+                    lv_obj_set_style_border_color(
+                      button,
+                      lv_color_hex(stop_style ? 0xE86A65 : (complete_style ? 0x48BD70 : (enabled ? 0x3B65A2 : 0x34463C))),
+                      LV_PART_MAIN
+                    );
+                    lv_obj_set_style_border_width(button, 1, LV_PART_MAIN);
+                    if (label != nullptr) {
+                      lv_obj_set_style_text_color(
+                        label,
+                        lv_color_hex((enabled || complete_style) ? 0xFFFFFF : 0xA9B8AE),
+                        LV_PART_MAIN
+                      );
+                    }
                     if (label != nullptr) lv_label_set_text(label, text);
                   };
 
@@ -361,6 +552,11 @@ script:
                     const std::string status = status_raw != nullptr ? status_raw : "";
                     const bool complete = status.find("finished") != std::string::npos ||
                                           status.find("complete") != std::string::npos;
+                    id(charger_is_charging) = charging || power_w > 50.0f;
+                    if (id(charge_pending) &&
+                        (!connected || fault || id(charger_is_charging) == id(charge_target))) {
+                      id(charge_pending) = false;
+                    }
 
                     ESP_LOGI("homey", "Charger: connected %s, charging %s, status %s, %.0f W",
                              connected ? "yes" : "no", charging ? "yes" : "no",
@@ -377,11 +573,14 @@ script:
                     } else if (charging || power_w > 50.0f) {
                       lv_label_set_text(id(ev_status_label), "${car_charging}");
                       lv_label_set_text_fmt(id(ev_detail_label), "${car_charging_format}", power_w / 1000.0f);
-                      set_button(false, "${charge_active}", 0x35A75D);
+                      // The user's Homey Flow is a toggle. Keep the button
+                      // available while charging so a second press invokes
+                      // the same Flow and returns the charger to normal mode.
+                      set_button(true, "${resume_normal}", 0xB94343);
                     } else if (complete) {
                       lv_label_set_text(id(ev_status_label), "${car_complete}");
                       lv_label_set_text(id(ev_detail_label), "${car_complete_detail}");
-                      set_button(false, "${charge_complete}", 0x46505D);
+                      set_button(true, "${charge_complete}", 0x2E7D4F);
                     } else {
                       lv_label_set_text(id(ev_status_label), "${car_ready}");
                       lv_label_set_text(id(ev_detail_label), "${car_waiting}");
@@ -406,8 +605,10 @@ script:
                   text: "${car_try_again}"
               - lvgl.button.update:
                   id: force_charge_button
-                  text: "${charge_unavailable}"
-                  bg_color: 0x46505D
+                  text: !lambda |-
+                    return std::string(id(charge_pending) ? "${charge_starting}" : "${charge_unavailable}");
+                  bg_color: !lambda |-
+                    return lv_color_hex(id(charge_pending) ? 0x626A70 : 0x46505D);
                   state:
                     disabled: true
 
@@ -426,6 +627,7 @@ script:
               - lambda: |-
                   if (response->status_code != 200) {
                     lv_label_set_text(id(electricity_now_value_label), "--");
+                    lv_label_set_text(id(electricity_now_unit_label), "");
                     ESP_LOGW("homey", "HomeWizard request returned HTTP %d", response->status_code);
                     return;
                   }
@@ -435,15 +637,21 @@ script:
                     if (power_value.isNull()) return false;
 
                     const float power_w = power_value.as<float>();
-                    // HomeWizard's P1 convention is positive for export and
-                    // negative for grid consumption. EnergyDeck presents the
-                    // more intuitive opposite convention: export left/negative,
-                    // consumption right/positive.
-                    const float display_power_w = -power_w;
+                    // This HomeWizard P1 source reports grid consumption as
+                    // positive and export as negative, matching the gauge:
+                    // consumption right/blue, export left/green.
+                    const float display_power_w = power_w;
                     const float power_kw = display_power_w / 1000.0f;
                     // Direction is shown by the arc: left/green is export,
-                    // right/blue is consumption. Keep the central number tidy.
-                    lv_label_set_text_fmt(id(electricity_now_value_label), "%.1f", fabsf(power_kw));
+                    // right/blue is consumption. Export also keeps its minus
+                    // sign so the direction remains clear at a glance.
+                    if (fabsf(display_power_w) < 999.0f) {
+                      lv_label_set_text_fmt(id(electricity_now_value_label), "%.0f", display_power_w);
+                      lv_label_set_text(id(electricity_now_unit_label), "W");
+                    } else {
+                      lv_label_set_text_fmt(id(electricity_now_value_label), "%.1f", power_kw);
+                      lv_label_set_text(id(electricity_now_unit_label), "kW");
+                    }
 
                     const float peak = std::max(1000.0f, id(electricity_peak_w));
                     const int arc_value = std::max(-100, std::min(100,
@@ -459,6 +667,7 @@ script:
 
                   if (!parsed) {
                     lv_label_set_text(id(electricity_now_value_label), "--");
+                    lv_label_set_text(id(electricity_now_unit_label), "");
                     ESP_LOGW("homey", "Could not parse HomeWizard power");
                   }
           on_error:
@@ -466,6 +675,9 @@ script:
               - lvgl.label.update:
                   id: electricity_now_value_label
                   text: "--"
+              - lvgl.label.update:
+                  id: electricity_now_unit_label
+                  text: ""
 
   - id: refresh_homey_electricity_day
     mode: restart
@@ -692,7 +904,6 @@ script:
                   if (response->status_code != 200) {
                     lv_label_set_text(id(weather_now_label), "${weather_loading}");
                     lv_label_set_text(id(weather_tomorrow_label), "${weather_tomorrow_loading}");
-                    lv_label_set_text(id(weather_rain_label), "${weather_rain_unknown}");
                     ESP_LOGW("homey", "Weather request returned HTTP %d", response->status_code);
                     return;
                   }
@@ -742,10 +953,6 @@ script:
                     const bool rain_expected = tomorrow_icon.find("rain") != std::string::npos ||
                       tomorrow_icon.find("thunder") != std::string::npos ||
                       tomorrow_icon.find("snow") != std::string::npos;
-                    lv_label_set_text(id(weather_rain_label),
-                      rain_expected ? "${weather_rain_expected}" : "${weather_no_rain}");
-                    lv_obj_set_style_text_color(id(weather_rain_label),
-                      lv_color_hex(rain_expected ? 0x3AA7D8 : 0x62D98A), LV_PART_MAIN);
 
                     if (current_cloud) {
                       lv_obj_remove_flag(id(weather_cloud_icon), LV_OBJ_FLAG_HIDDEN);
@@ -774,7 +981,6 @@ script:
                   if (!parsed) {
                     lv_label_set_text(id(weather_now_label), "${weather_loading}");
                     lv_label_set_text(id(weather_tomorrow_label), "${weather_tomorrow_loading}");
-                    lv_label_set_text(id(weather_rain_label), "${weather_rain_unknown}");
                     ESP_LOGW("homey", "Could not parse Homey weather");
                   }
           on_error:
@@ -785,6 +991,3 @@ script:
               - lvgl.label.update:
                   id: weather_tomorrow_label
                   text: "${weather_tomorrow_loading}"
-              - lvgl.label.update:
-                  id: weather_rain_label
-                  text: "${weather_rain_unknown}"

@@ -37,6 +37,7 @@ substitutions:
   homey_address: !env_var HOMEY_ADDRESS
   homey_token: !env_var HOMEY_TOKEN
   homey_prices_variable_id: !env_var HOMEY_PRICES_VARIABLE_ID
+  homey_charge_flow_id: !env_var HOMEY_CHARGE_FLOW_ID
   homey_charger_device_id: !env_var HOMEY_CHARGER_DEVICE_ID
   homey_sessy_device_id: !env_var HOMEY_SESSY_DEVICE_ID
   homey_homewizard_device_id: !env_var HOMEY_HOMEWIZARD_DEVICE_ID
@@ -135,6 +136,8 @@ touchscreen:
     display: energydeck_display
 
 packages:
+  temperature: !include packages/temperature.yaml
+  rain: !include packages/rain.yaml
   dashboard: !include packages/dashboard.yaml
   homey_live: !include packages/homey-live.yaml
   sun_times: !include packages/sun-times.yaml

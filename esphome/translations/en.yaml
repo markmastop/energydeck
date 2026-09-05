@@ -12,15 +12,15 @@ sunrise_format: "Sunrise %s  |"
 sunset: "Sunset --:--"
 sunset_format: "Sunset %s"
 energy_today_value: "0.0"
-energy_ytd: '0\nYTD'
-energy_ytd_format: '%.0f\nYTD'
+energy_ytd: '0 kWh\nYTD'
+energy_ytd_format: '%.0f kWh\nYTD'
 energy_today: "Energy\ntoday"
 tap_for_ytd: "tap for YTD"
 today_short: "Today"
-power_peak: '0.0\nmax'
-power_peak_format: '%.1f\nmax'
-solar_today: '0.0\ntoday'
-solar_today_format: '%.1f\ntoday'
+power_peak: '0.0 kW\nmax'
+power_peak_format: '%.1f kW\nmax'
+solar_today: '0.0 kWh\ntoday'
+solar_today_format: '%.1f kWh\ntoday'
 solar_unavailable: "--"
 today: "Today"
 tomorrow: "Tomorrow"
@@ -29,6 +29,9 @@ price_range: "0.0 - 0.0 ct"
 price_range_format: "%.1f - %.1f ct"
 cheapest_period: "Cheapest 3 hours: 00:00-00:00"
 cheapest_period_format: "Cheapest 3 hours: %02d:%02d-%02d:%02d"
+tomorrow_cheaper_format: "TOMORROW CHEAPER  |  -%.1f ct average"
+tomorrow_dearer_format: "TOMORROW DEARER  |  +%.1f ct average"
+tomorrow_same_price: "TOMORROW NEARLY EQUAL"
 battery_title: "Home battery"
 battery_status: "Standby | 0 W"
 battery_charging_format: "Charging | %d W"
@@ -48,11 +51,17 @@ car_charger_error: "EV - charger error"
 car_check_homey: "Check charger in Homey"
 car_unavailable: "EV - status unavailable"
 car_try_again: "Trying again shortly"
-force_charge: "Charge now"
+force_charge: "Charge"
+resume_normal: "Stop"
+charge_starting: "Waiting"
 charge_started: "Charging started"
+charge_failed: "Try again"
 charge_unavailable: "No car"
 charge_active: "Charging"
-charge_complete: "Charged"
+charge_complete: "Charge"
+placeholder_action_1: "Action 1"
+placeholder_action_2: "Action 2"
+placeholder_action_3: "Action 3"
 gas_title: "Gas usage"
 gas_today_value: "0.0"
 gas_month_value: "0.0"
@@ -73,3 +82,8 @@ weather_unknown: "Weather"
 weather_rain_expected: "Rain expected"
 weather_no_rain: "No rain expected"
 weather_rain_unknown: "Rain --"
+rain_dry: "Dry for 2 hours"
+rain_at: "Rain from %02d:%02d"
+rain_now: "Rain now"
+temperature_trend_unknown: "In 3 hours --°"
+temperature_trend_format: "In 3 hours %.1f°"

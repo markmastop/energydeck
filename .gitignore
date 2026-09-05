@@ -7,3 +7,5 @@ esphome/secrets.yaml
 *.elf
 *.map
 .DS_Store
+__pycache__/
+*.py[cod]

@@ -253,6 +253,16 @@ revoked at any time under **Settings → API Keys**.
 > therefore does not require full Homey access. A HomeyScript will copy Homey's
 > internal quarter-hour prices to a read-only Logic variable instead.
 
+## Weather and development
+
+The simulator and physical display use Dutch by default, with English strings
+available in `esphome/translations/en.yaml`. The weather card includes a two-hour
+Buienradar rain graph and an Open-Meteo temperature outlook for three hours ahead.
+See [weather data and refresh details](docs/RAIN.md).
+
+Repository working agreements, including creating a descriptive local commit
+after each completed change, are documented in [AGENTS.md](AGENTS.md).
+
 ## Secrets
 
 Later, copy `esphome/secrets.example.yaml` to `esphome/secrets.yaml` and fill in

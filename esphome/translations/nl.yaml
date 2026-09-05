@@ -12,15 +12,15 @@ sunrise_format: "Zon op %s  |"
 sunset: "Zon onder --:--"
 sunset_format: "Zon onder %s"
 energy_today_value: "0,0"
-energy_ytd: '0\nYTD'
-energy_ytd_format: '%.0f\nYTD'
+energy_ytd: '0 kWh\nYTD'
+energy_ytd_format: '%.0f kWh\nYTD'
 energy_today: "Stroom\nvandaag"
 tap_for_ytd: "tik voor YTD"
 today_short: "Vandaag"
-power_peak: '0,0\nmax'
-power_peak_format: '%.1f\nmax'
-solar_today: '0,0\nvandaag'
-solar_today_format: '%.1f\nvandaag'
+power_peak: '0,0 kW\nmax'
+power_peak_format: '%.1f kW\nmax'
+solar_today: '0,0 kWh\nvandaag'
+solar_today_format: '%.1f kWh\nvandaag'
 solar_unavailable: "--"
 today: "Vandaag"
 tomorrow: "Morgen"
@@ -29,6 +29,9 @@ price_range: "0,0 - 0,0 cent"
 price_range_format: "%.1f - %.1f cent"
 cheapest_period: "Goedkoopste 3 uur: 00:00-00:00"
 cheapest_period_format: "Goedkoopste 3 uur: %02d:%02d-%02d:%02d"
+tomorrow_cheaper_format: "MORGEN GOEDKOPER  |  -%.1f ct gemiddeld"
+tomorrow_dearer_format: "MORGEN DUURDER  |  +%.1f ct gemiddeld"
+tomorrow_same_price: "MORGEN VRIJWEL GELIJK"
 battery_title: "Thuisaccu"
 battery_status: "Stand-by | 0 W"
 battery_charging_format: "Laden | %d W"
@@ -48,11 +51,17 @@ car_charger_error: "Auto - laadpaalfout"
 car_check_homey: "Controleer de laadpaal in Homey"
 car_unavailable: "Auto - status niet beschikbaar"
 car_try_again: "Nieuwe poging volgt"
-force_charge: "Forceer laden"
+force_charge: "Laden"
+resume_normal: "Stop"
+charge_starting: "Wachten"
 charge_started: "Laden gestart"
+charge_failed: "Opnieuw"
 charge_unavailable: "Geen auto"
 charge_active: "Bezig met laden"
-charge_complete: "Opgeladen"
+charge_complete: "Laden"
+placeholder_action_1: "Actie 1"
+placeholder_action_2: "Actie 2"
+placeholder_action_3: "Actie 3"
 gas_title: "Gasgebruik"
 gas_today_value: "0,0"
 gas_month_value: "0,0"
@@ -73,3 +82,8 @@ weather_unknown: "Weer"
 weather_rain_expected: "Regen verwacht"
 weather_no_rain: "Geen regen verwacht"
 weather_rain_unknown: "Regen --"
+rain_dry: "2 uur droog"
+rain_at: "Regen vanaf %02d:%02d"
+rain_now: "Nu regen"
+temperature_trend_unknown: "Over 3 uur --°"
+temperature_trend_format: "Over 3 uur %.1f°"

@@ -1,0 +1,114 @@
+# Location-based two-hour nowcast. Source: https://www.buienradar.nl
+# https://www.buienradar.nl/overbuienradar/gratis-weerdata
+esphome:
+  on_boot:
+    priority: -100
+    then:
+      - delay: 25s
+      - script.execute: refresh_rain
+
+interval:
+  - interval: 5min
+    startup_delay: 325s
+    then:
+      - script.execute: refresh_rain
+
+script:
+  - id: rain_unavailable
+    then:
+      - lambda: |-
+          lv_obj_add_flag(id(rain_plot), LV_OBJ_FLAG_HIDDEN);
+          lv_label_set_text(id(weather_rain_label), "${weather_rain_unknown}");
+          lv_obj_set_style_text_color(id(weather_rain_label), lv_color_hex(0x82958A), 0);
+          lv_label_set_text(id(rain_scale), "");
+          lv_label_set_text(id(rain_times), "--:--                 --:--");
+
+  - id: refresh_rain
+    mode: single
+    then:
+      - http_request.get:
+          # Current destination of the documented gps.buienradar.nl redirect.
+          # Direct access avoids the host client's cross-host Host-header issue.
+          url: "https://gadgets.buienradar.nl/data/raintext/?lat=${energydeck_latitude}&lon=${energydeck_longitude}"
+          capture_response: true
+          max_response_buffer_size: 2048
+          on_error:
+            then:
+              - script.execute: rain_unavailable
+          on_response:
+            then:
+              - lambda: |-
+                  if (response->status_code != 200) {
+                    id(rain_unavailable).execute();
+                    return;
+                  }
+                  float values[25] = {};
+                  int minutes[25] = {};
+                  int count = 0;
+                  size_t offset = 0;
+                  while (offset < body.size() && count < 25) {
+                    const size_t end = body.find('\n', offset);
+                    const std::string line = body.substr(offset, end == std::string::npos ? end : end - offset);
+                    int code, hour, minute;
+                    if (sscanf(line.c_str(), "%d|%d:%d", &code, &hour, &minute) != 3 ||
+                        code < 0 || code > 255 || hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+                      id(rain_unavailable).execute();
+                      return;
+                    }
+                    minutes[count] = hour * 60 + minute;
+                    if (count > 0 && (minutes[count] - minutes[count - 1] + 1440) % 1440 != 5) {
+                      id(rain_unavailable).execute();
+                      return;
+                    }
+                    values[count++] = code == 0 ? 0.0f : powf(10.0f, (code - 109) / 32.0f);
+                    if (end == std::string::npos) break;
+                    offset = end + 1;
+                  }
+                  auto now = id(energydeck_time).now();
+                  if (count < 24 || !now.is_valid()) {
+                    id(rain_unavailable).execute();
+                    return;
+                  }
+                  const int now_min = now.hour * 60 + now.minute;
+                  const int delta = (minutes[0] - now_min + 2160) % 1440 - 720;
+                  if (delta < -10 || delta > 10) {
+                    id(rain_unavailable).execute();
+                    ESP_LOGW("rain", "Ignoring stale or misaligned rain forecast");
+                    return;
+                  }
+                  float maximum = 1.0f;
+                  int first_rain = -1;
+                  for (int i = 0; i < 24; i++) {
+                    maximum = std::max(maximum, values[i]);
+                    if (first_rain < 0 && values[i] >= 0.1f) first_rain = i;
+                  }
+                  maximum = ceilf(maximum);
+                  lv_obj_t *plot = id(rain_plot);
+                  if (lv_obj_get_child_count(plot) == 0) {
+                    for (int i = 0; i < 24; i++) {
+                      lv_obj_t *bar = lv_obj_create(plot);
+                      lv_obj_remove_style_all(bar);
+                      lv_obj_clear_flag(bar, LV_OBJ_FLAG_CLICKABLE);
+                      lv_obj_set_style_bg_opa(bar, LV_OPA_COVER, 0);
+                      lv_obj_set_style_radius(bar, 1, 0);
+                    }
+                  }
+                  for (int i = 0; i < 24; i++) {
+                    auto *bar = lv_obj_get_child(plot, i);
+                    const int height = std::max(1, (int)roundf(values[i] / maximum * 23));
+                    lv_obj_set_pos(bar, i * 7, 24 - height);
+                    lv_obj_set_size(bar, 6, height);
+                    lv_obj_set_style_bg_color(bar, lv_color_hex(values[i] >= 0.1f ? 0x3AA7D8 : 0x344F48), 0);
+                  }
+                  lv_obj_remove_flag(plot, LV_OBJ_FLAG_HIDDEN);
+                  lv_label_set_text_fmt(id(rain_scale), "%.0f\nmm/h", maximum);
+                  const int finish = (minutes[0] + 120) % 1440;
+                  lv_label_set_text_fmt(id(rain_times), "%02d:%02d                 %02d:%02d",
+                    minutes[0] / 60, minutes[0] % 60, finish / 60, finish % 60);
+                  if (first_rain < 0) lv_label_set_text(id(weather_rain_label), "${rain_dry}");
+                  else if (first_rain == 0) lv_label_set_text(id(weather_rain_label), "${rain_now}");
+                  else lv_label_set_text_fmt(id(weather_rain_label), "${rain_at}",
+                    minutes[first_rain] / 60, minutes[first_rain] % 60);
+                  lv_obj_set_style_text_color(id(weather_rain_label),
+                    lv_color_hex(first_rain < 0 ? 0x62D98A : 0x3AA7D8), 0);
+                  ESP_LOGI("rain", "Loaded %d five-minute samples; peak %.2f mm/h", count, maximum);

@@ -15,13 +15,32 @@ function localDate(date = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
-const date = localDate();
-const prices = await Homey.energy.fetchDynamicElectricityPrices({ date });
+const today = new Date();
+const tomorrow = new Date(today);
+tomorrow.setDate(tomorrow.getDate() + 1);
+const date = localDate(today);
+const tomorrowDate = localDate(tomorrow);
+const [todayPrices, tomorrowPrices] = await Promise.all([
+  Homey.energy.fetchDynamicElectricityPrices({ date }),
+  Homey.energy.fetchDynamicElectricityPrices({ date: tomorrowDate }),
+]);
+
+function compactPrices(result) {
+  const intervals = result?.pricesPerInterval ?? [];
+  return intervals.map(interval => interval.value);
+}
+
 const value = JSON.stringify({
-  version: 1,
-  date,
+  version: 2,
   updatedAt: new Date().toISOString(),
-  prices,
+  today: {
+    date,
+    values: compactPrices(todayPrices),
+  },
+  tomorrow: {
+    date: tomorrowDate,
+    values: compactPrices(tomorrowPrices),
+  },
 });
 
 const variables = await Homey.logic.getVariables();
@@ -48,6 +67,9 @@ if (existing) {
 return {
   ok: true,
   date,
+  tomorrowDate,
+  todayIntervals: compactPrices(todayPrices).length,
+  tomorrowIntervals: compactPrices(tomorrowPrices).length,
   variableId: variable.id,
   bytes: value.length,
 };

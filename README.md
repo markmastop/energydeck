@@ -180,13 +180,17 @@ Stop the simulator with `Ctrl+C`.
 The simulator loads live quarter-hour prices from the `EnergyDeck Prices`
 Homey Logic variable when `.env` is configured. The current price, 96 bars,
 daily minimum/maximum and cheapest consecutive three-hour window refresh every
-five minutes. The header shows live electricity use today, current net power and
+15 minutes. The header shows live electricity use today, current net power and
 the day's peak power from HomeWizard/Homey. Sessy's state of charge,
 charge/discharge direction, go-eCharger state, live electricity and solar power
-are read in one serialized 20-second cycle. Only one large Homey response is
+are read in one serialized 10-second cycle. Only one large Homey response is
 kept in memory at a time; when no vehicle is connected, the charge button is
-disabled. Day totals and the day peak refresh every five minutes;
-solar day yield and gas totals refresh every five minutes. The market prices are
+disabled. Day totals, the day peak, solar day yield and gas totals refresh every
+15 minutes. Weather, rain and the three-hour temperature outlook refresh every
+30 minutes; the display clock refreshes every 30 seconds. Polls are staggered
+slightly after startup. Charging actions immediately show a waiting state, check
+status two seconds after the Flow response, then use the normal 10-second cycle;
+the pending action times out after three minutes. The market prices are
 converted to an all-in household price using the configured energy tax, VAT and
 supplier purchasing fee. The defaults match the Netherlands and Zonneplan in
 2026 and can be overridden in `.env`.

@@ -7,8 +7,8 @@ esphome:
       - script.execute: refresh_temperature_trend
 
 interval:
-  - interval: 15min
-    startup_delay: 935s
+  - interval: 30min
+    startup_delay: 1835s
     then:
       - script.execute: refresh_temperature_trend
 

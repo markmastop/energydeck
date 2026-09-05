@@ -82,14 +82,14 @@ To install the bridge:
 Later, an Advanced Flow can run this HomeyScript after new prices become
 available. EnergyDeck only reads the resulting Logic variable. Version 2 of
 the bridge stores compact arrays for both today and tomorrow. The simulator
-loads them at startup and refreshes the variable every five minutes.
+loads them at startup and refreshes the variable every 15 minutes.
 
 The check lists relevant device IDs, capabilities and the charging Flow ID.
 This information is used to enable the final ESPHome integration.
 
 ### Sessy live data
 
-EnergyDeck reads the Sessy device through Homey's local Devices API every 15
+EnergyDeck reads the Sessy device through Homey's local Devices API every 10
 seconds. It uses `measure_battery` for state of charge and
 `measure_power.battery`, with `measure_power` as a fallback, for live power.
 Negative battery power is displayed as charging, positive battery power as
@@ -98,7 +98,7 @@ value between -25 W and +25 W as standby. This integration is read-only.
 
 ### EV charger status
 
-EnergyDeck reads the go-eCharger every 15 seconds. It uses `is_connected`,
+EnergyDeck reads the go-eCharger every 10 seconds. It uses `is_connected`,
 `is_charging`, `status`, `alarm_device` and `measure_power` to distinguish
 between disconnected, ready, charging, completed and fault states. With no
 vehicle connected, the card says `EV - not connected` and the charging button
@@ -108,21 +108,21 @@ mistaken for a vehicle waiting to charge.
 ### Live electricity use
 
 EnergyDeck reads current net power from the HomeWizard P1 device every 10
-seconds. Every five minutes, the Homey summary device supplies today's imported
+seconds. Every 15 minutes, the Homey summary device supplies today's imported
 energy and maximum power. These are shown as two compact rings: kWh used today
 and current kW, with the year's electricity use and the day's kW peak
 underneath. A negative current value indicates net export.
 
 ### Live solar production
 
-EnergyDeck reads current production from the inverter device every 15 seconds.
-The Homey solar summary supplies today's generated energy every five minutes.
+EnergyDeck reads current production from the inverter device every 10 seconds.
+The Homey solar summary supplies today's generated energy every 15 minutes.
 They share one green ring: current kW inside the ring and today's kWh directly
 underneath it.
 
 ### Gas usage
 
-EnergyDeck reads Homey's gas summary every five minutes. It displays today's,
+EnergyDeck reads Homey's gas summary every 15 minutes. It displays today's,
 this month's and this year's measured use. Homey's summary device does not
 provide a direct `this week` capability, so EnergyDeck deliberately uses the
 three exact periods instead of estimating a weekly total.

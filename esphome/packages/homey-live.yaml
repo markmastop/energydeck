@@ -59,18 +59,18 @@ esphome:
       - script.wait: refresh_homey_weather
 
 interval:
-  - interval: 5min
-    startup_delay: 5min
+  - interval: 15min
+    startup_delay: 15min
     then:
       - script.execute: refresh_homey_prices
   # One serialized fast cycle avoids multiple large Homey responses occupying
   # RAM simultaneously on the physical ESP32-S3.
-  - interval: 20s
-    startup_delay: 20s
+  - interval: 10s
+    startup_delay: 10s
     then:
       - script.execute: refresh_homey_fast_cycle
-  - interval: 5min
-    startup_delay: 150s
+  - interval: 15min
+    startup_delay: 905s
     then:
       - script.execute: refresh_homey_electricity_day
       - script.wait: refresh_homey_electricity_day
@@ -83,8 +83,8 @@ interval:
   - interval: 30s
     then:
       - script.execute: update_clock
-  - interval: 15min
-    startup_delay: 15min
+  - interval: 30min
+    startup_delay: 1810s
     then:
       - script.execute: refresh_homey_weather
 

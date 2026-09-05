@@ -1,0 +1,64 @@
+# Three-hour temperature outlook, source: https://open-meteo.com/
+esphome:
+  on_boot:
+    priority: -100
+    then:
+      - delay: 35s
+      - script.execute: refresh_temperature_trend
+
+interval:
+  - interval: 15min
+    startup_delay: 935s
+    then:
+      - script.execute: refresh_temperature_trend
+
+script:
+  - id: refresh_temperature_trend
+    mode: single
+    then:
+      - http_request.get:
+          url: "https://api.open-meteo.com/v1/forecast?latitude=${energydeck_latitude}&longitude=${energydeck_longitude}&hourly=temperature_2m&forecast_hours=6&timeformat=unixtime&timezone=UTC"
+          capture_response: true
+          max_response_buffer_size: 4096
+          on_error:
+            then:
+              - lvgl.label.update:
+                  id: temperature_trend_label
+                  text: "${temperature_trend_unknown}"
+          on_response:
+            then:
+              - lambda: |-
+                  bool valid = false;
+                  auto now = id(energydeck_time).now();
+                  if (response->status_code == 200 && now.is_valid()) {
+                    const uint32_t target = now.timestamp + 3 * 3600;
+                    json::parse_json(body, [&](JsonObject root) -> bool {
+                      JsonArray times = root["hourly"]["time"].as<JsonArray>();
+                      JsonArray temperatures = root["hourly"]["temperature_2m"].as<JsonArray>();
+                      if (times.size() != temperatures.size()) return false;
+                      for (size_t i = 1; i < times.size(); i++) {
+                        if (times[i-1].isNull() || times[i].isNull() ||
+                            temperatures[i-1].isNull() || temperatures[i].isNull()) continue;
+                        const uint32_t before = times[i-1].as<uint32_t>();
+                        const uint32_t after = times[i].as<uint32_t>();
+                        if (after <= before || after - before != 3600 || target < before || target > after) continue;
+                        const float a = temperatures[i-1].as<float>();
+                        const float b = temperatures[i].as<float>();
+                        if (!std::isfinite(a) || !std::isfinite(b)) return false;
+                        // Interpolate between UTC hours to show exactly now + 3h,
+                        // including midnight and daylight-saving transitions.
+                        const float forecast = a + (b-a) * (target-before) / float(after-before);
+                        char text[80];
+                        snprintf(text, sizeof(text), "${temperature_trend_format}", forecast);
+                        if (std::string("${temperature_trend_format}").find("Over") == 0) {
+                          for (char *p = text; *p; ++p) if (*p == '.') *p = ',';
+                        }
+                        lv_label_set_text(id(temperature_trend_label), text);
+                        valid = true;
+                        ESP_LOGI("temperature", "Three-hour forecast: %.1f C", forecast);
+                        return true;
+                      }
+                      return false;
+                    });
+                  }
+                  if (!valid) lv_label_set_text(id(temperature_trend_label), "${temperature_trend_unknown}");

@@ -74,12 +74,15 @@ To install the bridge:
 2. Open [HomeyScript](https://my.homey.app/script) in a browser.
 3. Create a new script named `EnergyDeck Prices`.
 4. Copy the contents of `homeyscript/energydeck-prices.js` into it.
-5. Save and run it once.
+5. Save and run it once. The returned result should report 96 intervals for
+   today. Tomorrow also reports 96 once Homey has published the next day's
+   prices; before publication it can be empty.
 6. Run `./homey-setup.sh` again. It will show the created Logic variable ID.
 
 Later, an Advanced Flow can run this HomeyScript after new prices become
-available. EnergyDeck only reads the resulting Logic variable. The simulator
-loads it at startup and refreshes it every five minutes.
+available. EnergyDeck only reads the resulting Logic variable. Version 2 of
+the bridge stores compact arrays for both today and tomorrow. The simulator
+loads them at startup and refreshes the variable every five minutes.
 
 The check lists relevant device IDs, capabilities and the charging Flow ID.
 This information is used to enable the final ESPHome integration.

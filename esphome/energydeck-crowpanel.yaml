@@ -1,0 +1,147 @@
+esphome:
+  name: energydeck
+  friendly_name: EnergyDeck
+  min_version: 2026.8.0
+  on_boot:
+    # Run only after the I2C bus and its backlight controller are initialized.
+    - priority: -100
+      then:
+        # CrowPanel Advance V1.2/V1.3: 0 is maximum brightness, 245 is off.
+        - lambda: |-
+            const uint8_t brightness = 48;
+            id(backlight_controller).write(&brightness, 1);
+    - priority: -100
+      then:
+        - wait_until:
+            condition:
+              wifi.connected:
+            timeout: 30s
+        - delay: 1s
+        - script.execute: refresh_homey_prices
+        - script.wait: refresh_homey_prices
+        - delay: 500ms
+        - script.execute: refresh_homey_electricity_day
+        - script.wait: refresh_homey_electricity_day
+        - delay: 500ms
+        - script.execute: refresh_homey_solar_day
+        - script.wait: refresh_homey_solar_day
+        - delay: 500ms
+        - script.execute: refresh_homey_gas
+        - script.wait: refresh_homey_gas
+        - delay: 500ms
+        - script.execute: refresh_homey_weather
+        - script.wait: refresh_homey_weather
+
+substitutions:
+  <<: !include translations/nl.yaml
+  homey_address: !env_var HOMEY_ADDRESS
+  homey_token: !env_var HOMEY_TOKEN
+  homey_prices_variable_id: !env_var HOMEY_PRICES_VARIABLE_ID
+  homey_charger_device_id: !env_var HOMEY_CHARGER_DEVICE_ID
+  homey_sessy_device_id: !env_var HOMEY_SESSY_DEVICE_ID
+  homey_homewizard_device_id: !env_var HOMEY_HOMEWIZARD_DEVICE_ID
+  homey_electricity_summary_device_id: !env_var HOMEY_ELECTRICITY_SUMMARY_DEVICE_ID
+  homey_gas_summary_device_id: !env_var HOMEY_GAS_SUMMARY_DEVICE_ID
+  homey_solar_device_id: !env_var HOMEY_SOLAR_DEVICE_ID
+  homey_solar_summary_device_id: !env_var HOMEY_SOLAR_SUMMARY_DEVICE_ID
+  energy_tax_ex_vat_ct: !env_var ENERGYDECK_ENERGY_TAX_EX_VAT_CT
+  vat_percent: !env_var ENERGYDECK_VAT_PERCENT
+  supplier_fee_incl_vat_ct: !env_var ENERGYDECK_SUPPLIER_FEE_INCL_VAT_CT
+  energydeck_latitude: !env_var ENERGYDECK_LATITUDE
+  energydeck_longitude: !env_var ENERGYDECK_LONGITUDE
+
+esp32:
+  board: esp32-s3-devkitc-1
+  flash_size: 16MB
+  framework:
+    type: esp-idf
+    sdkconfig_options:
+      # Make normal malloc/new allocations PSRAM-aware. Homey's device JSON can
+      # exceed 20 KB and must not compete with LVGL for internal SRAM.
+      CONFIG_SPIRAM_USE_MALLOC: y
+      CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL: "4096"
+      CONFIG_SPIRAM_TRY_ALLOCATE_WIFI_LWIP: y
+      CONFIG_SPIRAM_FETCH_INSTRUCTIONS: y
+      CONFIG_SPIRAM_RODATA: y
+
+psram:
+  mode: octal
+  speed: 80MHz
+
+logger:
+  hardware_uart: UART0
+
+wifi:
+  ssid: !env_var ENERGYDECK_WIFI_SSID
+  password: !env_var ENERGYDECK_WIFI_PASSWORD
+  power_save_mode: none
+
+ota:
+  - platform: esphome
+
+i2c:
+  id: energydeck_i2c
+  sda: 15
+  scl: 16
+  frequency: 400kHz
+  scan: true
+
+i2c_device:
+  - id: backlight_controller
+    address: 0x30
+
+time:
+  - platform: sntp
+    id: energydeck_time
+    timezone: Europe/Amsterdam
+    on_time_sync:
+      then:
+        - script.execute: update_clock
+        # The first Homey response can arrive before SNTP knows the local
+        # time, which would otherwise select the 00:00 price interval.
+        - script.execute: refresh_homey_prices
+
+display:
+  # The ST7262 panel is driven directly over its 16-bit RGB interface.
+  - platform: rpi_dpi_rgb
+    id: energydeck_display
+    dimensions:
+      width: 800
+      height: 480
+    color_order: RGB
+    invert_colors: true
+    update_interval: never
+    auto_clear_enabled: false
+    de_pin: 42
+    hsync_pin: 40
+    vsync_pin: 41
+    pclk_pin: 39
+    pclk_frequency: 20MHz
+    pclk_inverted: true
+    hsync_pulse_width: 4
+    hsync_front_porch: 8
+    hsync_back_porch: 8
+    vsync_pulse_width: 4
+    vsync_front_porch: 8
+    vsync_back_porch: 8
+    data_pins:
+      red: [7, 17, 18, 3, 46]
+      green: [9, 10, 11, 12, 13, 14]
+      blue: [21, 47, 48, 45, 38]
+
+touchscreen:
+  - platform: gt911
+    id: energydeck_touch
+    display: energydeck_display
+
+packages:
+  dashboard: !include packages/dashboard.yaml
+  homey_live: !include packages/homey-live.yaml
+  sun_times: !include packages/sun-times.yaml
+
+# Rotate the landscape LCD into the 480x800 portrait dashboard coordinate space.
+lvgl:
+  displays: energydeck_display
+  rotation: 90
+  touchscreens:
+    - energydeck_touch

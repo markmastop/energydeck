@@ -1,0 +1,790 @@
+# Live Homey data for the simulator and, later, the physical display.
+http_request:
+  id: homey_http
+  timeout: 8s
+
+globals:
+  - id: electricity_peak_w
+    type: float
+    restore_value: false
+    initial_value: "1000.0"
+
+esphome:
+  on_boot:
+    priority: -100
+    then:
+      - script.execute: update_clock
+      - delay: 2s
+      - script.execute: refresh_homey_prices
+      - script.wait: refresh_homey_prices
+      - delay: 500ms
+      - script.execute: refresh_homey_sessy
+      - script.wait: refresh_homey_sessy
+      - delay: 500ms
+      - script.execute: refresh_homey_charger
+      - script.wait: refresh_homey_charger
+      - lambda: |-
+          lv_label_set_text(id(homey_status_label), "${homey_status}");
+          lv_obj_set_style_text_color(id(homey_status_label), lv_color_hex(0x62D98A), LV_PART_MAIN);
+      - delay: 500ms
+      - script.execute: refresh_homey_electricity_now
+      - script.wait: refresh_homey_electricity_now
+      - delay: 500ms
+      - script.execute: refresh_homey_electricity_day
+      - script.wait: refresh_homey_electricity_day
+      - delay: 500ms
+      - script.execute: refresh_homey_solar_now
+      - script.wait: refresh_homey_solar_now
+      - delay: 500ms
+      - script.execute: refresh_homey_solar_day
+      - script.wait: refresh_homey_solar_day
+      - delay: 500ms
+      - script.execute: refresh_homey_gas
+      - script.wait: refresh_homey_gas
+      - delay: 500ms
+      - script.execute: refresh_homey_weather
+      - script.wait: refresh_homey_weather
+
+interval:
+  - interval: 5min
+    startup_delay: 5min
+    then:
+      - script.execute: refresh_homey_prices
+  # One serialized fast cycle avoids multiple large Homey responses occupying
+  # RAM simultaneously on the physical ESP32-S3.
+  - interval: 20s
+    startup_delay: 20s
+    then:
+      - script.execute: refresh_homey_fast_cycle
+  - interval: 5min
+    startup_delay: 150s
+    then:
+      - script.execute: refresh_homey_electricity_day
+      - script.wait: refresh_homey_electricity_day
+      - delay: 500ms
+      - script.execute: refresh_homey_solar_day
+      - script.wait: refresh_homey_solar_day
+      - delay: 500ms
+      - script.execute: refresh_homey_gas
+      - script.wait: refresh_homey_gas
+  - interval: 30s
+    then:
+      - script.execute: update_clock
+  - interval: 15min
+    startup_delay: 15min
+    then:
+      - script.execute: refresh_homey_weather
+
+script:
+  - id: update_clock
+    mode: restart
+    then:
+      - lambda: |-
+          auto now = id(energydeck_time).now();
+          if (now.is_valid()) {
+            lv_label_set_text_fmt(id(clock_label), "%02d:%02d  EnergyDeck", now.hour, now.minute);
+          }
+
+  - id: refresh_homey_fast_cycle
+    mode: single
+    then:
+      - script.execute: refresh_homey_electricity_now
+      - script.wait: refresh_homey_electricity_now
+      - delay: 500ms
+      - script.execute: refresh_homey_solar_now
+      - script.wait: refresh_homey_solar_now
+      - delay: 500ms
+      - script.execute: refresh_homey_sessy
+      - script.wait: refresh_homey_sessy
+      - delay: 500ms
+      - script.execute: refresh_homey_charger
+      - script.wait: refresh_homey_charger
+      - lambda: |-
+          lv_label_set_text(id(homey_status_label), "${homey_status}");
+          lv_obj_set_style_text_color(id(homey_status_label), lv_color_hex(0x62D98A), LV_PART_MAIN);
+
+  - id: refresh_homey_prices
+    mode: restart
+    then:
+      - http_request.get:
+          url: "${homey_address}/api/manager/logic/variable/${homey_prices_variable_id}"
+          request_headers:
+            Authorization: "Bearer ${homey_token}"
+            Accept: "application/json"
+          capture_response: true
+          max_response_buffer_size: 16384
+          on_response:
+            then:
+              - lambda: |-
+                  if (response->status_code != 200) {
+                    lv_label_set_text(id(homey_status_label), "${homey_offline}");
+                    lv_obj_set_style_text_color(id(homey_status_label), lv_color_hex(0xEA665F), LV_PART_MAIN);
+                    ESP_LOGW("homey", "Price request returned HTTP %d", response->status_code);
+                    return;
+                  }
+
+                  bool parsed = json::parse_json(body, [](JsonObject variable) -> bool {
+                    const char *encoded = variable["value"];
+                    if (encoded == nullptr) return false;
+
+                    // The Logic-variable value is JSON stored inside Homey's
+                    // outer JSON response. Building a second ArduinoJson tree
+                    // for the ~10 kB value is needlessly expensive on the ESP.
+                    // Read the 96 numeric `value` fields directly instead.
+                    const char *prices_start = strstr(encoded, "\"pricesPerInterval\"");
+                    if (prices_start == nullptr) {
+                      ESP_LOGW("homey", "pricesPerInterval is missing from the price variable");
+                      return false;
+                    }
+
+                      lv_obj_t *bars[96] = { id(price_bar_00), id(price_bar_01), id(price_bar_02), id(price_bar_03), id(price_bar_04), id(price_bar_05), id(price_bar_06), id(price_bar_07), id(price_bar_08), id(price_bar_09), id(price_bar_10), id(price_bar_11), id(price_bar_12), id(price_bar_13), id(price_bar_14), id(price_bar_15), id(price_bar_16), id(price_bar_17), id(price_bar_18), id(price_bar_19), id(price_bar_20), id(price_bar_21), id(price_bar_22), id(price_bar_23), id(price_bar_24), id(price_bar_25), id(price_bar_26), id(price_bar_27), id(price_bar_28), id(price_bar_29), id(price_bar_30), id(price_bar_31), id(price_bar_32), id(price_bar_33), id(price_bar_34), id(price_bar_35), id(price_bar_36), id(price_bar_37), id(price_bar_38), id(price_bar_39), id(price_bar_40), id(price_bar_41), id(price_bar_42), id(price_bar_43), id(price_bar_44), id(price_bar_45), id(price_bar_46), id(price_bar_47), id(price_bar_48), id(price_bar_49), id(price_bar_50), id(price_bar_51), id(price_bar_52), id(price_bar_53), id(price_bar_54), id(price_bar_55), id(price_bar_56), id(price_bar_57), id(price_bar_58), id(price_bar_59), id(price_bar_60), id(price_bar_61), id(price_bar_62), id(price_bar_63), id(price_bar_64), id(price_bar_65), id(price_bar_66), id(price_bar_67), id(price_bar_68), id(price_bar_69), id(price_bar_70), id(price_bar_71), id(price_bar_72), id(price_bar_73), id(price_bar_74), id(price_bar_75), id(price_bar_76), id(price_bar_77), id(price_bar_78), id(price_bar_79), id(price_bar_80), id(price_bar_81), id(price_bar_82), id(price_bar_83), id(price_bar_84), id(price_bar_85), id(price_bar_86), id(price_bar_87), id(price_bar_88), id(price_bar_89), id(price_bar_90), id(price_bar_91), id(price_bar_92), id(price_bar_93), id(price_bar_94), id(price_bar_95) };
+                      float prices[96];
+                      float minimum = 1000000.0f;
+                      float maximum = -1000000.0f;
+                      const float energy_tax = ${energy_tax_ex_vat_ct}f / 100.0f;
+                      const float vat_multiplier = 1.0f + (${vat_percent}f / 100.0f);
+                      const float supplier_fee = ${supplier_fee_incl_vat_ct}f / 100.0f;
+
+                      const char *cursor = prices_start;
+                      for (size_t i = 0; i < 96; i++) {
+                        cursor = strstr(cursor, "\"value\":");
+                        if (cursor == nullptr) {
+                          ESP_LOGW("homey", "Expected 96 price values, received %zu", i);
+                          return false;
+                        }
+                        cursor += 8;
+                        char *end = nullptr;
+                        const float market_price = strtof(cursor, &end);
+                        if (end == cursor) {
+                          ESP_LOGW("homey", "Invalid price value at interval %zu", i);
+                          return false;
+                        }
+                        cursor = end;
+                        prices[i] = (market_price + energy_tax) * vat_multiplier + supplier_fee;
+                        minimum = std::min(minimum, prices[i]);
+                        maximum = std::max(maximum, prices[i]);
+                      }
+
+                      const float span = std::max(0.001f, maximum - minimum);
+                      for (size_t i = 0; i < 96; i++) {
+                        const int height = 12 + static_cast<int>(((prices[i] - minimum) / span) * 88.0f);
+                        const uint32_t color = prices[i] <= minimum + span * 0.33f
+                          ? 0x45BD70
+                          : prices[i] >= minimum + span * 0.66f ? 0xEA665F : 0xE8B94C;
+                        lv_bar_set_value(bars[i], height, LV_ANIM_OFF);
+                        lv_obj_set_style_bg_color(bars[i], lv_color_hex(color), LV_PART_INDICATOR);
+                        lv_obj_set_style_border_width(bars[i], 0, LV_PART_INDICATOR);
+                      }
+
+                      auto now = id(energydeck_time).now();
+                      int current = now.is_valid() ? now.hour * 4 + now.minute / 15 : 0;
+                      current = std::max(0, std::min(95, current));
+                      lv_obj_set_style_border_color(bars[current], lv_color_hex(0xF7FFF9), LV_PART_INDICATOR);
+                      lv_obj_set_style_border_width(bars[current], 1, LV_PART_INDICATOR);
+                      lv_label_set_text_fmt(id(price_now_label), "%.1f", prices[current] * 100.0f);
+
+                      const int start_minutes = current * 15;
+                      const int end_minutes = start_minutes + 15;
+                      lv_label_set_text_fmt(
+                        id(price_period_label),
+                        "${price_period_format}",
+                        start_minutes / 60,
+                        start_minutes % 60,
+                        end_minutes / 60,
+                        end_minutes % 60
+                      );
+                      lv_label_set_text_fmt(
+                        id(price_range_label),
+                        "${price_range_format}",
+                        minimum * 100.0f,
+                        maximum * 100.0f
+                      );
+                      lv_label_set_text_fmt(id(price_scale_max_label), "%.1f", maximum * 100.0f);
+                      lv_label_set_text_fmt(id(price_scale_mid_label), "%.1f", ((minimum + maximum) * 0.5f) * 100.0f);
+                      lv_label_set_text_fmt(id(price_scale_min_label), "%.1f", minimum * 100.0f);
+
+                      int cheapest_start = 0;
+                      float cheapest_sum = 1000000.0f;
+                      for (int start = 0; start <= 84; start++) {
+                        float sum = 0.0f;
+                        for (int offset = 0; offset < 12; offset++) sum += prices[start + offset];
+                        if (sum < cheapest_sum) {
+                          cheapest_sum = sum;
+                          cheapest_start = start;
+                        }
+                      }
+                      const int cheap_start_minutes = cheapest_start * 15;
+                      const int cheap_end_minutes = cheap_start_minutes + 180;
+                      lv_label_set_text_fmt(
+                        id(cheapest_period_label),
+                        "${cheapest_period_format}",
+                        cheap_start_minutes / 60,
+                        cheap_start_minutes % 60,
+                        cheap_end_minutes / 60,
+                        cheap_end_minutes % 60
+                      );
+
+                      lv_label_set_text(id(homey_status_label), "${homey_status}");
+                      lv_obj_set_style_text_color(id(homey_status_label), lv_color_hex(0x62D98A), LV_PART_MAIN);
+                      ESP_LOGI("homey", "Prices: 96 intervals loaded, current %.1f ct/kWh", prices[current] * 100.0f);
+                      return true;
+                  });
+
+                  if (!parsed) {
+                    lv_label_set_text(id(homey_status_label), "${homey_data_error}");
+                    lv_obj_set_style_text_color(id(homey_status_label), lv_color_hex(0xEA665F), LV_PART_MAIN);
+                    ESP_LOGW("homey", "Could not parse the EnergyDeck Prices variable");
+                  }
+          on_error:
+            then:
+              - lvgl.label.update:
+                  id: homey_status_label
+                  text: "${homey_offline}"
+                  text_color: 0xEA665F
+
+  - id: refresh_homey_sessy
+    mode: restart
+    then:
+      - http_request.get:
+          url: "${homey_address}/api/manager/devices/device/${homey_sessy_device_id}"
+          request_headers:
+            Authorization: "Bearer ${homey_token}"
+            Accept: "application/json"
+          capture_response: true
+          max_response_buffer_size: 20480
+          on_response:
+            then:
+              - lambda: |-
+                  if (response->status_code != 200) {
+                    lv_label_set_text(id(battery_status_label), "${battery_unavailable}");
+                    lv_obj_set_style_text_color(id(battery_status_label), lv_color_hex(0xEA665F), LV_PART_MAIN);
+                    ESP_LOGW("homey", "Sessy request returned HTTP %d", response->status_code);
+                    return;
+                  }
+
+                  bool parsed = json::parse_json(body, [](JsonObject device) -> bool {
+                    JsonObject capabilities = device["capabilitiesObj"].as<JsonObject>();
+                    JsonVariant battery_value = capabilities["measure_battery"]["value"];
+                    JsonVariant battery_power = capabilities["measure_power.battery"]["value"];
+                    JsonVariant device_power = capabilities["measure_power"]["value"];
+
+                    if (battery_value.isNull() || (battery_power.isNull() && device_power.isNull())) {
+                      return false;
+                    }
+
+                    const float battery = battery_value.as<float>();
+                    const float power = !battery_power.isNull()
+                      ? battery_power.as<float>()
+                      : device_power.as<float>();
+                    const int percentage = std::max(0, std::min(100, static_cast<int>(roundf(battery))));
+                    const int watts = static_cast<int>(roundf(fabsf(power)));
+                    ESP_LOGI("homey", "Sessy: %d%%, %.0f W", percentage, power);
+
+                    lv_bar_set_value(id(battery_level_bar), percentage, LV_ANIM_OFF);
+                    lv_label_set_text_fmt(id(battery_percentage_label), "%d%%", percentage);
+
+                    // Sessy reports charging as negative battery power and
+                    // discharging as positive battery power.
+                    if (power < -25.0f) {
+                      lv_label_set_text_fmt(id(battery_status_label), "${battery_charging_format}", watts);
+                      lv_obj_set_style_text_color(id(battery_status_label), lv_color_hex(0x62D98A), LV_PART_MAIN);
+                    } else if (power > 25.0f) {
+                      lv_label_set_text_fmt(id(battery_status_label), "${battery_discharging_format}", watts);
+                      lv_obj_set_style_text_color(id(battery_status_label), lv_color_hex(0xF1C75B), LV_PART_MAIN);
+                    } else {
+                      lv_label_set_text_fmt(id(battery_status_label), "${battery_standby_format}", watts);
+                      lv_obj_set_style_text_color(id(battery_status_label), lv_color_hex(0xA9B8AE), LV_PART_MAIN);
+                    }
+
+                    const uint32_t level_color = percentage < 15
+                      ? 0xEA665F
+                      : percentage < 30 ? 0xE8B94C : 0x48BD70;
+                    lv_obj_set_style_bg_color(id(battery_level_bar), lv_color_hex(level_color), LV_PART_INDICATOR);
+                    return true;
+                  });
+
+                  if (!parsed) {
+                    lv_label_set_text(id(battery_status_label), "${battery_unavailable}");
+                    lv_obj_set_style_text_color(id(battery_status_label), lv_color_hex(0xEA665F), LV_PART_MAIN);
+                    ESP_LOGW("homey", "Could not parse Sessy device capabilities");
+                  }
+          on_error:
+            then:
+              - lvgl.label.update:
+                  id: battery_status_label
+                  text: "${battery_unavailable}"
+                  text_color: 0xEA665F
+
+  - id: refresh_homey_charger
+    mode: restart
+    then:
+      - http_request.get:
+          url: "${homey_address}/api/manager/devices/device/${homey_charger_device_id}"
+          request_headers:
+            Authorization: "Bearer ${homey_token}"
+            Accept: "application/json"
+          capture_response: true
+          max_response_buffer_size: 24576
+          on_response:
+            then:
+              - lambda: |-
+                  auto set_button = [](bool enabled, const char *text, uint32_t color) {
+                    lv_obj_t *button = id(force_charge_button);
+                    lv_obj_t *label = lv_obj_get_child(button, 0);
+                    if (enabled) {
+                      lv_obj_clear_state(button, LV_STATE_DISABLED);
+                    } else {
+                      lv_obj_add_state(button, LV_STATE_DISABLED);
+                    }
+                    lv_obj_set_style_bg_color(button, lv_color_hex(color), LV_PART_MAIN);
+                    if (label != nullptr) lv_label_set_text(label, text);
+                  };
+
+                  if (response->status_code != 200) {
+                    lv_label_set_text(id(ev_status_label), "${car_unavailable}");
+                    lv_label_set_text(id(ev_detail_label), "${car_try_again}");
+                    set_button(false, "${charge_unavailable}", 0x46505D);
+                    ESP_LOGW("homey", "Charger request returned HTTP %d", response->status_code);
+                    return;
+                  }
+
+                  bool parsed = json::parse_json(body, [set_button](JsonObject device) -> bool {
+                    JsonObject capabilities = device["capabilitiesObj"].as<JsonObject>();
+                    JsonVariant connected_value = capabilities["is_connected"]["value"];
+                    if (connected_value.isNull()) return false;
+
+                    const bool connected = connected_value.as<bool>();
+                    const bool charging = capabilities["is_charging"]["value"].as<bool>();
+                    const bool fault = capabilities["alarm_device"]["value"].as<bool>();
+                    const float power_w = capabilities["measure_power"]["value"].as<float>();
+                    const char *status_raw = capabilities["status"]["value"].as<const char *>();
+                    const std::string status = status_raw != nullptr ? status_raw : "";
+                    const bool complete = status.find("finished") != std::string::npos ||
+                                          status.find("complete") != std::string::npos;
+
+                    ESP_LOGI("homey", "Charger: connected %s, charging %s, status %s, %.0f W",
+                             connected ? "yes" : "no", charging ? "yes" : "no",
+                             status.c_str(), power_w);
+
+                    if (!connected) {
+                      lv_label_set_text(id(ev_status_label), "${car_disconnected}");
+                      lv_label_set_text(id(ev_detail_label), "${car_connect_vehicle}");
+                      set_button(false, "${charge_unavailable}", 0x46505D);
+                    } else if (fault) {
+                      lv_label_set_text(id(ev_status_label), "${car_charger_error}");
+                      lv_label_set_text(id(ev_detail_label), "${car_check_homey}");
+                      set_button(false, "${charge_unavailable}", 0x7A4545);
+                    } else if (charging || power_w > 50.0f) {
+                      lv_label_set_text(id(ev_status_label), "${car_charging}");
+                      lv_label_set_text_fmt(id(ev_detail_label), "${car_charging_format}", power_w / 1000.0f);
+                      set_button(false, "${charge_active}", 0x35A75D);
+                    } else if (complete) {
+                      lv_label_set_text(id(ev_status_label), "${car_complete}");
+                      lv_label_set_text(id(ev_detail_label), "${car_complete_detail}");
+                      set_button(false, "${charge_complete}", 0x46505D);
+                    } else {
+                      lv_label_set_text(id(ev_status_label), "${car_ready}");
+                      lv_label_set_text(id(ev_detail_label), "${car_waiting}");
+                      set_button(true, "${force_charge}", 0x346DDB);
+                    }
+                    return true;
+                  });
+
+                  if (!parsed) {
+                    lv_label_set_text(id(ev_status_label), "${car_unavailable}");
+                    lv_label_set_text(id(ev_detail_label), "${car_try_again}");
+                    set_button(false, "${charge_unavailable}", 0x46505D);
+                    ESP_LOGW("homey", "Could not parse charger capabilities");
+                  }
+          on_error:
+            then:
+              - lvgl.label.update:
+                  id: ev_status_label
+                  text: "${car_unavailable}"
+              - lvgl.label.update:
+                  id: ev_detail_label
+                  text: "${car_try_again}"
+              - lvgl.button.update:
+                  id: force_charge_button
+                  text: "${charge_unavailable}"
+                  bg_color: 0x46505D
+                  state:
+                    disabled: true
+
+  - id: refresh_homey_electricity_now
+    mode: restart
+    then:
+      - http_request.get:
+          url: "${homey_address}/api/manager/devices/device/${homey_homewizard_device_id}"
+          request_headers:
+            Authorization: "Bearer ${homey_token}"
+            Accept: "application/json"
+          capture_response: true
+          max_response_buffer_size: 20480
+          on_response:
+            then:
+              - lambda: |-
+                  if (response->status_code != 200) {
+                    lv_label_set_text(id(electricity_now_value_label), "--");
+                    ESP_LOGW("homey", "HomeWizard request returned HTTP %d", response->status_code);
+                    return;
+                  }
+
+                  bool parsed = json::parse_json(body, [](JsonObject device) -> bool {
+                    JsonVariant power_value = device["capabilitiesObj"]["measure_power"]["value"];
+                    if (power_value.isNull()) return false;
+
+                    const float power_w = power_value.as<float>();
+                    // HomeWizard's P1 convention is positive for export and
+                    // negative for grid consumption. EnergyDeck presents the
+                    // more intuitive opposite convention: export left/negative,
+                    // consumption right/positive.
+                    const float display_power_w = -power_w;
+                    const float power_kw = display_power_w / 1000.0f;
+                    // Direction is shown by the arc: left/green is export,
+                    // right/blue is consumption. Keep the central number tidy.
+                    lv_label_set_text_fmt(id(electricity_now_value_label), "%.1f", fabsf(power_kw));
+
+                    const float peak = std::max(1000.0f, id(electricity_peak_w));
+                    const int arc_value = std::max(-100, std::min(100,
+                      static_cast<int>(roundf((display_power_w / peak) * 100.0f))));
+                    lv_arc_set_value(id(electricity_now_arc), arc_value);
+                    lv_obj_set_style_arc_color(
+                      id(electricity_now_arc),
+                      lv_color_hex(display_power_w < 0.0f ? 0x48BD70 : 0x3AA7D8),
+                      LV_PART_INDICATOR
+                    );
+                    return true;
+                  });
+
+                  if (!parsed) {
+                    lv_label_set_text(id(electricity_now_value_label), "--");
+                    ESP_LOGW("homey", "Could not parse HomeWizard power");
+                  }
+          on_error:
+            then:
+              - lvgl.label.update:
+                  id: electricity_now_value_label
+                  text: "--"
+
+  - id: refresh_homey_electricity_day
+    mode: restart
+    then:
+      - http_request.get:
+          url: "${homey_address}/api/manager/devices/device/${homey_electricity_summary_device_id}"
+          request_headers:
+            Authorization: "Bearer ${homey_token}"
+            Accept: "application/json"
+          capture_response: true
+          max_response_buffer_size: 20480
+          on_response:
+            then:
+              - lambda: |-
+                  if (response->status_code != 200) {
+                    lv_label_set_text(id(electricity_today_value_label), "--");
+                    lv_label_set_text(id(electricity_ytd_label), "${energy_ytd}");
+                    lv_label_set_text(id(electricity_peak_label), "${power_peak}");
+                    ESP_LOGW("homey", "Electricity summary request returned HTTP %d", response->status_code);
+                    return;
+                  }
+
+                  bool parsed = json::parse_json(body, [](JsonObject device) -> bool {
+                    JsonObject capabilities = device["capabilitiesObj"].as<JsonObject>();
+                    JsonVariant day_value = capabilities["meter_kwh_this_day"]["value"];
+                    JsonVariant year_value = capabilities["meter_kwh_this_year"]["value"];
+                    JsonVariant peak_value = capabilities["measure_watt_max"]["value"];
+                    if (day_value.isNull() || year_value.isNull() || peak_value.isNull()) return false;
+
+                    const float day_kwh = day_value.as<float>();
+                    const float year_kwh = year_value.as<float>();
+                    const float peak_w = std::max(0.0f, peak_value.as<float>());
+                    id(electricity_peak_w) = std::max(1000.0f, peak_w);
+
+                    lv_label_set_text_fmt(id(electricity_today_value_label), "%.1f", day_kwh);
+                    lv_label_set_text_fmt(id(electricity_ytd_label), "${energy_ytd_format}", year_kwh);
+                    lv_label_set_text_fmt(id(electricity_peak_label), "${power_peak_format}", peak_w / 1000.0f);
+
+                    // A 30 kWh reference keeps the daily ring useful without treating it as a target.
+                    const int day_arc_value = std::max(0, std::min(100,
+                      static_cast<int>(roundf((day_kwh / 30.0f) * 100.0f))));
+                    lv_arc_set_value(id(electricity_today_arc), day_arc_value);
+                    ESP_LOGI("homey", "Electricity: %.3f kWh today, %.3f kWh YTD, %.0f W day peak", day_kwh, year_kwh, peak_w);
+                    return true;
+                  });
+
+                  if (!parsed) {
+                    lv_label_set_text(id(electricity_today_value_label), "--");
+                    lv_label_set_text(id(electricity_ytd_label), "${energy_ytd}");
+                    lv_label_set_text(id(electricity_peak_label), "${power_peak}");
+                    ESP_LOGW("homey", "Could not parse electricity day summary");
+                  }
+          on_error:
+            then:
+              - lvgl.label.update:
+                  id: electricity_today_value_label
+                  text: "--"
+              - lvgl.label.update:
+                  id: electricity_ytd_label
+                  text: "${energy_ytd}"
+              - lvgl.label.update:
+                  id: electricity_peak_label
+                  text: "${power_peak}"
+
+  - id: refresh_homey_solar_now
+    mode: restart
+    then:
+      - http_request.get:
+          url: "${homey_address}/api/manager/devices/device/${homey_solar_device_id}"
+          request_headers:
+            Authorization: "Bearer ${homey_token}"
+            Accept: "application/json"
+          capture_response: true
+          max_response_buffer_size: 20480
+          on_response:
+            then:
+              - lambda: |-
+                  if (response->status_code != 200) {
+                    lv_label_set_text(id(solar_now_value_label), "${solar_unavailable}");
+                    ESP_LOGW("homey", "Solar request returned HTTP %d", response->status_code);
+                    return;
+                  }
+
+                  bool parsed = json::parse_json(body, [](JsonObject device) -> bool {
+                    JsonVariant power_value = device["capabilitiesObj"]["measure_power"]["value"];
+                    if (power_value.isNull()) return false;
+
+                    const float power_w = std::max(0.0f, power_value.as<float>());
+                    lv_label_set_text_fmt(id(solar_now_value_label), "%.1f", power_w / 1000.0f);
+
+                    // A 5 kW reference makes the ring readable; the numeric value remains exact.
+                    const int arc_value = std::max(0, std::min(100,
+                      static_cast<int>(roundf((power_w / 5000.0f) * 100.0f))));
+                    lv_arc_set_value(id(solar_now_arc), arc_value);
+                    ESP_LOGI("homey", "Solar: %.0f W now", power_w);
+                    return true;
+                  });
+
+                  if (!parsed) {
+                    lv_label_set_text(id(solar_now_value_label), "${solar_unavailable}");
+                    ESP_LOGW("homey", "Could not parse solar power");
+                  }
+          on_error:
+            then:
+              - lvgl.label.update:
+                  id: solar_now_value_label
+                  text: "${solar_unavailable}"
+
+  - id: refresh_homey_solar_day
+    mode: restart
+    then:
+      - http_request.get:
+          url: "${homey_address}/api/manager/devices/device/${homey_solar_summary_device_id}"
+          request_headers:
+            Authorization: "Bearer ${homey_token}"
+            Accept: "application/json"
+          capture_response: true
+          max_response_buffer_size: 20480
+          on_response:
+            then:
+              - lambda: |-
+                  if (response->status_code != 200) {
+                    lv_label_set_text(id(solar_today_label), "${solar_unavailable}");
+                    ESP_LOGW("homey", "Solar summary request returned HTTP %d", response->status_code);
+                    return;
+                  }
+
+                  bool parsed = json::parse_json(body, [](JsonObject device) -> bool {
+                    JsonVariant day_value = device["capabilitiesObj"]["meter_kwh_this_day"]["value"];
+                    if (day_value.isNull()) return false;
+                    const float day_kwh = std::max(0.0f, day_value.as<float>());
+                    lv_label_set_text_fmt(id(solar_today_label), "${solar_today_format}", day_kwh);
+                    ESP_LOGI("homey", "Solar: %.3f kWh today", day_kwh);
+                    return true;
+                  });
+
+                  if (!parsed) {
+                    lv_label_set_text(id(solar_today_label), "${solar_unavailable}");
+                    ESP_LOGW("homey", "Could not parse solar day summary");
+                  }
+          on_error:
+            then:
+              - lvgl.label.update:
+                  id: solar_today_label
+                  text: "${solar_unavailable}"
+
+  - id: refresh_homey_gas
+    mode: restart
+    then:
+      - http_request.get:
+          url: "${homey_address}/api/manager/devices/device/${homey_gas_summary_device_id}"
+          request_headers:
+            Authorization: "Bearer ${homey_token}"
+            Accept: "application/json"
+          capture_response: true
+          max_response_buffer_size: 24576
+          on_response:
+            then:
+              - lambda: |-
+                  if (response->status_code != 200) {
+                    lv_label_set_text(id(gas_today_value_label), "--");
+                    lv_label_set_text(id(gas_month_value_label), "--");
+                    lv_label_set_text(id(gas_year_value_label), "--");
+                    ESP_LOGW("homey", "Gas summary request returned HTTP %d", response->status_code);
+                    return;
+                  }
+
+                  bool parsed = json::parse_json(body, [](JsonObject device) -> bool {
+                    JsonObject capabilities = device["capabilitiesObj"].as<JsonObject>();
+                    JsonVariant today_value = capabilities["meter_m3_this_day"]["value"];
+                    JsonVariant month_value = capabilities["meter_m3_this_month"]["value"];
+                    JsonVariant year_value = capabilities["meter_m3_this_year"]["value"];
+                    if (today_value.isNull() || month_value.isNull() || year_value.isNull()) return false;
+
+                    const float today_m3 = std::max(0.0f, today_value.as<float>());
+                    const float month_m3 = std::max(0.0f, month_value.as<float>());
+                    const float year_m3 = std::max(0.0f, year_value.as<float>());
+                    lv_label_set_text_fmt(id(gas_today_value_label), "%.1f", today_m3);
+                    lv_label_set_text_fmt(id(gas_month_value_label), "%.1f", month_m3);
+                    lv_label_set_text_fmt(id(gas_year_value_label), "%.0f", year_m3);
+
+                    // The rings use reference ranges only; their labels always show exact Homey values.
+                    lv_arc_set_value(id(gas_today_arc), std::max(0, std::min(100,
+                      static_cast<int>(roundf((today_m3 / 10.0f) * 100.0f)))));
+                    lv_arc_set_value(id(gas_month_arc), std::max(0, std::min(100,
+                      static_cast<int>(roundf((month_m3 / 250.0f) * 100.0f)))));
+                    lv_arc_set_value(id(gas_year_arc), std::max(0, std::min(100,
+                      static_cast<int>(roundf((year_m3 / 2000.0f) * 100.0f)))));
+                    ESP_LOGI("homey", "Gas: %.3f m3 today, %.3f this month, %.3f this year", today_m3, month_m3, year_m3);
+                    return true;
+                  });
+
+                  if (!parsed) {
+                    lv_label_set_text(id(gas_today_value_label), "--");
+                    lv_label_set_text(id(gas_month_value_label), "--");
+                    lv_label_set_text(id(gas_year_value_label), "--");
+                    ESP_LOGW("homey", "Could not parse gas summary");
+                  }
+          on_error:
+            then:
+              - lvgl.label.update:
+                  id: gas_today_value_label
+                  text: "--"
+              - lvgl.label.update:
+                  id: gas_month_value_label
+                  text: "--"
+              - lvgl.label.update:
+                  id: gas_year_value_label
+                  text: "--"
+
+  - id: refresh_homey_weather
+    mode: restart
+    then:
+      - http_request.get:
+          url: "${homey_address}/api/manager/weather/weather"
+          request_headers:
+            Authorization: "Bearer ${homey_token}"
+            Accept: "application/json"
+          capture_response: true
+          max_response_buffer_size: 32768
+          on_response:
+            then:
+              - lambda: |-
+                  if (response->status_code != 200) {
+                    lv_label_set_text(id(weather_now_label), "${weather_loading}");
+                    lv_label_set_text(id(weather_tomorrow_label), "${weather_tomorrow_loading}");
+                    lv_label_set_text(id(weather_rain_label), "${weather_rain_unknown}");
+                    ESP_LOGW("homey", "Weather request returned HTTP %d", response->status_code);
+                    return;
+                  }
+
+                  bool parsed = json::parse_json(body, [](JsonObject weather) -> bool {
+                    JsonVariant temperature_value = weather["temperature"];
+                    const char *current_icon_value = weather["iconId"] | "";
+                    JsonArray forecast = weather["forecast"].as<JsonArray>();
+                    if (temperature_value.isNull() || forecast.size() == 0) return false;
+
+                    JsonObject tomorrow = forecast[0].as<JsonObject>();
+                    JsonVariant minimum_value = tomorrow["temperatureMin"];
+                    JsonVariant maximum_value = tomorrow["temperatureMax"];
+                    const char *tomorrow_icon_value = tomorrow["iconId"] | "";
+                    if (minimum_value.isNull() || maximum_value.isNull()) return false;
+
+                    const std::string current_icon(current_icon_value);
+                    const std::string tomorrow_icon(tomorrow_icon_value);
+                    const bool current_rain = current_icon.find("rain") != std::string::npos ||
+                      current_icon.find("thunder") != std::string::npos;
+                    const bool current_snow = current_icon.find("snow") != std::string::npos;
+                    const bool current_cloud = current_icon.find("cloud") != std::string::npos ||
+                      current_rain || current_snow;
+                    const bool current_night = current_icon.find("night") != std::string::npos;
+
+                    const char *condition = "${weather_unknown}";
+                    if (current_icon.find("thunder") != std::string::npos) condition = "${weather_thunder}";
+                    else if (current_rain) condition = "${weather_rain}";
+                    else if (current_snow) condition = "${weather_snow}";
+                    else if (current_icon.find("fog") != std::string::npos) condition = "${weather_fog}";
+                    else if (current_cloud) condition = "${weather_cloudy}";
+                    else if (current_icon.find("clear") != std::string::npos) condition = "${weather_clear}";
+
+                    lv_label_set_text_fmt(
+                      id(weather_now_label),
+                      "${weather_now_format}",
+                      temperature_value.as<float>(),
+                      condition
+                    );
+                    lv_label_set_text_fmt(
+                      id(weather_tomorrow_label),
+                      "${weather_tomorrow_format}",
+                      minimum_value.as<float>(),
+                      maximum_value.as<float>()
+                    );
+
+                    const bool rain_expected = tomorrow_icon.find("rain") != std::string::npos ||
+                      tomorrow_icon.find("thunder") != std::string::npos ||
+                      tomorrow_icon.find("snow") != std::string::npos;
+                    lv_label_set_text(id(weather_rain_label),
+                      rain_expected ? "${weather_rain_expected}" : "${weather_no_rain}");
+                    lv_obj_set_style_text_color(id(weather_rain_label),
+                      lv_color_hex(rain_expected ? 0x3AA7D8 : 0x62D98A), LV_PART_MAIN);
+
+                    if (current_cloud) {
+                      lv_obj_remove_flag(id(weather_cloud_icon), LV_OBJ_FLAG_HIDDEN);
+                      lv_obj_remove_flag(id(weather_cloud_bump), LV_OBJ_FLAG_HIDDEN);
+                    } else {
+                      lv_obj_add_flag(id(weather_cloud_icon), LV_OBJ_FLAG_HIDDEN);
+                      lv_obj_add_flag(id(weather_cloud_bump), LV_OBJ_FLAG_HIDDEN);
+                    }
+                    lv_obj_set_style_bg_color(id(weather_sun_icon),
+                      lv_color_hex(current_night ? 0xCBD5CE : 0xF1C75B), LV_PART_MAIN);
+                    lv_obj_t *drops[3] = {
+                      id(weather_rain_drop_1), id(weather_rain_drop_2), id(weather_rain_drop_3)
+                    };
+                    for (auto *drop : drops) {
+                      if (current_rain) lv_obj_remove_flag(drop, LV_OBJ_FLAG_HIDDEN);
+                      else lv_obj_add_flag(drop, LV_OBJ_FLAG_HIDDEN);
+                    }
+
+                    ESP_LOGI("homey", "Weather: %.1f C, %s; tomorrow %.1f-%.1f C, rain %s",
+                      temperature_value.as<float>(), current_icon.c_str(),
+                      minimum_value.as<float>(), maximum_value.as<float>(),
+                      rain_expected ? "yes" : "no");
+                    return true;
+                  });
+
+                  if (!parsed) {
+                    lv_label_set_text(id(weather_now_label), "${weather_loading}");
+                    lv_label_set_text(id(weather_tomorrow_label), "${weather_tomorrow_loading}");
+                    lv_label_set_text(id(weather_rain_label), "${weather_rain_unknown}");
+                    ESP_LOGW("homey", "Could not parse Homey weather");
+                  }
+          on_error:
+            then:
+              - lvgl.label.update:
+                  id: weather_now_label
+                  text: "${weather_loading}"
+              - lvgl.label.update:
+                  id: weather_tomorrow_label
+                  text: "${weather_tomorrow_loading}"
+              - lvgl.label.update:
+                  id: weather_rain_label
+                  text: "${weather_rain_unknown}"

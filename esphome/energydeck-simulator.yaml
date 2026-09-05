@@ -1,0 +1,61 @@
+esphome:
+  name: energydeck-simulator
+  friendly_name: EnergyDeck Simulator
+
+# Change en.yaml to nl.yaml to switch the entire dashboard language.
+substitutions:
+  <<: !include translations/en.yaml
+  homey_address: !env_var HOMEY_ADDRESS
+  homey_token: !env_var HOMEY_TOKEN
+  homey_prices_variable_id: !env_var HOMEY_PRICES_VARIABLE_ID
+  homey_charger_device_id: !env_var HOMEY_CHARGER_DEVICE_ID
+  homey_sessy_device_id: !env_var HOMEY_SESSY_DEVICE_ID
+  homey_homewizard_device_id: !env_var HOMEY_HOMEWIZARD_DEVICE_ID
+  homey_electricity_summary_device_id: !env_var HOMEY_ELECTRICITY_SUMMARY_DEVICE_ID
+  homey_gas_summary_device_id: !env_var HOMEY_GAS_SUMMARY_DEVICE_ID
+  homey_solar_device_id: !env_var HOMEY_SOLAR_DEVICE_ID
+  homey_solar_summary_device_id: !env_var HOMEY_SOLAR_SUMMARY_DEVICE_ID
+  energy_tax_ex_vat_ct: !env_var ENERGYDECK_ENERGY_TAX_EX_VAT_CT
+  vat_percent: !env_var ENERGYDECK_VAT_PERCENT
+  supplier_fee_incl_vat_ct: !env_var ENERGYDECK_SUPPLIER_FEE_INCL_VAT_CT
+  energydeck_latitude: !env_var ENERGYDECK_LATITUDE
+  energydeck_longitude: !env_var ENERGYDECK_LONGITUDE
+
+host:
+
+logger:
+
+time:
+  - platform: host
+    id: energydeck_time
+    timezone: Europe/Amsterdam
+    on_time_sync:
+      then:
+        - script.execute: update_clock
+        - script.execute: refresh_homey_prices
+
+display:
+  - platform: sdl
+    id: energydeck_display
+    dimensions:
+      width: 480
+      height: 800
+    auto_clear_enabled: false
+    update_interval: never
+    window_options:
+      resizable: false
+
+touchscreen:
+  - platform: sdl
+    id: energydeck_touch
+
+packages:
+  dashboard: !include packages/dashboard.yaml
+  homey_live: !include packages/homey-live.yaml
+  sun_times: !include packages/sun-times.yaml
+
+lvgl:
+  displays:
+    - energydeck_display
+  touchscreens:
+    - energydeck_touch

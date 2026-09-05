@@ -31,6 +31,16 @@ esphome:
         - delay: 500ms
         - script.execute: refresh_homey_weather
         - script.wait: refresh_homey_weather
+        # This device-specific boot list replaces package boot automations.
+        # Start the external forecasts explicitly after network/time are ready.
+        - wait_until:
+            condition:
+              lambda: return id(energydeck_time).now().is_valid();
+            timeout: 90s
+        - script.execute: refresh_rain
+        - script.wait: refresh_rain
+        - delay: 500ms
+        - script.execute: refresh_temperature_trend
 
 substitutions:
   <<: !include translations/nl.yaml

@@ -8,8 +8,8 @@ esphome:
       - script.execute: refresh_rain
 
 interval:
-  - interval: 5min
-    startup_delay: 325s
+  - interval: 30min
+    startup_delay: 1825s
     then:
       - script.execute: refresh_rain
 
@@ -29,7 +29,15 @@ script:
       - http_request.get:
           # Current destination of the documented gps.buienradar.nl redirect.
           # Direct access avoids the host client's cross-host Host-header issue.
-          url: "https://gadgets.buienradar.nl/data/raintext/?lat=${energydeck_latitude}&lon=${energydeck_longitude}"
+          # Buienradar redirects finer coordinates to two decimal places.
+          # Match that grid upfront to avoid relative redirects on ESP-IDF,
+          # while retaining HTTPS and sending no unnecessary precision.
+          url: !lambda |-
+            char url[160];
+            snprintf(url, sizeof(url),
+              "https://gadgets.buienradar.nl/data/raintext/?lat=%.2f&lon=%.2f",
+              double(${energydeck_latitude}), double(${energydeck_longitude}));
+            return std::string(url);
           capture_response: true
           max_response_buffer_size: 2048
           on_error:

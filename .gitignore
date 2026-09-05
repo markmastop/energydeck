@@ -1,0 +1,9 @@
+.esphome/
+.venv/
+.env
+**/.esphome/
+esphome/secrets.yaml
+*.bin
+*.elf
+*.map
+.DS_Store

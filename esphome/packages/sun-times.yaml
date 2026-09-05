@@ -1,0 +1,22 @@
+# Sunrise and sunset are calculated locally from the Homey location.
+sun:
+  latitude: ${energydeck_latitude}
+  longitude: ${energydeck_longitude}
+
+text_sensor:
+  - platform: sun
+    id: energydeck_sunrise
+    type: sunrise
+    format: "%H:%M"
+    on_value:
+      then:
+        - lambda: |-
+            lv_label_set_text_fmt(id(sunrise_label), "${sunrise_format}", x.c_str());
+  - platform: sun
+    id: energydeck_sunset
+    type: sunset
+    format: "%H:%M"
+    on_value:
+      then:
+        - lambda: |-
+            lv_label_set_text_fmt(id(sunset_label), "${sunset_format}", x.c_str());

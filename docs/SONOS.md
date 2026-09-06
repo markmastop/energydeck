@@ -1,7 +1,7 @@
 # Sonos preview
 
-Both the music tab and the Flow-start button are labelled **Sonos** in the UI.
-Their behavior and the existing Homey Flow are unchanged.
+The music tab is labelled **Sonos**. The **Radio** button inside that card
+starts the existing Homey Flow; selecting the Sonos tab only opens the card.
 
 When either speaker starts playing, the Sonos tab is selected automatically,
 including playback already active at startup. Subsequent polling respects manual

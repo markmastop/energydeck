@@ -1,4 +1,6 @@
 homey_status: "Homey online"
+prices_unavailable: "Price unavailable"
+prices_stale: "Prices missing or outdated"
 homey_starting: "Homey connecting"
 homey_offline: "Homey offline"
 homey_data_error: "Homey data error"

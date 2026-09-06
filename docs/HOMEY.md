@@ -201,3 +201,13 @@ contract changes.
 When the physical ESP32 is configured, the required values are copied from
 `.env` to `esphome/secrets.yaml`. Git also ignores that file, and it must never
 be pushed to GitHub.
+# Price freshness protection
+
+The display validates the local calendar date of the bridge's today section
+and requires 96 finite quarter-hour values. Yesterday's prices are never shown
+as today's prices, even if Homey itself is online. Missing, invalid or failed
+price responses clear the price, graph, comparison and cheapest period and show
+a dedicated warning. A local check every 30 seconds also expires cached prices
+at midnight without making an additional Homey request. The next successful
+scheduled refresh restores the display automatically. This requires updating
+the device firmware.

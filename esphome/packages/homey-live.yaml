@@ -4,6 +4,10 @@ http_request:
   timeout: 8s
 
 globals:
+  - id: prices_calendar_day
+    type: int
+    restore_value: false
+    initial_value: "0"
   - id: charge_pending
     type: bool
     initial_value: "false"
@@ -83,12 +87,44 @@ interval:
   - interval: 30s
     then:
       - script.execute: update_clock
+      - lambda: |-
+          // Expire cached prices locally even when Homey cannot be reached.
+          auto now = id(energydeck_time).now();
+          const int day = now.year * 10000 + now.month * 100 + now.day_of_month;
+          if (!now.is_valid() || id(prices_calendar_day) != day)
+            id(invalidate_prices).execute();
   - interval: 30min
     startup_delay: 1810s
     then:
       - script.execute: refresh_homey_weather
 
 script:
+  - id: invalidate_prices
+    then:
+      - lambda: |-
+          id(prices_calendar_day) = 0;
+          id(show_tomorrow_prices) = false;
+          lv_label_set_text(id(price_now_label), "--");
+          lv_label_set_text(id(price_period_label), "${prices_unavailable}");
+          lv_label_set_text(id(tomorrow_average_label), "${prices_stale}");
+          lv_obj_set_style_text_color(id(tomorrow_average_label), lv_color_hex(0xEA665F), 0);
+          lv_label_set_text(id(price_range_label), "--");
+          lv_label_set_text(id(price_scale_max_label), "--");
+          lv_label_set_text(id(price_scale_mid_label), "--");
+          lv_label_set_text(id(price_scale_min_label), "--");
+          lv_label_set_text(id(cheapest_period_label), "");
+          lv_obj_add_flag(id(price_current_marker), LV_OBJ_FLAG_HIDDEN);
+          lv_obj_add_state(id(tomorrow_prices_button), LV_STATE_DISABLED);
+          lv_label_set_text(id(tomorrow_tab_label), "${tomorrow_unavailable}");
+          lv_obj_set_style_text_color(id(tomorrow_tab_label), lv_color_hex(0x82958A), 0);
+          lv_obj_set_style_bg_color(id(today_prices_button), lv_color_hex(0x334139), 0);
+          lv_obj_set_style_bg_color(id(tomorrow_prices_button), lv_color_hex(0x1C271F), 0);
+          lv_obj_t *bars[96] = { id(price_bar_00), id(price_bar_01), id(price_bar_02), id(price_bar_03), id(price_bar_04), id(price_bar_05), id(price_bar_06), id(price_bar_07), id(price_bar_08), id(price_bar_09), id(price_bar_10), id(price_bar_11), id(price_bar_12), id(price_bar_13), id(price_bar_14), id(price_bar_15), id(price_bar_16), id(price_bar_17), id(price_bar_18), id(price_bar_19), id(price_bar_20), id(price_bar_21), id(price_bar_22), id(price_bar_23), id(price_bar_24), id(price_bar_25), id(price_bar_26), id(price_bar_27), id(price_bar_28), id(price_bar_29), id(price_bar_30), id(price_bar_31), id(price_bar_32), id(price_bar_33), id(price_bar_34), id(price_bar_35), id(price_bar_36), id(price_bar_37), id(price_bar_38), id(price_bar_39), id(price_bar_40), id(price_bar_41), id(price_bar_42), id(price_bar_43), id(price_bar_44), id(price_bar_45), id(price_bar_46), id(price_bar_47), id(price_bar_48), id(price_bar_49), id(price_bar_50), id(price_bar_51), id(price_bar_52), id(price_bar_53), id(price_bar_54), id(price_bar_55), id(price_bar_56), id(price_bar_57), id(price_bar_58), id(price_bar_59), id(price_bar_60), id(price_bar_61), id(price_bar_62), id(price_bar_63), id(price_bar_64), id(price_bar_65), id(price_bar_66), id(price_bar_67), id(price_bar_68), id(price_bar_69), id(price_bar_70), id(price_bar_71), id(price_bar_72), id(price_bar_73), id(price_bar_74), id(price_bar_75), id(price_bar_76), id(price_bar_77), id(price_bar_78), id(price_bar_79), id(price_bar_80), id(price_bar_81), id(price_bar_82), id(price_bar_83), id(price_bar_84), id(price_bar_85), id(price_bar_86), id(price_bar_87), id(price_bar_88), id(price_bar_89), id(price_bar_90), id(price_bar_91), id(price_bar_92), id(price_bar_93), id(price_bar_94), id(price_bar_95) };
+          for (auto *bar : bars) {
+            lv_bar_set_value(bar, 0, LV_ANIM_OFF);
+            lv_obj_set_style_border_width(bar, 0, LV_PART_INDICATOR);
+          }
+
   - id: charge_wait_timeout
     mode: restart
     then:
@@ -242,6 +278,7 @@ script:
             then:
               - lambda: |-
                   if (response->status_code != 200) {
+                    id(invalidate_prices).execute();
                     lv_label_set_text(id(homey_status_label), "${homey_offline}");
                     lv_obj_set_style_text_color(id(homey_status_label), lv_color_hex(0xEA665F), LV_PART_MAIN);
                     ESP_LOGW("homey", "Price request returned HTTP %d", response->status_code);
@@ -251,6 +288,32 @@ script:
                   bool parsed = json::parse_json(body, [](JsonObject variable) -> bool {
                     const char *encoded = variable["value"];
                     if (encoded == nullptr) return false;
+
+                    // The bridge's "today" key is not proof of freshness.
+                    // Validate its local calendar date before displaying any values.
+                    auto price_now = id(energydeck_time).now();
+                    if (!price_now.is_valid()) return false;
+                    char today_key[32];
+                    snprintf(today_key, sizeof(today_key), "\"date\":\"%04d-%02d-%02d\"",
+                      price_now.year, price_now.month, price_now.day_of_month);
+                    const char *today = strstr(encoded, "\"today\"");
+                    const char *today_end = today ? strchr(today, '}') : nullptr;
+                    const char *today_date = today ? strstr(today, today_key) : nullptr;
+                    const char *today_values = today ? strstr(today, "\"values\":[") : nullptr;
+                    if (!today_end || !today_date || today_date >= today_end ||
+                        !today_values || today_values >= today_end) return false;
+                    const char *p = strchr(today_values, '[') + 1;
+                    for (int i = 0; i < 96; ++i) {
+                      while (*p == ' ') ++p;
+                      char *end = nullptr;
+                      const float value = strtof(p, &end);
+                      if (end == p || end >= today_end || !std::isfinite(value)) return false;
+                      p = end;
+                      while (*p == ' ') ++p;
+                      if (*p != (i == 95 ? ']' : ',')) return false;
+                      ++p;
+                    }
+                    lv_label_set_text(id(tomorrow_average_label), "");
 
                     // A full array must belong to tomorrow's actual local date.
                     // Labels such as "tomorrow" alone can be stale after midnight.
@@ -449,16 +512,19 @@ script:
                       lv_label_set_text(id(homey_status_label), "${homey_status}");
                       lv_obj_set_style_text_color(id(homey_status_label), lv_color_hex(0x62D98A), LV_PART_MAIN);
                       ESP_LOGI("homey", "Prices: 96 %s intervals loaded", id(show_tomorrow_prices) ? "tomorrow" : "today");
+                      id(prices_calendar_day) = price_now.year * 10000 + price_now.month * 100 + price_now.day_of_month;
                       return true;
                   });
 
                   if (!parsed) {
+                    id(invalidate_prices).execute();
                     lv_label_set_text(id(homey_status_label), "${homey_data_error}");
                     lv_obj_set_style_text_color(id(homey_status_label), lv_color_hex(0xEA665F), LV_PART_MAIN);
                     ESP_LOGW("homey", "Could not parse the EnergyDeck Prices variable");
                   }
           on_error:
             then:
+              - script.execute: invalidate_prices
               - lvgl.label.update:
                   id: homey_status_label
                   text: "${homey_offline}"

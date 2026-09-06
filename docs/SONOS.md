@@ -18,6 +18,8 @@ border; inactive tabs remain dark. Polling does not change the selected tab.
 The player displays small JPEG album artwork supplied by Homey, with a
 code-drawn music-note fallback. Artwork is 62 by 62 pixels. Title, artist and
 room volumes share the same left alignment to its right, above the controls.
+Title and artist each have a fixed one-line height and ellipsis overflow,
+preventing long metadata from overlapping adjacent rows.
 
 The local online_image component fixes chunked JPEG downloads on ESP-IDF.
 It waits for the complete file before decoding and explicitly finalizes it;

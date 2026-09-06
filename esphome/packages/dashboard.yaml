@@ -1539,6 +1539,8 @@ lvgl:
                   x: 90
                   y: 36
                   width: 188
+                  # DOT needs a fixed one-line height; auto-height still wraps.
+                  height: 18
                   long_mode: DOT
                   text: "${music_ready}"
                   text_font: montserrat_14
@@ -1548,6 +1550,7 @@ lvgl:
                   x: 90
                   y: 59
                   width: 188
+                  height: 16
                   long_mode: DOT
                   text: ""
                   text_font: montserrat_12

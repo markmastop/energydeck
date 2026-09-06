@@ -84,6 +84,18 @@ available. EnergyDeck only reads the resulting Logic variable. Version 2 of
 the bridge stores compact arrays for both today and tomorrow. The simulator
 loads them at startup and refreshes the variable every 15 minutes.
 
+Run the bridge hourly in a Homey Flow. Calendar dates explicitly use
+Europe/Amsterdam, independent of HomeyScript's host timezone. A missing or failed
+tomorrow request is logged with its date and returned as a warning; today's
+prices are still saved, with an empty tomorrow array. A failure to fetch today's
+prices stops the script with a dated error and leaves the previous variable
+unchanged. Check both `updatedAt` and the stored dates when diagnosing old data.
+
+After updating the repository script, replace the code in the existing HomeyScript
+and run it once. Keep the existing Flow and Logic variable ID. The version-2
+payload remains compatible with the installed firmware. Regression checks run
+locally with `node scripts/test-price-bridge.cjs` without accessing Homey.
+
 The check lists relevant device IDs, capabilities and the charging Flow ID.
 This information is used to enable the final ESPHome integration.
 

@@ -1,5 +1,19 @@
 # Shared LVGL interface. The hardware configuration will use the same package,
 # keeping the simulator and physical display layout identical.
+interval:
+  - interval: 1s
+    then:
+      - lambda: |-
+          // ESPHome's button text shorthand creates an unaligned child label.
+          // Initialize after LVGL setup; alignment persists across text updates.
+          static bool aligned = false;
+          if (aligned) return;
+          lv_obj_t *buttons[] = {id(force_charge_button), id(radio_button),
+            id(gas_tab), id(music_tab), id(extra_tab)};
+          for (auto *button : buttons)
+            lv_obj_align(lv_obj_get_child(button, 0), LV_ALIGN_CENTER, 0, -1);
+          aligned = true;
+
 lvgl:
   buffer_size: 25%
   default_font: montserrat_14
@@ -1320,6 +1334,7 @@ lvgl:
                   text_color: 0xB7C7DD
               - button:
                   id: force_charge_button
+                  pad_all: 0
                   x: 308
                   y: 11
                   width: 124
@@ -1545,6 +1560,7 @@ lvgl:
                   text_color: 0xA9B8AE
               - button:
                   id: radio_button
+                  pad_all: 0
                   x: 178
                   y: 105
                   width: 100
@@ -1586,6 +1602,7 @@ lvgl:
 
         - button:
             id: gas_tab
+            pad_all: 0
             x: 322
             y: 579
             width: 124
@@ -1602,6 +1619,7 @@ lvgl:
               - script.execute: select_detail_tab
         - button:
             id: music_tab
+            pad_all: 0
             x: 322
             y: 629
             width: 124
@@ -1618,6 +1636,7 @@ lvgl:
               - script.execute: select_detail_tab
         - button:
             id: extra_tab
+            pad_all: 0
             x: 322
             y: 679
             width: 124

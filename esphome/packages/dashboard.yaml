@@ -1722,7 +1722,7 @@ lvgl:
             border_width: 1
             text_color: 0xA9B8AE
             text_font: montserrat_12
-            text: "Radio"
+            text: "${music_start}"
             on_click:
               - lambda: id(detail_tab) = 1;
               - script.execute: select_detail_tab

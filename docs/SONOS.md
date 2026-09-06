@@ -1,5 +1,8 @@
 # Sonos preview
 
+Both the music tab and the Flow-start button are labelled **Sonos** in the UI.
+Their behavior and the existing Homey Flow are unchanged.
+
 The detail area has three mutually exclusive cards selected by the right-hand
 tabs: Gas (pink), Radio (green), and Extra (blue placeholder). Gas is selected
 at startup. Only the active tab has a coloured background and a thicker accent

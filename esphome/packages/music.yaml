@@ -4,6 +4,48 @@ substitutions:
   homey_radio_flow_id: "0625c152-4c2f-42b5-9e4f-331a8096c48d"
 
 globals:
+  - id: music_action
+    type: int
+    initial_value: "0"
+  - id: music_target_playing
+    type: bool
+    initial_value: "false"
+  - id: music_target_living
+    type: int
+    initial_value: "0"
+  - id: music_target_kitchen
+    type: int
+    initial_value: "0"
+  - id: music_busy
+    type: bool
+    initial_value: "false"
+  - id: music_command_failed
+    type: bool
+    initial_value: "false"
+  - id: music_cover_key
+    type: std::string
+    initial_value: '""'
+  - id: music_cover_requested
+    type: std::string
+    initial_value: '""'
+  - id: music_cover_downloading
+    type: bool
+    initial_value: "false"
+  - id: music_cover_url
+    type: std::string
+    initial_value: '""'
+  - id: sonos_living_cover
+    type: std::string
+    initial_value: '""'
+  - id: sonos_living_cover_stamp
+    type: std::string
+    initial_value: '""'
+  - id: sonos_kitchen_cover
+    type: std::string
+    initial_value: '""'
+  - id: sonos_kitchen_cover_stamp
+    type: std::string
+    initial_value: '""'
   - id: detail_tab
     type: int
     initial_value: "0"
@@ -50,7 +92,150 @@ interval:
     then:
       - script.execute: refresh_music
 
+image:
+  - platform: online_image
+    id: music_cover
+    http_request_id: homey_http
+    url: "${homey_address}/api/image/unavailable"
+    format: JPEG
+    type: RGB565
+    resize: 50x46
+    buffer_size: 8192
+    update_interval: never
+    request_headers:
+      Authorization: "Bearer ${homey_token}"
+    on_download_finished:
+      then:
+        - lvgl.image.update:
+            id: music_cover_widget
+            src: music_cover
+        - lambda: |-
+            id(music_cover_downloading) = false;
+            if (!id(music_cover_url).empty() && id(music_cover_key) == id(music_cover_requested))
+              lv_obj_clear_flag(id(music_cover_widget), LV_OBJ_FLAG_HIDDEN);
+    on_error:
+      then:
+        - lambda: |-
+            id(music_cover_downloading) = false;
+            id(music_cover_requested).clear();
+            lv_obj_add_flag(id(music_cover_widget), LV_OBJ_FLAG_HIDDEN);
+
 script:
+  - id: music_control
+    mode: single
+    parameters:
+      action: int
+    then:
+      - if:
+          condition:
+            lambda: return !id(radio_pending) && !id(music_busy);
+          then:
+            - lambda: |-
+                id(music_busy) = true;
+                id(music_command_failed) = false;
+            - script.execute: render_music
+            - delay: 100ms
+            # Refresh before calculating relative volume changes.
+            - script.execute: refresh_music
+            - script.wait: refresh_music
+            - if:
+                condition:
+                  lambda: |-
+                    return id(sonos_living_known) && id(sonos_kitchen_known) &&
+                      (action == 0 || (id(sonos_living_volume) >= 0 && id(sonos_kitchen_volume) >= 0));
+                then:
+                  - lambda: |-
+                      id(music_action) = action;
+                      id(music_target_playing) = !(id(sonos_living_playing) || id(sonos_kitchen_playing));
+                      const int step = action == 1 ? -2 : 2;
+                      id(music_target_living) = std::max(0, std::min(100, id(sonos_living_volume) + step));
+                      id(music_target_kitchen) = std::max(0, std::min(100, id(sonos_kitchen_volume) + step));
+                  - http_request.send:
+                      method: PUT
+                      url: !lambda |-
+                        return std::string("${homey_address}/api/manager/devices/device/d334e7de-2d33-4eee-8a0b-64fd355b55eb/capability/") +
+                          (id(music_action) == 0 ? "speaker_playing" : "volume_set");
+                      request_headers:
+                        Authorization: "Bearer ${homey_token}"
+                        Content-Type: "application/json"
+                      body: !lambda |-
+                        if (id(music_action) == 0)
+                          return std::string("{\"value\":") + (id(music_target_playing) ? "true}" : "false}");
+                        char json[40];
+                        snprintf(json, sizeof(json), "{\"value\":%.2f}", id(music_target_living) / 100.0f);
+                        return std::string(json);
+                      on_response:
+                        then:
+                          - lambda: |-
+                              if (response->status_code < 200 || response->status_code >= 300)
+                                id(music_command_failed) = true;
+                      on_error:
+                        then:
+                          - lambda: id(music_command_failed) = true;
+                  - delay: 300ms
+                  - http_request.send:
+                      method: PUT
+                      url: !lambda |-
+                        return std::string("${homey_address}/api/manager/devices/device/5c8c1762-7740-45f8-9ea4-9ee7740d6436/capability/") +
+                          (id(music_action) == 0 ? "speaker_playing" : "volume_set");
+                      request_headers:
+                        Authorization: "Bearer ${homey_token}"
+                        Content-Type: "application/json"
+                      body: !lambda |-
+                        if (id(music_action) == 0)
+                          return std::string("{\"value\":") + (id(music_target_playing) ? "true}" : "false}");
+                        char json[40];
+                        snprintf(json, sizeof(json), "{\"value\":%.2f}", id(music_target_kitchen) / 100.0f);
+                        return std::string(json);
+                      on_response:
+                        then:
+                          - lambda: |-
+                              if (response->status_code < 200 || response->status_code >= 300)
+                                id(music_command_failed) = true;
+                      on_error:
+                        then:
+                          - lambda: id(music_command_failed) = true;
+                  - delay: 300ms
+                  - delay: 2s
+                  - script.execute: refresh_music
+                  - script.wait: refresh_music
+                  - lambda: |-
+                      const bool confirmed = id(sonos_living_known) && id(sonos_kitchen_known) &&
+                        (action == 0 ?
+                          (id(sonos_living_playing) == id(music_target_playing) &&
+                           id(sonos_kitchen_playing) == id(music_target_playing)) :
+                          (id(sonos_living_volume) == id(music_target_living) &&
+                           id(sonos_kitchen_volume) == id(music_target_kitchen)));
+                      if (!confirmed) id(music_command_failed) = true;
+                else:
+                  - lambda: id(music_command_failed) = true;
+            - lambda: id(music_busy) = false;
+            - script.execute: render_music
+  - id: refresh_music_cover
+    then:
+      - lambda: |-
+          const bool living = id(sonos_living_known) && id(sonos_living_playing);
+          const bool kitchen = id(sonos_kitchen_known) && id(sonos_kitchen_playing);
+          const std::string path = living ? id(sonos_living_cover) :
+            kitchen ? id(sonos_kitchen_cover) : "";
+          const std::string stamp = living ? id(sonos_living_cover_stamp) : id(sonos_kitchen_cover_stamp);
+          const std::string key = path + stamp;
+          if (key != id(music_cover_key))
+            lv_obj_add_flag(id(music_cover_widget), LV_OBJ_FLAG_HIDDEN);
+          id(music_cover_key) = key;
+          id(music_cover_url) = path.empty() ? "" : std::string("${homey_address}") + path;
+          if (id(music_cover_downloading)) return;
+          if (key == id(music_cover_requested)) {
+            if (!path.empty()) lv_obj_clear_flag(id(music_cover_widget), LV_OBJ_FLAG_HIDDEN);
+            return;
+          }
+          if (!path.empty()) {
+            id(music_cover_requested) = key;
+            id(music_cover_downloading) = true;
+            id(music_cover).set_url(id(music_cover_url));
+            id(music_cover).update();
+          }
+
   - id: select_detail_tab
     then:
       - lambda: |-
@@ -79,26 +264,29 @@ script:
       - script.wait: refresh_sonos_kitchen
       - lambda: |-
           // Only fresh observations may confirm a pending user request.
-          if (id(radio_pending) && id(sonos_living_known) && id(sonos_living_playing) &&
+          if (id(sonos_living_known) && id(sonos_living_playing) &&
               id(sonos_kitchen_known) && id(sonos_kitchen_playing)) {
             id(radio_pending) = false;
             id(radio_failed) = false;
             id(radio_timeout).stop();
           }
       - script.execute: render_music
+      - script.execute: refresh_music_cover
 
   - id: render_music
     then:
       - lambda: |-
           const bool living = id(sonos_living_known) && id(sonos_living_playing);
           const bool kitchen = id(sonos_kitchen_known) && id(sonos_kitchen_playing);
-          const char *status = id(radio_pending) ? "${music_waiting}" :
+          const char *status = id(music_busy) ? "${music_button_wait}" :
+            id(music_command_failed) ? "${music_control_failed}" :
+            id(radio_pending) ? "${music_waiting}" :
             id(radio_failed) ? "${music_failed}" :
             !id(sonos_living_known) || !id(sonos_kitchen_known) ? "${music_offline}" :
             living || kitchen ? "${music_playing}" : "${music_paused}";
           lv_label_set_text(id(music_status), status);
           lv_obj_set_style_text_color(id(music_status),
-            lv_color_hex(id(radio_failed) || !id(sonos_living_known) || !id(sonos_kitchen_known) ? 0xEA665F : 0x7FE0A2), 0);
+            lv_color_hex(id(music_command_failed) || id(radio_failed) || !id(sonos_living_known) || !id(sonos_kitchen_known) ? 0xEA665F : 0x7FE0A2), 0);
           // Avoid showing old TV/radio metadata as if it were playing.
           const std::string &title = living ? id(sonos_living_title) : id(sonos_kitchen_title);
           const std::string &artist = living ? id(sonos_living_artist) : id(sonos_kitchen_artist);
@@ -112,6 +300,16 @@ script:
             snprintf(b, sizeof(b), "%d%%", id(sonos_kitchen_volume));
           else snprintf(b, sizeof(b), "--");
           lv_label_set_text_fmt(id(music_volume), "${music_volume_format}", a, b);
+          lv_label_set_text(lv_obj_get_child(id(music_play), 0),
+            living || kitchen ? "${music_pause}" : "${music_resume}");
+          const bool blocked = id(music_busy) || id(radio_pending) ||
+            !id(sonos_living_known) || !id(sonos_kitchen_known);
+          for (auto *button : {id(music_play), id(music_minus), id(music_plus)}) {
+            const bool no_volume = button != id(music_play) &&
+              (id(sonos_living_volume) < 0 || id(sonos_kitchen_volume) < 0);
+            if (blocked || no_volume) lv_obj_add_state(button, LV_STATE_DISABLED);
+            else lv_obj_clear_state(button, LV_STATE_DISABLED);
+          }
       - lvgl.button.update:
           id: radio_button
           text: !lambda |-
@@ -119,7 +317,7 @@ script:
           bg_color: !lambda |-
             return lv_color_hex(id(radio_pending) ? 0x626A70 : 0x24764A);
           state:
-            disabled: !lambda return id(radio_pending);
+            disabled: !lambda return id(radio_pending) || id(music_busy);
 
   - id: radio_timeout
     mode: restart
@@ -193,6 +391,18 @@ script:
                     id(sonos_living_playing) = caps["speaker_playing"]["value"].as<bool>();
                     id(sonos_living_title) = caps["speaker_track"]["value"] | "";
                     id(sonos_living_artist) = caps["speaker_artist"]["value"] | "";
+                    id(sonos_living_cover).clear();
+                    id(sonos_living_cover_stamp).clear();
+                    for (JsonObject item : device["images"].as<JsonArray>()) {
+                      if (std::string(item["id"] | "") != "albumart") continue;
+                      std::string path = item["imageObj"]["url"] | "";
+                      // Never send the Homey token to URLs provided by an external service.
+                      if (path.rfind("/api/image/", 0) == 0 &&
+                          path.find("..") == std::string::npos && path.find('?') == std::string::npos) {
+                        id(sonos_living_cover) = path;
+                        id(sonos_living_cover_stamp) = item["imageObj"]["lastUpdated"].as<std::string>();
+                      }
+                    }
                     auto volume = caps["volume_set"]["value"];
                     id(sonos_living_volume) = -1;
                     if (volume.is<float>()) {
@@ -228,6 +438,18 @@ script:
                     id(sonos_kitchen_playing) = caps["speaker_playing"]["value"].as<bool>();
                     id(sonos_kitchen_title) = caps["speaker_track"]["value"] | "";
                     id(sonos_kitchen_artist) = caps["speaker_artist"]["value"] | "";
+                    id(sonos_kitchen_cover).clear();
+                    id(sonos_kitchen_cover_stamp).clear();
+                    for (JsonObject item : device["images"].as<JsonArray>()) {
+                      if (std::string(item["id"] | "") != "albumart") continue;
+                      std::string path = item["imageObj"]["url"] | "";
+                      // Never send the Homey token to URLs provided by an external service.
+                      if (path.rfind("/api/image/", 0) == 0 &&
+                          path.find("..") == std::string::npos && path.find('?') == std::string::npos) {
+                        id(sonos_kitchen_cover) = path;
+                        id(sonos_kitchen_cover_stamp) = item["imageObj"]["lastUpdated"].as<std::string>();
+                      }
+                    }
                     auto volume = caps["volume_set"]["value"];
                     id(sonos_kitchen_volume) = -1;
                     if (volume.is<float>()) {

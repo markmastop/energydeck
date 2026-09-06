@@ -1,5 +1,11 @@
 # Read-only status polling plus an explicitly user-triggered radio Flow.
 # Keep station selection and speaker grouping inside Homey.
+external_components:
+  - source:
+      type: local
+      path: components
+    components: [online_image]
+
 substitutions:
   homey_radio_flow_id: "0625c152-4c2f-42b5-9e4f-331a8096c48d"
 
@@ -102,7 +108,7 @@ image:
     url: "${homey_address}/api/image/unavailable"
     format: JPEG
     type: RGB565
-    resize: 50x46
+    resize: 62x62
     buffer_size: 8192
     update_interval: never
     request_headers:

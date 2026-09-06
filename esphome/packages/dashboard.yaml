@@ -1536,27 +1536,27 @@ lvgl:
                   text_color: 0x7FE0A2
               - label:
                   id: music_title
-                  x: 76
+                  x: 90
                   y: 36
-                  width: 202
+                  width: 188
                   long_mode: DOT
                   text: "${music_ready}"
                   text_font: montserrat_14
                   text_color: 0xEEF6F0
               - label:
                   id: music_artist
-                  x: 76
+                  x: 90
                   y: 59
-                  width: 202
+                  width: 188
                   long_mode: DOT
                   text: ""
                   text_font: montserrat_12
                   text_color: 0xA9B8AE
               - label:
                   id: music_volume
-                  x: 16
+                  x: 90
                   y: 85
-                  width: 262
+                  width: 188
                   long_mode: DOT
                   text: "${music_volume_unknown}"
                   text_font: montserrat_10
@@ -1580,8 +1580,8 @@ lvgl:
               - obj:
                   x: 16
                   y: 34
-                  width: 50
-                  height: 46
+                  width: 62
+                  height: 62
                   radius: 7
                   bg_color: 0x244434
                   border_width: 0
@@ -1590,23 +1590,23 @@ lvgl:
                   widgets:
                     # Code-native music-note fallback needs no external asset.
                     - obj:
-                        x: 28
-                        y: 10
+                        x: 34
+                        y: 18
                         width: 3
                         height: 23
                         bg_color: 0x7FE0A2
                         border_width: 0
                     - obj:
-                        x: 19
-                        y: 29
+                        x: 25
+                        y: 37
                         width: 12
                         height: 8
                         radius: 4
                         bg_color: 0x7FE0A2
                         border_width: 0
                     - obj:
-                        x: 28
-                        y: 10
+                        x: 34
+                        y: 18
                         width: 10
                         height: 4
                         bg_color: 0x7FE0A2

@@ -7,7 +7,9 @@ When either speaker starts playing, the Sonos tab is selected automatically,
 including playback already active at startup. Subsequent polling respects manual
 tab selection. Only confirmed stopped playback in both rooms resets detection;
 temporary connection failures cannot cause repeated automatic switching.
-Pausing leaves the current card visible so its playback controls remain accessible.
+When both speakers are confirmed stopped or paused, an active Sonos card returns
+to Gas. A manually selected Extra or Gas tab remains unchanged. Missing data
+does not count as stopped playback.
 
 The detail area has three mutually exclusive cards selected by the right-hand
 tabs: Gas (pink), Radio (green), and Extra (blue placeholder). Gas is selected

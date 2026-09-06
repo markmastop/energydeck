@@ -274,8 +274,14 @@ script:
             id(select_detail_tab).execute();
           }
           if (playing) id(music_was_playing) = true;
-          else if (id(sonos_living_known) && id(sonos_kitchen_known))
+          else if (id(sonos_living_known) && id(sonos_kitchen_known)) {
+            // Only leave Sonos on a confirmed stop; preserve other manual tabs.
+            if (id(music_was_playing) && id(detail_tab) == 1) {
+              id(detail_tab) = 0;
+              id(select_detail_tab).execute();
+            }
             id(music_was_playing) = false;
+          }
           // Only fresh observations may confirm a pending user request.
           if (id(sonos_living_known) && id(sonos_living_playing) &&
               id(sonos_kitchen_known) && id(sonos_kitchen_playing)) {

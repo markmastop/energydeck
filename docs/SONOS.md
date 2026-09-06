@@ -62,7 +62,9 @@ Commands use the Homey capability endpoint and require homey.device.control:
 https://athombv.github.io/node-homey-api/HomeyAPIV3Local.ManagerDevices.html#setCapabilityValue
 
 Artwork is fetched only from Homey's /api/image/ path and refreshed when its
-URL or update timestamp changes. Failed downloads retry on the next status
+URL, update timestamp, title or artist changes, and every minute while playing.
+Homey can reuse both its image URL and timestamp across different tracks.
+Failed downloads retry on the next status
 refresh. Redirect following is disabled for the shared HTTP client to avoid
 forwarding the Homey token; weather/rain URLs must therefore be final URLs.
 Unsupported image formats fall back to the music note.

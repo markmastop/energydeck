@@ -228,7 +228,12 @@ script:
           const std::string path = living ? id(sonos_living_cover) :
             kitchen ? id(sonos_kitchen_cover) : "";
           const std::string stamp = living ? id(sonos_living_cover_stamp) : id(sonos_kitchen_cover_stamp);
-          const std::string key = path + stamp;
+          // Homey can reuse both artwork URL and lastUpdated across tracks.
+          // Include track metadata and periodically retry for delayed artwork.
+          const std::string title = living ? id(sonos_living_title) : id(sonos_kitchen_title);
+          const std::string artist = living ? id(sonos_living_artist) : id(sonos_kitchen_artist);
+          const std::string key = path.empty() ? "" :
+            path + "|" + stamp + "|" + title + "|" + artist + "|" + std::to_string(millis() / 60000);
           if (key != id(music_cover_key))
             lv_obj_add_flag(id(music_cover_widget), LV_OBJ_FLAG_HIDDEN);
           id(music_cover_key) = key;

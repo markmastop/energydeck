@@ -4,6 +4,9 @@ substitutions:
   homey_radio_flow_id: "0625c152-4c2f-42b5-9e4f-331a8096c48d"
 
 globals:
+  - id: music_was_playing
+    type: bool
+    initial_value: "false"
   - id: music_action
     type: int
     initial_value: "0"
@@ -263,6 +266,16 @@ script:
       - script.execute: refresh_sonos_kitchen
       - script.wait: refresh_sonos_kitchen
       - lambda: |-
+          // Switch only on playback start, not every poll: manual tab choice wins.
+          const bool playing = (id(sonos_living_known) && id(sonos_living_playing)) ||
+            (id(sonos_kitchen_known) && id(sonos_kitchen_playing));
+          if (playing && !id(music_was_playing)) {
+            id(detail_tab) = 1;
+            id(select_detail_tab).execute();
+          }
+          if (playing) id(music_was_playing) = true;
+          else if (id(sonos_living_known) && id(sonos_kitchen_known))
+            id(music_was_playing) = false;
           // Only fresh observations may confirm a pending user request.
           if (id(sonos_living_known) && id(sonos_living_playing) &&
               id(sonos_kitchen_known) && id(sonos_kitchen_playing)) {

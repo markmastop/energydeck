@@ -1350,7 +1350,7 @@ lvgl:
             id: gas_card
             x: 14
             y: 576
-            hidden: true
+            hidden: false
             width: 294
             height: 140
             radius: 14
@@ -1487,9 +1487,10 @@ lvgl:
                   text_font: montserrat_12
                   text_color: 0xA9B8AE
 
-        # Music preview occupies the gas slot; retain gas widgets and their data.
+        # Mutually exclusive detail cards; switching tabs never starts a Flow.
         - obj:
             id: music_card
+            hidden: true
             x: 14
             y: 576
             width: 294
@@ -1538,27 +1539,69 @@ lvgl:
                   id: music_volume
                   x: 16
                   y: 113
-                  width: 262
+                  width: 150
                   text: "${music_volume_unknown}"
+                  text_font: montserrat_10
+                  text_color: 0xA9B8AE
+              - button:
+                  id: radio_button
+                  x: 178
+                  y: 105
+                  width: 100
+                  height: 28
+                  radius: 8
+                  bg_color: 0x24764A
+                  border_color: 0x45BD70
+                  border_width: 1
+                  text_color: 0xEEF6F0
                   text_font: montserrat_12
+                  text: "${music_start}"
+                  on_click:
+                    - script.execute: start_radio
+
+        - obj:
+            id: extra_card
+            hidden: true
+            x: 14
+            y: 576
+            width: 294
+            height: 140
+            radius: 14
+            bg_color: 0x14261B
+            border_color: 0x2B4937
+            border_width: 1
+            pad_all: 0
+            scrollable: false
+            widgets:
+              - label:
+                  x: 16
+                  y: 12
+                  text: "${detail_extra}"
+                  text_font: montserrat_16
+              - label:
+                  x: 16
+                  y: 60
+                  text: "${detail_placeholder}"
                   text_color: 0xA9B8AE
 
         - button:
-            id: radio_button
+            id: gas_tab
             x: 322
             y: 579
             width: 124
             height: 34
             radius: 9
-            bg_color: 0x24764A
-            border_color: 0x34463C
-            border_width: 1
+            bg_color: 0x672B4B
+            border_color: 0xFF3485
+            border_width: 2
             text_color: 0xEEF6F0
             text_font: montserrat_12
-            text: "Radio"
+            text: "Gas"
             on_click:
-              - script.execute: start_radio
+              - lambda: id(detail_tab) = 0;
+              - script.execute: select_detail_tab
         - button:
+            id: music_tab
             x: 322
             y: 629
             width: 124
@@ -1569,8 +1612,12 @@ lvgl:
             border_width: 1
             text_color: 0xA9B8AE
             text_font: montserrat_12
-            text: "${placeholder_action_2}"
+            text: "Radio"
+            on_click:
+              - lambda: id(detail_tab) = 1;
+              - script.execute: select_detail_tab
         - button:
+            id: extra_tab
             x: 322
             y: 679
             width: 124
@@ -1581,7 +1628,10 @@ lvgl:
             border_width: 1
             text_color: 0xA9B8AE
             text_font: montserrat_12
-            text: "${placeholder_action_3}"
+            text: "${detail_extra}"
+            on_click:
+              - lambda: id(detail_tab) = 2;
+              - script.execute: select_detail_tab
 
         - obj:
             x: 14

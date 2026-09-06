@@ -4,6 +4,9 @@ substitutions:
   homey_radio_flow_id: "0625c152-4c2f-42b5-9e4f-331a8096c48d"
 
 globals:
+  - id: detail_tab
+    type: int
+    initial_value: "0"
   - id: radio_pending
     type: bool
     initial_value: "false"
@@ -48,6 +51,24 @@ interval:
       - script.execute: refresh_music
 
 script:
+  - id: select_detail_tab
+    then:
+      - lambda: |-
+          lv_obj_t *cards[] = {id(gas_card), id(music_card), id(extra_card)};
+          lv_obj_t *tabs[] = {id(gas_tab), id(music_tab), id(extra_tab)};
+          const uint32_t accents[] = {0xFF3485, 0x45BD70, 0x5799E4};
+          const uint32_t fills[] = {0x672B4B, 0x24583B, 0x294E77};
+          for (int i = 0; i < 3; ++i) {
+            const bool active = i == id(detail_tab);
+            if (active) lv_obj_clear_flag(cards[i], LV_OBJ_FLAG_HIDDEN);
+            else lv_obj_add_flag(cards[i], LV_OBJ_FLAG_HIDDEN);
+            lv_obj_set_style_bg_color(tabs[i], lv_color_hex(active ? fills[i] : 0x18231E), 0);
+            lv_obj_set_style_border_color(tabs[i], lv_color_hex(active ? accents[i] : 0x34463C), 0);
+            lv_obj_set_style_border_width(tabs[i], active ? 2 : 1, 0);
+            lv_obj_set_style_text_color(lv_obj_get_child(tabs[i], 0),
+              lv_color_hex(active ? 0xEEF6F0 : 0xA9B8AE), 0);
+          }
+
   - id: refresh_music
     mode: single
     then:
@@ -94,7 +115,7 @@ script:
       - lvgl.button.update:
           id: radio_button
           text: !lambda |-
-            return std::string(id(radio_pending) ? "${music_button_wait}" : "Radio");
+            return std::string(id(radio_pending) ? "${music_button_wait}" : "${music_start}");
           bg_color: !lambda |-
             return lv_color_hex(id(radio_pending) ? 0x626A70 : 0x24764A);
           state:

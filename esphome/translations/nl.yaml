@@ -1,4 +1,7 @@
 homey_status: "Homey online"
+music_start: "Start radio"
+detail_extra: "Extra"
+detail_placeholder: "Nog in te vullen"
 music_rooms: "Woonkamer + Keuken"
 music_loading: "Sonos verbinden..."
 music_ready: "Klaar om te luisteren"

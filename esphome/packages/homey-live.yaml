@@ -380,7 +380,10 @@ script:
                     }
 
                       lv_obj_t *bars[96] = { id(price_bar_00), id(price_bar_01), id(price_bar_02), id(price_bar_03), id(price_bar_04), id(price_bar_05), id(price_bar_06), id(price_bar_07), id(price_bar_08), id(price_bar_09), id(price_bar_10), id(price_bar_11), id(price_bar_12), id(price_bar_13), id(price_bar_14), id(price_bar_15), id(price_bar_16), id(price_bar_17), id(price_bar_18), id(price_bar_19), id(price_bar_20), id(price_bar_21), id(price_bar_22), id(price_bar_23), id(price_bar_24), id(price_bar_25), id(price_bar_26), id(price_bar_27), id(price_bar_28), id(price_bar_29), id(price_bar_30), id(price_bar_31), id(price_bar_32), id(price_bar_33), id(price_bar_34), id(price_bar_35), id(price_bar_36), id(price_bar_37), id(price_bar_38), id(price_bar_39), id(price_bar_40), id(price_bar_41), id(price_bar_42), id(price_bar_43), id(price_bar_44), id(price_bar_45), id(price_bar_46), id(price_bar_47), id(price_bar_48), id(price_bar_49), id(price_bar_50), id(price_bar_51), id(price_bar_52), id(price_bar_53), id(price_bar_54), id(price_bar_55), id(price_bar_56), id(price_bar_57), id(price_bar_58), id(price_bar_59), id(price_bar_60), id(price_bar_61), id(price_bar_62), id(price_bar_63), id(price_bar_64), id(price_bar_65), id(price_bar_66), id(price_bar_67), id(price_bar_68), id(price_bar_69), id(price_bar_70), id(price_bar_71), id(price_bar_72), id(price_bar_73), id(price_bar_74), id(price_bar_75), id(price_bar_76), id(price_bar_77), id(price_bar_78), id(price_bar_79), id(price_bar_80), id(price_bar_81), id(price_bar_82), id(price_bar_83), id(price_bar_84), id(price_bar_85), id(price_bar_86), id(price_bar_87), id(price_bar_88), id(price_bar_89), id(price_bar_90), id(price_bar_91), id(price_bar_92), id(price_bar_93), id(price_bar_94), id(price_bar_95) };
-                      float prices[96];
+                      // Keep a 24-hour window; only cross midnight with validated tomorrow data.
+                      const bool rolling = !id(show_tomorrow_prices) && tomorrow_available && price_now.hour >= 12;
+                      const int window_offset = rolling ? 48 : 0;
+                      float prices[144];
                       float minimum = 1000000.0f;
                       float maximum = -1000000.0f;
                       const float energy_tax = ${energy_tax_ex_vat_ct}f / 100.0f;
@@ -390,7 +393,13 @@ script:
                       const char *cursor = strchr(prices_start, '[');
                       if (cursor == nullptr) return false;
                       cursor++;
-                      for (size_t i = 0; i < 96; i++) {
+                      for (size_t i = 0; i < (rolling ? 144U : 96U); i++) {
+                        if (i == 96) {
+                          const char *next_day = strstr(encoded, "\"tomorrow\"");
+                          const char *next_values = next_day ? strstr(next_day, "\"values\":[") : nullptr;
+                          if (next_values == nullptr) return false;
+                          cursor = strchr(next_values, '[') + 1;
+                        }
                         while (*cursor == ' ' || *cursor == ',') cursor++;
                         if (*cursor == '\0' || *cursor == ']') {
                           ESP_LOGW("homey", "Expected 96 price values, received %zu", i);
@@ -404,8 +413,18 @@ script:
                         }
                         cursor = end;
                         prices[i] = (market_price + energy_tax) * vat_multiplier + supplier_fee;
+                      }
+                      // Shift only after parsing, so source and destination never overlap unread data.
+                      for (int i = 0; i < 96; i++) {
+                        prices[i] = prices[i + window_offset];
                         minimum = std::min(minimum, prices[i]);
                         maximum = std::max(maximum, prices[i]);
+                      }
+                      lv_label_set_text(id(price_chart_title_label), rolling ? "${price_chart_rolling}" : "${price_chart_title}");
+                      lv_obj_t *ticks[] = {id(price_tick_0), id(price_tick_1), id(price_tick_2), id(price_tick_3), id(price_tick_4), id(price_tick_5), id(price_tick_6), id(price_tick_7), id(price_tick_8)};
+                      for (int i = 0; i < 9; i++) {
+                        const int hour = (i == 8 ? 23 : i * 3) + window_offset / 4;
+                        lv_label_set_text_fmt(ticks[i], "%02d", hour % 24);
                       }
 
                       // Compare complete all-in day averages. This deliberately
@@ -462,12 +481,13 @@ script:
                       if (id(show_tomorrow_prices)) {
                         lv_obj_add_flag(id(price_current_marker), LV_OBJ_FLAG_HIDDEN);
                       } else {
+                        const int visible_current = current - window_offset;
                         lv_obj_clear_flag(id(price_current_marker), LV_OBJ_FLAG_HIDDEN);
-                        lv_obj_set_x(id(price_current_marker), 46 + current * 4);
-                        lv_obj_set_style_bg_color(bars[current], lv_color_hex(0xF7FFF9), LV_PART_INDICATOR);
-                        lv_obj_set_style_border_color(bars[current], lv_color_hex(0xF7FFF9), LV_PART_INDICATOR);
-                        lv_obj_set_style_border_width(bars[current], 1, LV_PART_INDICATOR);
-                        lv_label_set_text_fmt(id(price_now_label), "%.1f", prices[current] * 100.0f);
+                        lv_obj_set_x(id(price_current_marker), 46 + visible_current * 4);
+                        lv_obj_set_style_bg_color(bars[visible_current], lv_color_hex(0xF7FFF9), LV_PART_INDICATOR);
+                        lv_obj_set_style_border_color(bars[visible_current], lv_color_hex(0xF7FFF9), LV_PART_INDICATOR);
+                        lv_obj_set_style_border_width(bars[visible_current], 1, LV_PART_INDICATOR);
+                        lv_label_set_text_fmt(id(price_now_label), "%.1f", prices[visible_current] * 100.0f);
                       }
 
                       const int start_minutes = current * 15;
@@ -500,20 +520,20 @@ script:
                           cheapest_start = start;
                         }
                       }
-                      const int cheap_start_minutes = cheapest_start * 15;
+                      const int cheap_start_minutes = (cheapest_start + window_offset) * 15;
                       const int cheap_end_minutes = cheap_start_minutes + 180;
                       lv_label_set_text_fmt(
                         id(cheapest_period_label),
                         "${cheapest_period_format}",
-                        cheap_start_minutes / 60,
+                        (cheap_start_minutes / 60) % 24,
                         cheap_start_minutes % 60,
-                        cheap_end_minutes / 60,
+                        (cheap_end_minutes / 60) % 24,
                         cheap_end_minutes % 60
                       );
 
                       lv_label_set_text(id(homey_status_label), "${homey_status}");
                       lv_obj_set_style_text_color(id(homey_status_label), lv_color_hex(0x62D98A), LV_PART_MAIN);
-                      ESP_LOGI("homey", "Prices: 96 %s intervals loaded", id(show_tomorrow_prices) ? "tomorrow" : "today");
+                      ESP_LOGI("homey", "Prices: 96 %s intervals loaded", rolling ? "today noon to tomorrow noon" : (id(show_tomorrow_prices) ? "tomorrow" : "today"));
                       id(prices_calendar_day) = price_now.year * 10000 + price_now.month * 100 + price_now.day_of_month;
                       return true;
                   });

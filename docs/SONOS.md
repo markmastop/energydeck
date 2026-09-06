@@ -16,8 +16,12 @@ tabs: Gas (pink), Radio (green), and Extra (blue placeholder). Gas is selected
 at startup. Only the active tab has a coloured background and a thicker accent
 border; inactive tabs remain dark. Polling does not change the selected tab.
 The player displays small JPEG album artwork supplied by Homey, with a
-code-drawn music-note fallback. Title and artist sit beside it; room volumes
-stay on one line above the control row.
+code-drawn music-note fallback. Artwork is 62 by 62 pixels. Title, artist and
+room volumes share the same left alignment to its right, above the controls.
+
+The local online_image component fixes chunked JPEG downloads on ESP-IDF.
+It waits for the complete file before decoding and explicitly finalizes it;
+see esphome/components/online_image/README.md for bounds and upstream version.
 
 The **Radio** button inside the Radio card links to the existing Advanced Flow
 **Sonos - Beneden RadioNL**. The display never selects a station or groups

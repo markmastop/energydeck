@@ -252,6 +252,60 @@ script:
                     const char *encoded = variable["value"];
                     if (encoded == nullptr) return false;
 
+                    // A full array must belong to tomorrow's actual local date.
+                    // Labels such as "tomorrow" alone can be stale after midnight.
+                    bool tomorrow_available = false;
+                    auto local_now = id(energydeck_time).now();
+                    if (local_now.is_valid()) {
+                      struct tm next_day = {};
+                      next_day.tm_year = local_now.year - 1900;
+                      next_day.tm_mon = local_now.month - 1;
+                      next_day.tm_mday = local_now.day_of_month + 1;
+                      next_day.tm_hour = 12;
+                      next_day.tm_isdst = -1;
+                      mktime(&next_day);
+                      char date_key[32];
+                      strftime(date_key, sizeof(date_key), "\"date\":\"%Y-%m-%d\"", &next_day);
+                      const char *section = strstr(encoded, "\"tomorrow\"");
+                      const char *limit = section ? strchr(section, '}') : nullptr;
+                      const char *date = section ? strstr(section, date_key) : nullptr;
+                      const char *values = section ? strstr(section, "\"values\":[") : nullptr;
+                      if (limit && date && date < limit && values && values < limit) {
+                        const char *p = strchr(values, '[') + 1;
+                        tomorrow_available = true;
+                        for (int i = 0; i < 96; ++i) {
+                          while (*p == ' ') ++p;
+                          char *end = nullptr;
+                          const float price = strtof(p, &end);
+                          if (end == p || end >= limit || !std::isfinite(price)) {
+                            tomorrow_available = false;
+                            break;
+                          }
+                          p = end;
+                          while (*p == ' ') ++p;
+                          if (*p != (i == 95 ? ']' : ',')) {
+                            tomorrow_available = false;
+                            break;
+                          }
+                          ++p;
+                        }
+                      }
+                    }
+                    if (tomorrow_available) {
+                      lv_obj_clear_state(id(tomorrow_prices_button), LV_STATE_DISABLED);
+                    } else {
+                      lv_obj_add_state(id(tomorrow_prices_button), LV_STATE_DISABLED);
+                      id(show_tomorrow_prices) = false;
+                    }
+                    lv_label_set_text(id(tomorrow_tab_label),
+                      tomorrow_available ? "${tomorrow}" : "${tomorrow_unavailable}");
+                    lv_obj_set_style_text_color(id(tomorrow_tab_label),
+                      lv_color_hex(tomorrow_available ? 0xEEF6F0 : 0x82958A), 0);
+                    lv_obj_set_style_bg_color(id(today_prices_button),
+                      lv_color_hex(id(show_tomorrow_prices) ? 0x1C271F : 0x334139), 0);
+                    lv_obj_set_style_bg_color(id(tomorrow_prices_button),
+                      lv_color_hex(id(show_tomorrow_prices) ? 0x334139 : 0x1C271F), 0);
+
                     // Version 2 stores compact numeric arrays for both days.
                     const char *day_start = strstr(encoded, id(show_tomorrow_prices) ? "\"tomorrow\"" : "\"today\"");
                     const char *prices_start = day_start != nullptr ? strstr(day_start, "\"values\":[") : nullptr;
@@ -311,7 +365,7 @@ script:
                       };
                       float today_average = 0.0f;
                       float tomorrow_average = 0.0f;
-                      if (day_average("\"today\"", today_average) &&
+                      if (tomorrow_available && day_average("\"today\"", today_average) &&
                           day_average("\"tomorrow\"", tomorrow_average)) {
                         const float difference_ct = (tomorrow_average - today_average) * 100.0f;
                         if (difference_ct < -0.05f) {

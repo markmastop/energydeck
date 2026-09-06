@@ -214,6 +214,11 @@ lvgl:
             radius: 9
             bg_color: 0x1C271F
             pad_all: 0
+            state:
+              disabled: true
+            disabled:
+              bg_color: 0x18231E
+              text_color: 0x82958A
             on_click:
               - lambda: |-
                   id(show_tomorrow_prices) = true;
@@ -224,7 +229,8 @@ lvgl:
               - label:
                   align: CENTER
                   y: -1
-                  text: "${tomorrow}"
+                  id: tomorrow_tab_label
+                  text: "${tomorrow_unavailable}"
                   text_font: montserrat_14
 
         - obj:

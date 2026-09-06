@@ -96,6 +96,13 @@ and run it once. Keep the existing Flow and Logic variable ID. The version-2
 payload remains compatible with the installed firmware. Regression checks run
 locally with `node scripts/test-price-bridge.cjs` without accessing Homey.
 
+The updated dashboard keeps the Tomorrow tab visible but disabled until the
+price variable contains exactly 96 finite values for tomorrow's local calendar
+date. It shows `Morgen - nog onbekend` in Dutch and automatically enables after
+a successful price refresh. If tomorrow's data disappears or its date expires
+while selected, the dashboard returns to Today and hides the day comparison.
+This tab behavior requires updating the device firmware, not only HomeyScript.
+
 The check lists relevant device IDs, capabilities and the charging Flow ID.
 This information is used to enable the final ESPHome integration.
 

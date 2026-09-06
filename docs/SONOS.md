@@ -3,6 +3,12 @@
 Both the music tab and the Flow-start button are labelled **Sonos** in the UI.
 Their behavior and the existing Homey Flow are unchanged.
 
+When either speaker starts playing, the Sonos tab is selected automatically,
+including playback already active at startup. Subsequent polling respects manual
+tab selection. Only confirmed stopped playback in both rooms resets detection;
+temporary connection failures cannot cause repeated automatic switching.
+Pausing leaves the current card visible so its playback controls remain accessible.
+
 The detail area has three mutually exclusive cards selected by the right-hand
 tabs: Gas (pink), Radio (green), and Extra (blue placeholder). Gas is selected
 at startup. Only the active tab has a coloured background and a thicker accent

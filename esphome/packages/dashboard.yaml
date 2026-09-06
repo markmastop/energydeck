@@ -9,6 +9,7 @@ interval:
           static bool aligned = false;
           if (aligned) return;
           lv_obj_t *buttons[] = {id(force_charge_button), id(radio_button),
+            id(music_minus), id(music_plus), id(music_play),
             id(gas_tab), id(music_tab), id(extra_tab)};
           for (auto *button : buttons)
             lv_obj_align(lv_obj_get_child(button, 0), LV_ALIGN_CENTER, 0, -1);
@@ -1521,31 +1522,32 @@ lvgl:
                   x: 16
                   y: 12
                   text: "${music_rooms}"
-                  text_font: montserrat_16
+                  text_font: montserrat_12
                   text_color: 0xEEF6F0
               - label:
                   id: music_status
-                  x: 16
-                  y: 35
-                  width: 262
+                  x: 201
+                  y: 13
+                  width: 78
+                  text_align: RIGHT
                   long_mode: DOT
                   text: "${music_loading}"
-                  text_font: montserrat_12
+                  text_font: montserrat_10
                   text_color: 0x7FE0A2
               - label:
                   id: music_title
-                  x: 16
-                  y: 59
-                  width: 262
+                  x: 76
+                  y: 36
+                  width: 202
                   long_mode: DOT
                   text: "${music_ready}"
-                  text_font: montserrat_16
+                  text_font: montserrat_14
                   text_color: 0xEEF6F0
               - label:
                   id: music_artist
-                  x: 16
-                  y: 82
-                  width: 262
+                  x: 76
+                  y: 59
+                  width: 202
                   long_mode: DOT
                   text: ""
                   text_font: montserrat_12
@@ -1553,18 +1555,19 @@ lvgl:
               - label:
                   id: music_volume
                   x: 16
-                  y: 113
-                  width: 150
+                  y: 85
+                  width: 262
+                  long_mode: DOT
                   text: "${music_volume_unknown}"
                   text_font: montserrat_10
                   text_color: 0xA9B8AE
               - button:
                   id: radio_button
                   pad_all: 0
-                  x: 178
-                  y: 105
-                  width: 100
-                  height: 28
+                  x: 190
+                  y: 103
+                  width: 88
+                  height: 30
                   radius: 8
                   bg_color: 0x24764A
                   border_color: 0x45BD70
@@ -1574,6 +1577,95 @@ lvgl:
                   text: "${music_start}"
                   on_click:
                     - script.execute: start_radio
+              - obj:
+                  x: 16
+                  y: 34
+                  width: 50
+                  height: 46
+                  radius: 7
+                  bg_color: 0x244434
+                  border_width: 0
+                  pad_all: 0
+                  scrollable: false
+                  widgets:
+                    # Code-native music-note fallback needs no external asset.
+                    - obj:
+                        x: 28
+                        y: 10
+                        width: 3
+                        height: 23
+                        bg_color: 0x7FE0A2
+                        border_width: 0
+                    - obj:
+                        x: 19
+                        y: 29
+                        width: 12
+                        height: 8
+                        radius: 4
+                        bg_color: 0x7FE0A2
+                        border_width: 0
+                    - obj:
+                        x: 28
+                        y: 10
+                        width: 10
+                        height: 4
+                        bg_color: 0x7FE0A2
+                        border_width: 0
+              - image:
+                  id: music_cover_widget
+                  x: 16
+                  y: 34
+                  src: music_cover
+                  hidden: true
+              - button:
+                  id: music_minus
+                  x: 16
+                  y: 103
+                  width: 32
+                  height: 30
+                  pad_all: 0
+                  radius: 8
+                  bg_color: 0x244434
+                  border_color: 0x42634E
+                  border_width: 1
+                  text: "-"
+                  on_click:
+                    - script.execute:
+                        id: music_control
+                        action: 1
+              - button:
+                  id: music_plus
+                  x: 54
+                  y: 103
+                  width: 32
+                  height: 30
+                  pad_all: 0
+                  radius: 8
+                  bg_color: 0x244434
+                  border_color: 0x42634E
+                  border_width: 1
+                  text: "+"
+                  on_click:
+                    - script.execute:
+                        id: music_control
+                        action: 2
+              - button:
+                  id: music_play
+                  x: 94
+                  y: 103
+                  width: 88
+                  height: 30
+                  pad_all: 0
+                  radius: 8
+                  bg_color: 0x244434
+                  border_color: 0x42634E
+                  border_width: 1
+                  text_font: montserrat_12
+                  text: "${music_resume}"
+                  on_click:
+                    - script.execute:
+                        id: music_control
+                        action: 0
 
         - obj:
             id: extra_card

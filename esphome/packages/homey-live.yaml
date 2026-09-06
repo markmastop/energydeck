@@ -2,6 +2,8 @@
 http_request:
   id: homey_http
   timeout: 8s
+  # Use final URLs; never forward authenticated requests through redirects.
+  follow_redirects: false
 
 globals:
   - id: prices_calendar_day

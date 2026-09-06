@@ -1,4 +1,6 @@
 homey_status: "Homey online"
+prices_unavailable: "Prijs niet beschikbaar"
+prices_stale: "Prijzen ontbreken of zijn verouderd"
 homey_starting: "Verbinden met Homey"
 homey_offline: "Homey offline"
 homey_data_error: "Homey datafout"

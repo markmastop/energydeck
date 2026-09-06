@@ -51,6 +51,7 @@ touchscreen:
     id: energydeck_touch
 
 packages:
+  music: !include packages/music.yaml
   temperature: !include packages/temperature.yaml
   rain: !include packages/rain.yaml
   dashboard: !include packages/dashboard.yaml

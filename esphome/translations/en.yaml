@@ -1,4 +1,7 @@
 homey_status: "Homey online"
+music_start: "Start radio"
+detail_extra: "Extra"
+detail_placeholder: "To be decided"
 music_rooms: "Living room + Kitchen"
 music_loading: "Connecting to Sonos..."
 music_ready: "Ready to listen"

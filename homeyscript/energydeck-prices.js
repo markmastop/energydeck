@@ -9,37 +9,58 @@
 const VARIABLE_NAME = 'EnergyDeck Prices';
 
 function localDate(date = new Date()) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/Amsterdam', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(date);
+  const part = name => parts.find(item => item.type === name).value;
+  return `${part('year')}-${part('month')}-${part('day')}`;
 }
 
-const today = new Date();
-const tomorrow = new Date(today);
-tomorrow.setDate(tomorrow.getDate() + 1);
-const date = localDate(today);
-const tomorrowDate = localDate(tomorrow);
-const [todayPrices, tomorrowPrices] = await Promise.all([
-  Homey.energy.fetchDynamicElectricityPrices({ date }),
-  Homey.energy.fetchDynamicElectricityPrices({ date: tomorrowDate }),
-]);
+const date = localDate();
+// Advance a calendar date, not the host's local clock or a DST-length day.
+const nextDay = new Date(`${date}T12:00:00Z`);
+nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+const tomorrowDate = nextDay.toISOString().slice(0, 10);
+const warnings = [];
 
 function compactPrices(result) {
   const intervals = result?.pricesPerInterval ?? [];
+  if (!Array.isArray(intervals) || intervals.some(interval =>
+    typeof interval?.value !== 'number' || !Number.isFinite(interval.value))) {
+    throw new Error('Invalid price intervals: expected finite numeric values');
+  }
   return intervals.map(interval => interval.value);
 }
+
+async function fetchDay(day, required) {
+  try {
+    const values = compactPrices(await Homey.energy.fetchDynamicElectricityPrices({ date: day }));
+    if (!values.length) throw new Error('No price intervals available');
+    log(`EnergyDeck prices ${day}: ${values.length} intervals loaded`);
+    return values;
+  } catch (error) {
+    const message = `EnergyDeck prices ${day}: ${error?.message || error?.name || String(error)}`;
+    log(message);
+    if (required) throw new Error(message);
+    warnings.push(message);
+    // Tomorrow may not be published yet. Never block today's update for it.
+    return [];
+  }
+}
+
+const todayValues = await fetchDay(date, true);
+const tomorrowValues = await fetchDay(tomorrowDate, false);
 
 const value = JSON.stringify({
   version: 2,
   updatedAt: new Date().toISOString(),
   today: {
     date,
-    values: compactPrices(todayPrices),
+    values: todayValues,
   },
   tomorrow: {
     date: tomorrowDate,
-    values: compactPrices(tomorrowPrices),
+    values: tomorrowValues,
   },
 });
 
@@ -68,8 +89,9 @@ return {
   ok: true,
   date,
   tomorrowDate,
-  todayIntervals: compactPrices(todayPrices).length,
-  tomorrowIntervals: compactPrices(tomorrowPrices).length,
+  todayIntervals: todayValues.length,
+  tomorrowIntervals: tomorrowValues.length,
+  warnings,
   variableId: variable.id,
   bytes: value.length,
 };

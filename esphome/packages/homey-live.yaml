@@ -267,8 +267,22 @@ script:
           lv_obj_set_style_text_color(id(homey_status_label), lv_color_hex(0x62D98A), LV_PART_MAIN);
 
   - id: refresh_homey_prices
-    mode: restart
+    # SNTP and boot can request prices together. Keep one pending refresh,
+    # and never report valid Homey data as malformed merely because time is unknown.
+    mode: single
     then:
+      - wait_until:
+          condition:
+            lambda: return id(energydeck_time).now().is_valid();
+          timeout: 90s
+      - if:
+          condition:
+            lambda: return !id(energydeck_time).now().is_valid();
+          then:
+            - logger.log:
+                level: WARN
+                format: "Price refresh deferred: waiting for time synchronization"
+            - script.stop: refresh_homey_prices
       - http_request.get:
           url: "${homey_address}/api/manager/logic/variable/${homey_prices_variable_id}"
           request_headers:

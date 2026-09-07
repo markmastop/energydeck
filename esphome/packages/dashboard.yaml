@@ -1698,12 +1698,109 @@ lvgl:
                   x: 16
                   y: 12
                   text: "${detail_extra}"
-                  text_font: montserrat_16
+                  text_font: montserrat_14
               - label:
                   x: 16
-                  y: 60
-                  text: "${detail_placeholder}"
+                  y: 122
+                  text: "${climate_heat_unknown}"
+                  text_font: montserrat_10
                   text_color: 0xA9B8AE
+              - label:
+                  x: 16
+                  y: 31
+                  width: 125
+                  height: 14
+                  long_mode: DOT
+                  text: "${climate_living}"
+                  text_font: montserrat_12
+                  text_color: 0xA9B8AE
+              - label:
+                  id: climate_living_value
+                  x: 16
+                  y: 44
+                  text: "-- °C"
+                  text_font: montserrat_14
+                  text_color: 0xEEF6F0
+              - label:
+                  x: 153
+                  y: 31
+                  width: 125
+                  height: 14
+                  long_mode: DOT
+                  text: "${climate_extension}"
+                  text_font: montserrat_12
+                  text_color: 0xA9B8AE
+              - label:
+                  id: climate_extension_value
+                  x: 153
+                  y: 44
+                  text: "-- °C"
+                  text_font: montserrat_14
+                  text_color: 0xEEF6F0
+              - label:
+                  x: 16
+                  y: 61
+                  width: 125
+                  height: 14
+                  long_mode: DOT
+                  text: "${climate_lieke}"
+                  text_font: montserrat_12
+                  text_color: 0xA9B8AE
+              - label:
+                  id: climate_lieke_value
+                  x: 16
+                  y: 74
+                  text: "-- °C"
+                  text_font: montserrat_14
+                  text_color: 0xEEF6F0
+              - label:
+                  x: 153
+                  y: 61
+                  width: 125
+                  height: 14
+                  long_mode: DOT
+                  text: "${climate_saar}"
+                  text_font: montserrat_12
+                  text_color: 0xA9B8AE
+              - label:
+                  id: climate_saar_value
+                  x: 153
+                  y: 74
+                  text: "-- °C"
+                  text_font: montserrat_14
+                  text_color: 0xEEF6F0
+              - label:
+                  x: 16
+                  y: 91
+                  width: 125
+                  height: 14
+                  long_mode: DOT
+                  text: "${climate_renate}"
+                  text_font: montserrat_12
+                  text_color: 0xA9B8AE
+              - label:
+                  id: climate_renate_value
+                  x: 16
+                  y: 104
+                  text: "-- °C"
+                  text_font: montserrat_14
+                  text_color: 0xEEF6F0
+              - label:
+                  x: 153
+                  y: 91
+                  width: 125
+                  height: 14
+                  long_mode: DOT
+                  text: "${climate_mark}"
+                  text_font: montserrat_12
+                  text_color: 0xA9B8AE
+              - label:
+                  id: climate_mark_value
+                  x: 153
+                  y: 104
+                  text: "-- °C"
+                  text_font: montserrat_14
+                  text_color: 0xEEF6F0
 
         - button:
             id: gas_tab

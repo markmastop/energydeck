@@ -1,9 +1,9 @@
 # Price source fallback
 
-Install the updated `homeyscript/energydeck-prices.js` in the existing HomeyScript. No firmware change is required. Homey's internal prices remain primary; failed, invalid or incomplete days are requested independently from Energy-Charts (`/price?bzn=NL&start=DATE&end=DATE`). A missing tomorrow never blocks a valid today. If both sources fail for today, the existing variable is not overwritten; the deck's date validation prevents stale data being shown as current.
+Install `homeyscript/energydeck-prices.js` in the existing HomeyScript. No firmware update is required. Homey remains primary. Missing or invalid days fall back to https://epexprijzen.nl/api/prices, fetched once per script run.
 
-The reserve validates the unit, finite prices, matching timestamps, Amsterdam date, 96 consecutive actual quarter-hours and local midnight boundaries. It converts EUR/MWh to EUR/kWh only. Taxes and supplier fees remain exclusively in the deck. The current 96-slot display cannot represent DST days with 92/100 actual quarters; the fallback rejects those rather than fabricating data.
+This internal website endpoint supplies raw NL spot prices in EUR/kWh. Unlike the provider-specific /api/v1 endpoint, it excludes taxes and charges. The deck alone applies those. No division by 1000 is applied.
 
-The returned `sources` map and warnings identify fallback use. Attribution: Energy-Charts API, https://api.energy-charts.info/ ; NL data from Bundesnetzagentur | SMARD.de, licensed CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). Values are converted to EUR/kWh. Preserve this attribution when reusing the data.
+Validation checks finite numbers, timestamp timezones, Amsterdam dates, 96 consecutive quarters and midnight boundaries. Missing tomorrow never blocks valid today. Failure of both sources for today leaves the variable untouched; the deck rejects stale dates. DST days with 92/100 quarters remain unsupported and are rejected.
 
-Live testing returned 96 quarter-hour NL prices with `EUR / MWh` units, but the explicit 2026-09-08 request returned HTTP 404. A reserve source cannot supply unpublished data. Run `node scripts/test-price-bridge.cjs` for mocked source failures, conversions, invalid data and date handling.
+The result reports source and warnings. Run `node scripts/test-price-bridge.cjs` for regression tests. The endpoint was live-tested with 96 quarters for 2026-09-08 and a first raw price of 0.206 EUR/kWh. Its internal schema and unit contract may change; do not silently accept a different structure.

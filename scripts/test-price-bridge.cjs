@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const source = fs.readFileSync(path.join(__dirname, '../homeyscript/energydeck-prices.js'), 'utf8');
 
-async function run(instant, failTomorrow = false, failToday = false, invalid = false) {
+async function run(instant, failTomorrow = false, failToday = false, invalid = false, reserve = null) {
   const RealDate = Date;
   class FixedDate extends RealDate {
     constructor(...args) { super(...(args.length ? args : [instant])); }
@@ -28,6 +28,7 @@ async function run(instant, failTomorrow = false, failToday = false, invalid = f
   };
   const result = await vm.runInNewContext(`(async () => {${source}\n})()`, {
     Homey, Date: FixedDate, Intl, log: message => logs.push(message),
+    fetch: async () => reserve ? {ok: true, json: async () => reserve} : {ok: false, status: 404},
   }).then(value => ({ value }), error => ({ error }));
   return { ...result, requested, writes, logs };
 }
@@ -46,7 +47,7 @@ async function run(instant, failTomorrow = false, failToday = false, invalid = f
     assert.equal(r.writes[0].today.date, today);
     assert.equal(r.writes[0].today.values.length, 96);
     assert.equal(r.writes[0].tomorrow.values.length, 0);
-    assert.equal(r.value.warnings.length, 1);
+    assert.equal(r.value.warnings.length, 2);
     assert.match(r.logs.join('\n'), new RegExp(tomorrow));
   }
   const available = await run('2026-09-06T10:00:00Z');
@@ -58,5 +59,27 @@ async function run(instant, failTomorrow = false, failToday = false, invalid = f
   const invalid = await run('2026-09-06T10:00:00Z', false, false, true);
   assert.match(invalid.error.message, /finite numeric/);
   assert.equal(invalid.writes.length, 0);
+  const fixture = {
+    unit: 'EUR / MWh',
+    unix_seconds: Array.from({length: 96}, (_, i) => Date.parse('2026-09-06T00:00:00+02:00') / 1000 + i * 900),
+    price: Array.from({length: 96}, (_, i) => i === 0 ? -50 : 120),
+  };
+  const fallback = await run('2026-09-06T10:00:00Z', false, true, false, fixture);
+  assert.equal(fallback.error, undefined);
+  assert.equal(fallback.writes[0].today.values[0], -0.05);
+  assert.equal(fallback.writes[0].today.values[1], 0.12);
+  assert.match(fallback.value.sources['2026-09-06'], /Energy-Charts/);
+  for (const bad of [
+    {...fixture, unit: 'ct/kWh'},
+    {...fixture, price: fixture.price.slice(1)},
+    {...fixture, price: fixture.price.map(() => null)},
+    {...fixture, unix_seconds: fixture.unix_seconds.map(t => t - 86400)},
+    {...fixture, unix_seconds: fixture.unix_seconds.map((t, i) => i === 20 ? t - 900 : t)},
+    {...fixture, unix_seconds: fixture.unix_seconds.map(t => t + 900)},
+  ]) {
+    const rejected = await run('2026-09-06T10:00:00Z', false, true, false, bad);
+    assert.ok(rejected.error);
+    assert.equal(rejected.writes.length, 0);
+  }
   console.log('PASS: missing tomorrow, both days, missing today, invalid values, Amsterdam midnight, DST and year rollover');
 })().catch(error => { console.error(error); process.exitCode = 1; });

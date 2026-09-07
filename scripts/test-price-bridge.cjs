@@ -60,22 +60,22 @@ async function run(instant, failTomorrow = false, failToday = false, invalid = f
   assert.match(invalid.error.message, /finite numeric/);
   assert.equal(invalid.writes.length, 0);
   const fixture = {
-    unit: 'EUR / MWh',
-    unix_seconds: Array.from({length: 96}, (_, i) => Date.parse('2026-09-06T00:00:00+02:00') / 1000 + i * 900),
-    price: Array.from({length: 96}, (_, i) => i === 0 ? -50 : 120),
+    
+    today: Array.from({length: 96}, (_, i) => ({date: new Date(Date.parse('2026-09-06T00:00:00+02:00') + i * 900000).toISOString(), price: i === 0 ? -0.05 : 0.12})),
+
   };
   const fallback = await run('2026-09-06T10:00:00Z', false, true, false, fixture);
   assert.equal(fallback.error, undefined);
   assert.equal(fallback.writes[0].today.values[0], -0.05);
   assert.equal(fallback.writes[0].today.values[1], 0.12);
-  assert.match(fallback.value.sources['2026-09-06'], /Energy-Charts/);
+  assert.match(fallback.value.sources['2026-09-06'], /EpexPrijzen/);
   for (const bad of [
-    {...fixture, unit: 'ct/kWh'},
-    {...fixture, price: fixture.price.slice(1)},
-    {...fixture, price: fixture.price.map(() => null)},
-    {...fixture, unix_seconds: fixture.unix_seconds.map(t => t - 86400)},
-    {...fixture, unix_seconds: fixture.unix_seconds.map((t, i) => i === 20 ? t - 900 : t)},
-    {...fixture, unix_seconds: fixture.unix_seconds.map(t => t + 900)},
+    {today: null},
+    {today: fixture.today.slice(1)},
+    {today: fixture.today.map(s => ({...s, price: null}))},
+    {today: fixture.today.map(s => ({...s, date: s.date.slice(0, -1)}))},
+    {today: fixture.today.map(s => ({...s, date: new Date(Date.parse(s.date)-86400000).toISOString()}))},
+    {today: fixture.today.map((s,i) => i===20 ? fixture.today[19] : s)},
   ]) {
     const rejected = await run('2026-09-06T10:00:00Z', false, true, false, bad);
     assert.ok(rejected.error);

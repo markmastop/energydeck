@@ -24,35 +24,42 @@ const tomorrowDate = nextDay.toISOString().slice(0, 10);
 const warnings = [];
 const sources = {};
 
-// Energy-Charts publishes NL spot prices from Bundesnetzagentur | SMARD.de
-// under CC BY 4.0: https://api.energy-charts.info/ (converted EUR/MWh -> EUR/kWh).
-// Do not add tax or supplier fees: the deck already applies those.
+// Internal website endpoint: raw NL spot prices in EUR/kWh, not the
+// provider-specific /api/v1 tariffs. The deck alone adds taxes and fees.
+let reserveResponse;
 async function fetchReserve(day) {
-  const response = await fetch(`https://api.energy-charts.info/price?bzn=NL&start=${day}&end=${day}`);
-  if (!response.ok) throw new Error(`Energy-Charts HTTP ${response.status}`);
-  const data = await response.json();
-  if (data.unit !== 'EUR / MWh' || !Array.isArray(data.unix_seconds) ||
-      !Array.isArray(data.price) || data.price.length !== data.unix_seconds.length) {
-    throw new Error('Energy-Charts: unexpected units or arrays');
+  // One snapshot per script run, shared by both requested days.
+  if (!reserveResponse) reserveResponse = (async () => {
+    const response = await fetch('https://epexprijzen.nl/api/prices');
+    if (!response.ok) throw new Error(`EpexPrijzen HTTP ${response.status}`);
+    return response.json();
+  })();
+  const data = await reserveResponse;
+  if (!Array.isArray(data?.today) || (data.tomorrow != null && !Array.isArray(data.tomorrow))) {
+    throw new Error('EpexPrijzen: unexpected response structure');
   }
-  const samples = data.unix_seconds.map((time, i) => ({time, value: data.price[i]}));
+  const samples = [...data.today, ...(data.tomorrow || [])].map(item => ({
+    time: typeof item?.date === 'string' && /(?:Z|[+-]\d{2}:\d{2})$/.test(item.date)
+      ? Date.parse(item.date) / 1000 : NaN,
+    value: item?.price,
+  }));
   if (samples.some(s => !Number.isInteger(s.time) || typeof s.value !== 'number' || !Number.isFinite(s.value))) {
-    throw new Error('Energy-Charts: invalid timestamp or price');
+    throw new Error('EpexPrijzen: invalid timestamp or price');
   }
   const selected = samples.filter(s => localDate(new Date(s.time * 1000)) === day);
   // The current deck requires 96 actual quarter-hours; never expand hourly prices
   // or silently flatten DST days (92/100 quarters) into an ordinary day.
   if (selected.length !== 96 || selected.some((s, i) => i && s.time - selected[i - 1].time !== 900)) {
-    throw new Error('Energy-Charts: incomplete quarter-hour day');
+    throw new Error('EpexPrijzen: incomplete quarter-hour day');
   }
   const timeFormat = new Intl.DateTimeFormat('en-GB', {
     timeZone: 'Europe/Amsterdam', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
   });
   if (timeFormat.format(new Date(selected[0].time * 1000)) !== '00:00' ||
       timeFormat.format(new Date(selected[95].time * 1000)) !== '23:45') {
-    throw new Error('Energy-Charts: wrong day boundaries');
+    throw new Error('EpexPrijzen: wrong day boundaries');
   }
-  return selected.map(s => s.value / 1000);
+  return selected.map(s => s.value);
 }
 
 function compactPrices(result) {
@@ -77,7 +84,7 @@ async function fetchDay(day, required) {
     warnings.push(message);
     try {
       const values = await fetchReserve(day);
-      sources[day] = 'Energy-Charts / Bundesnetzagentur | SMARD.de (CC BY 4.0)';
+      sources[day] = 'EpexPrijzen.nl (raw EUR/kWh)';
       log(`EnergyDeck prices ${day}: reserve source loaded 96 intervals`);
       return values;
     } catch (reserveError) {

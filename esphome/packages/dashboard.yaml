@@ -1696,18 +1696,19 @@ lvgl:
             widgets:
               - label:
                   x: 16
-                  y: 12
+                  y: 8
                   text: "${detail_extra}"
                   text_font: montserrat_14
+                  text_color: 0xEEF6F0
               - label:
                   x: 16
-                  y: 122
+                  y: 118
                   text: "${climate_heat_unknown}"
                   text_font: montserrat_10
                   text_color: 0xA9B8AE
               - label:
                   x: 16
-                  y: 31
+                  y: 27
                   width: 125
                   height: 14
                   long_mode: DOT
@@ -1717,13 +1718,13 @@ lvgl:
               - label:
                   id: climate_living_value
                   x: 16
-                  y: 44
+                  y: 40
                   text: "-- °C"
                   text_font: montserrat_14
                   text_color: 0xEEF6F0
               - label:
                   x: 153
-                  y: 31
+                  y: 27
                   width: 125
                   height: 14
                   long_mode: DOT
@@ -1733,13 +1734,13 @@ lvgl:
               - label:
                   id: climate_extension_value
                   x: 153
-                  y: 44
+                  y: 40
                   text: "-- °C"
                   text_font: montserrat_14
                   text_color: 0xEEF6F0
               - label:
                   x: 16
-                  y: 61
+                  y: 57
                   width: 125
                   height: 14
                   long_mode: DOT
@@ -1749,13 +1750,13 @@ lvgl:
               - label:
                   id: climate_lieke_value
                   x: 16
-                  y: 74
+                  y: 70
                   text: "-- °C"
                   text_font: montserrat_14
                   text_color: 0xEEF6F0
               - label:
                   x: 153
-                  y: 61
+                  y: 57
                   width: 125
                   height: 14
                   long_mode: DOT
@@ -1765,13 +1766,13 @@ lvgl:
               - label:
                   id: climate_saar_value
                   x: 153
-                  y: 74
+                  y: 70
                   text: "-- °C"
                   text_font: montserrat_14
                   text_color: 0xEEF6F0
               - label:
                   x: 16
-                  y: 91
+                  y: 87
                   width: 125
                   height: 14
                   long_mode: DOT
@@ -1781,13 +1782,13 @@ lvgl:
               - label:
                   id: climate_renate_value
                   x: 16
-                  y: 104
+                  y: 100
                   text: "-- °C"
                   text_font: montserrat_14
                   text_color: 0xEEF6F0
               - label:
                   x: 153
-                  y: 91
+                  y: 87
                   width: 125
                   height: 14
                   long_mode: DOT
@@ -1797,7 +1798,7 @@ lvgl:
               - label:
                   id: climate_mark_value
                   x: 153
-                  y: 104
+                  y: 100
                   text: "-- °C"
                   text_font: montserrat_14
                   text_color: 0xEEF6F0

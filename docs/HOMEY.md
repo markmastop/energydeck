@@ -93,8 +93,9 @@ once to create its Logic variables. The Advanced Flow **Energie - Prijzen** has:
 
 The minute and Energy triggers only read the saved price list; they do not fetch
 from either provider. A Homey price event does not refresh the cached list itself.
-The scripts do not change the existing car or Sessy charging Flows. Connect those
-separately, with `Energie - Prijzen geldig` as a required condition.
+The active car Flow `Auto - Run` now consumes the completion signal and the
+validated cheapest-seven-hours flag. Its disabled backup retains the old Energy
+cards. Sessy still uses the existing setup. See [the migration notes](PRICE-FALLBACK.md#auto---run-migration-2026-09-08).
 
 Homey is the primary source; invalid/missing prices fall back to EpexPrijzen.nl.
 If both fail, a complete cached day with the requested Amsterdam date is reused,

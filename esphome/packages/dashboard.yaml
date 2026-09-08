@@ -10,9 +10,17 @@ interval:
           if (aligned) return;
           lv_obj_t *buttons[] = {id(force_charge_button), id(radio_button),
             id(music_minus), id(music_plus), id(music_play),
-            id(gas_tab), id(music_tab), id(extra_tab)};
-          for (auto *button : buttons)
+            id(gas_tab), id(music_tab), id(extra_tab),
+            id(today_prices_button), id(tomorrow_prices_button)};
+          for (auto *button : buttons) {
             lv_obj_align(lv_obj_get_child(button, 0), LV_ALIGN_CENTER, 0, -1);
+            // Override the built-in raised theme in every interactive state.
+            for (auto state : {LV_STATE_DEFAULT, LV_STATE_PRESSED, LV_STATE_DISABLED, LV_STATE_FOCUSED}) {
+              lv_obj_set_style_shadow_width(button, 0, LV_PART_MAIN | state);
+              lv_obj_set_style_shadow_opa(button, LV_OPA_TRANSP, LV_PART_MAIN | state);
+              lv_obj_set_style_outline_width(button, 0, LV_PART_MAIN | state);
+            }
+          }
           aligned = true;
 
 lvgl:
@@ -201,11 +209,13 @@ lvgl:
 
         - button:
             id: today_prices_button
-            x: 16
-            y: 154
-            width: 220
+            x: 14
+            y: 166
+            width: 226
             height: 28
-            radius: 9
+            radius: 0
+            border_width: 1
+            border_color: 0x343A37
             bg_color: 0x334139
             pad_all: 0
             on_click:
@@ -222,11 +232,13 @@ lvgl:
                   text_font: montserrat_14
         - button:
             id: tomorrow_prices_button
-            x: 244
-            y: 154
-            width: 220
+            x: 240
+            y: 166
+            width: 226
             height: 28
-            radius: 9
+            radius: 0
+            border_width: 1
+            border_color: 0x343A37
             bg_color: 0x1C271F
             pad_all: 0
             state:
@@ -253,7 +265,7 @@ lvgl:
             y: 194
             width: 452
             height: 236
-            radius: 14
+            radius: 0
             bg_color: 0x0F1712
             border_color: 0x343A37
             border_width: 1

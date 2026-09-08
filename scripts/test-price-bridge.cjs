@@ -53,6 +53,8 @@ async function run(instant, failTomorrow = false, failToday = false, invalid = f
   const available = await run('2026-09-06T10:00:00Z');
   assert.equal(available.writes[0].tomorrow.values.length, 96);
   assert.equal(available.value.warnings.length, 0);
+  assert.equal(available.writes[0].today.source, 'homey');
+  assert.equal(available.writes[0].tomorrow.source, 'homey');
   const missing = await run('2026-09-06T10:00:00Z', false, true);
   assert.match(missing.error.message, /2026-09-06.*NotFoundError/);
   assert.equal(missing.writes.length, 0);
@@ -60,7 +62,7 @@ async function run(instant, failTomorrow = false, failToday = false, invalid = f
   assert.match(invalid.error.message, /finite numeric/);
   assert.equal(invalid.writes.length, 0);
   const fixture = {
-    
+
     today: Array.from({length: 96}, (_, i) => ({date: new Date(Date.parse('2026-09-06T00:00:00+02:00') + i * 900000).toISOString(), price: i === 0 ? -0.05 : 0.12})),
 
   };
@@ -68,6 +70,7 @@ async function run(instant, failTomorrow = false, failToday = false, invalid = f
   assert.equal(fallback.error, undefined);
   assert.equal(fallback.writes[0].today.values[0], -0.05);
   assert.equal(fallback.writes[0].today.values[1], 0.12);
+  assert.equal(fallback.writes[0].today.source, 'epexprijzen');
   assert.match(fallback.value.sources['2026-09-06'], /EpexPrijzen/);
   for (const bad of [
     {today: null},

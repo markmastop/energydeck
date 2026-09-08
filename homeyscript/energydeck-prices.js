@@ -107,10 +107,12 @@ const value = JSON.stringify({
   today: {
     date,
     values: todayValues,
+    source: sources[date] === 'Homey' ? 'homey' : 'epexprijzen',
   },
   tomorrow: {
     date: tomorrowDate,
     values: tomorrowValues,
+    source: tomorrowValues.length ? (sources[tomorrowDate] === 'Homey' ? 'homey' : 'epexprijzen') : 'unavailable',
   },
 });
 

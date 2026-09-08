@@ -8,8 +8,8 @@ esphome:
       - script.execute: refresh_rain
 
 interval:
-  - interval: 30min
-    startup_delay: 1825s
+  - interval: 5min
+    startup_delay: 325s
     then:
       - script.execute: refresh_rain
 
@@ -84,9 +84,17 @@ script:
                     ESP_LOGW("rain", "Ignoring stale or misaligned rain forecast");
                     return;
                   }
+                  // Keep the active five-minute interval, discard completed history.
+                  int first = 0;
+                  while (first < count && delta + first * 5 <= -5) ++first;
+                  const int visible = std::min(24, count - first);
+                  for (int i = 0; i < visible; ++i) {
+                    values[i] = values[i + first];
+                    minutes[i] = minutes[i + first];
+                  }
                   float maximum = 1.0f;
                   int first_rain = -1;
-                  for (int i = 0; i < 24; i++) {
+                  for (int i = 0; i < visible; i++) {
                     maximum = std::max(maximum, values[i]);
                     if (first_rain < 0 && values[i] >= 0.1f) first_rain = i;
                   }
@@ -103,6 +111,11 @@ script:
                   }
                   for (int i = 0; i < 24; i++) {
                     auto *bar = lv_obj_get_child(plot, i);
+                    if (i >= visible) {
+                      lv_obj_add_flag(bar, LV_OBJ_FLAG_HIDDEN);
+                      continue;
+                    }
+                    lv_obj_remove_flag(bar, LV_OBJ_FLAG_HIDDEN);
                     const int height = std::max(1, (int)roundf(values[i] / maximum * 23));
                     lv_obj_set_pos(bar, i * 7, 24 - height);
                     lv_obj_set_size(bar, 6, height);
@@ -110,10 +123,10 @@ script:
                   }
                   lv_obj_remove_flag(plot, LV_OBJ_FLAG_HIDDEN);
                   lv_label_set_text_fmt(id(rain_scale), "%.0f\nmm/h", maximum);
-                  const int finish = (minutes[0] + 120) % 1440;
+                  const int finish = (minutes[visible - 1] + 5) % 1440;
                   lv_label_set_text_fmt(id(rain_times), "%02d:%02d                 %02d:%02d",
                     minutes[0] / 60, minutes[0] % 60, finish / 60, finish % 60);
-                  if (first_rain < 0) lv_label_set_text(id(weather_rain_label), "${rain_dry}");
+                  if (first_rain < 0) lv_label_set_text(id(weather_rain_label), "${rain_dry_visible}");
                   else if (first_rain == 0) lv_label_set_text(id(weather_rain_label), "${rain_now}");
                   else lv_label_set_text_fmt(id(weather_rain_label), "${rain_at}",
                     minutes[first_rain] / 60, minutes[first_rain] % 60);

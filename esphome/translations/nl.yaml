@@ -51,6 +51,7 @@ solar_today_format: '%.1f kWh\nvandaag'
 solar_unavailable: "--"
 today: "Vandaag"
 tomorrow: "Morgen"
+rain_dry_visible: "Voorlopig droog"
 price_chart_title: "Prijsverloop 00-24"
 price_chart_rolling: "Prijsverloop 12-12"
 price_range: "0,0 - 0,0 cent"

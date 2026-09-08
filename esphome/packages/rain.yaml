@@ -21,7 +21,8 @@ script:
           lv_label_set_text(id(weather_rain_label), "${weather_rain_unknown}");
           lv_obj_set_style_text_color(id(weather_rain_label), lv_color_hex(0x82958A), 0);
           lv_label_set_text(id(rain_scale), "");
-          lv_label_set_text(id(rain_times), "--:--                 --:--");
+          lv_label_set_text(id(rain_times), "--:--");
+          lv_label_set_text(id(rain_end_time), "--:--");
 
   - id: refresh_rain
     mode: single
@@ -124,8 +125,10 @@ script:
                   lv_obj_remove_flag(plot, LV_OBJ_FLAG_HIDDEN);
                   lv_label_set_text_fmt(id(rain_scale), "%.0f\nmm/h", maximum);
                   const int finish = (minutes[visible - 1] + 5) % 1440;
-                  lv_label_set_text_fmt(id(rain_times), "%02d:%02d                 %02d:%02d",
-                    minutes[0] / 60, minutes[0] % 60, finish / 60, finish % 60);
+                  // Separate anchors: spaces in a right-aligned label moved the
+                  // start time into the middle, making future rain look historical.
+                  lv_label_set_text_fmt(id(rain_times), "%02d:%02d", minutes[0] / 60, minutes[0] % 60);
+                  lv_label_set_text_fmt(id(rain_end_time), "%02d:%02d", finish / 60, finish % 60);
                   if (first_rain < 0) lv_label_set_text(id(weather_rain_label), "${rain_dry_visible}");
                   else if (first_rain == 0) lv_label_set_text(id(weather_rain_label), "${rain_now}");
                   else lv_label_set_text_fmt(id(weather_rain_label), "${rain_at}",

@@ -1,6 +1,6 @@
 # Price source fallback
 
-Each stored day now includes `source`: `homey`, `epexprijzen`, or `unavailable`. Updated firmware displays a yellow warning triangle beside the chart title if any visible day is not confirmed Homey data. Mixed noon-to-noon windows check both days; the Tomorrow tab checks only tomorrow. Older payloads with no source also warn (unknown provenance). Invalid/absent prices use the existing stale-data message, without the source icon. Update both the HomeyScript and firmware for this indicator.
+Each stored day includes `source`: `homey`, `epexprijzen`, or `unavailable`. Each day tab displays its own yellow warning for fallback, missing or unknown-source data, independently of the selected chart window. No warning remains beside the chart title. Active Today is green; active Tomorrow is blue; inactive tabs remain dark. Update both the HomeyScript and firmware for source indicators.
 
 Install `homeyscript/energydeck-prices.js` in the existing HomeyScript. No firmware update is required. Homey remains primary. Missing or invalid days fall back to https://epexprijzen.nl/api/prices, fetched once per script run.
 

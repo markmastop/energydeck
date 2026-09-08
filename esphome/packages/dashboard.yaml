@@ -2008,8 +2008,17 @@ lvgl:
                   id: rain_times
                   x: 270
                   y: 44
-                  width: 168
-                  text: "--:--                 --:--"
+                  width: 45
+                  text: "--:--"
+                  text_align: LEFT
+                  text_font: montserrat_10
+                  text_color: 0x82958A
+              - label:
+                  id: rain_end_time
+                  x: 393
+                  y: 44
+                  width: 45
+                  text: "--:--"
                   text_align: RIGHT
                   text_font: montserrat_10
                   text_color: 0x82958A

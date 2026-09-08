@@ -37,6 +37,8 @@ if (!valid) await set('Energie - Goedkoopste 7 uren', false);
 if (!valid) {
   await set('Energie - Prijsstatus', problem);
   await set('Energie - Prijsinterval', 'Geen geldig interval');
+  // Publish only after all invalidation flags are written.
+  await set('Energie - Prijsupdate', JSON.stringify({day, valid: false}));
   return {ok: false, reason: problem};
 }
 const hour = Number(p.hour), quarter = hour * 4 + Math.floor(Number(p.minute) / 15);
@@ -46,9 +48,11 @@ hourly.sort((a,b) => a.price - b.price || a.h - b.h);
 const top3 = hourly.slice(0,3).some(x => x.h === hour), top7 = hourly.slice(0,7).some(x => x.h === hour);
 await set('Energie - Marktprijs EUR per kWh', prices[quarter]);
 await set('Energie - Gemiddelde marktprijs EUR per kWh', prices.reduce((a,b) => a+b, 0) / 96);
-await set('Energie - Prijsinterval', day + ' ' + p.hour + ':' + String(Math.floor(Number(p.minute)/15)*15).padStart(2,'0'));
 await set('Energie - Goedkoopste 3 uren', top3);
 await set('Energie - Goedkoopste 7 uren', top7);
 await set('Energie - Prijsstatus', 'Geldig | ' + source + (data.warnings?.some(w => w.includes(day + ': eerder opgeslagen')) ? ' | bewaarde dagprijzen' : ''));
 await set('Energie - Prijzen geldig', true);
+await set('Energie - Prijsinterval', day + ' ' + p.hour + ':' + String(Math.floor(Number(p.minute)/15)*15).padStart(2,'0'));
+// Stable completion signal: also changes for corrected prices/rankings within a quarter.
+await set('Energie - Prijsupdate', JSON.stringify({day, quarter, valid: true, price: prices[quarter], cheapest3Hours: top3, cheapest7Hours: top7}));
 return {ok: true, day, quarter, source, marketPrice: prices[quarter], cheapest3Hours: top3, cheapest7Hours: top7};

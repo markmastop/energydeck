@@ -30,6 +30,7 @@ It updates these Logic variables only when their values change:
 | Energie - Laatste succesvolle update | Text: successful fetch timestamp for today's prices |
 | Energie - Marktprijs EUR per kWh | Number: raw current quarter price, excluding taxes/fees |
 | Energie - Gemiddelde marktprijs EUR per kWh | Number: raw daily average |
+| Energie - Prijsupdate | Text: stable JSON completion signal, written after all price fields |
 | Energie - Prijsinterval | Text: Amsterdam date and start time of the current quarter |
 | Energie - Goedkoopste 3 uren | Boolean: current clock hour is in the cheapest three |
 | Energie - Goedkoopste 7 uren | Boolean: current clock hour is in the cheapest seven |
@@ -45,3 +46,26 @@ are not transactional. Do not trigger charging from a price change alone.
 
 Run `node scripts/test-price-bridge.cjs` and `node scripts/test-current-price.cjs`.
 The Advanced Flow setup is documented in [HOMEY.md](HOMEY.md).
+
+
+## Auto - Run migration (2026-09-08)
+
+The active Advanced Flow `Auto - Run` now uses `Energie - Prijsupdate` changed
+instead of Energy's electricity-price event, and `Energie - Goedkoopste 7 uren`
+is true instead of Energy's cheapest-seven-hours condition. The script clears
+this flag when prices are invalid, so the existing false branch disables
+price-driven charging. Manual `Laden_Forceren` and `laden_direct` checks precede
+that condition and keep their original behavior.
+
+`Prijsupdate` is written last on both valid and invalid updates. It includes the
+date, quarter, validity, current raw price and cheap-hour flags; corrections within
+a quarter can therefore trigger reevaluation even if `Prijsinterval` is unchanged.
+Identical repeated updates do not retrigger. It is a completion signal, not a
+transaction or lock across multiple simultaneous script runs.
+
+The disabled backup is `Auto - Run (Kopie)`:
+`a14d2af2-e809-4e4b-8b82-ae4003163078`.
+The active Flow keeps ID `cd25bbee-d532-4ce1-8302-e3dc2b8277c9`.
+All 47 nodes and 40 connections were compared through the web UI; only the two
+price cards changed. No manual charging test was started. To roll back, disable
+the active Flow before enabling the backup; never run both simultaneously.

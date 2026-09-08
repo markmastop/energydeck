@@ -28,10 +28,19 @@ async function run(instant, payload, existing = {}) {
   assert.equal(first.value('Goedkoopste 7 uren'), true);
   assert.equal(first.value('Homey prijzen beschikbaar'), false);
   assert.equal(first.value('Prijzen geldig'), true);
+  assert.equal(first.writes.at(-1), 'Energie - Prijsupdate');
+  assert.ok(first.writes.indexOf('Energie - Prijsinterval') > first.writes.indexOf('Energie - Goedkoopste 7 uren'));
+  assert.equal(JSON.parse(first.value('Prijsupdate')).valid, true);
   const repeat = await run('2026-09-08T00:14:30Z', payload, first.vars);
   assert.equal(repeat.writes.length, 0, 'Repeated checks must not retrigger unchanged flags');
   const boundary = await run('2026-09-08T00:15:00Z', payload, first.vars);
   assert.equal(boundary.value('Marktprijs EUR per kWh'), 0.01);
+  const correctedPayload = structuredClone(payload);
+  correctedPayload.today.values[8] = 1.5;
+  const corrected = await run('2026-09-08T00:14:30Z', correctedPayload, first.vars);
+  assert.equal(corrected.value('Prijsinterval'), first.value('Prijsinterval'));
+  assert.notEqual(corrected.value('Prijsupdate'), first.value('Prijsupdate'));
+  assert.equal(corrected.writes.at(-1), 'Energie - Prijsupdate');
   const later = await run('2026-09-08T05:00:00Z', payload);
   assert.equal(later.value('Goedkoopste 7 uren'), false);
   const rollover = await run('2026-09-07T22:00:00Z', {...payload, today:{date:'2026-09-07', values:Array(96).fill(99)}, tomorrow:payload.today});
@@ -42,6 +51,8 @@ async function run(instant, payload, existing = {}) {
     const r = await run('2026-09-08T00:15:00Z', bad, first.vars);
     assert.equal(r.result.ok, false);
     assert.equal(r.value('Prijzen geldig'), false);
+    assert.equal(r.writes.at(-1), 'Energie - Prijsupdate');
+    assert.equal(JSON.parse(r.value('Prijsupdate')).valid, false);
     assert.equal(r.value('Goedkoopste 3 uren'), false);
     assert.equal(r.value('Goedkoopste 7 uren'), false);
     assert.equal(r.value('Marktprijs EUR per kWh'), 0, 'Last numeric price retained but invalidated');

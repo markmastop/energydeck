@@ -51,6 +51,7 @@ solar_today_format: '%.1f kWh\ntoday'
 solar_unavailable: "--"
 today: "Today"
 tomorrow: "Tomorrow"
+rain_dry_visible: "Dry ahead"
 price_chart_title: "Price forecast 00-24"
 price_chart_rolling: "Price forecast 12-12"
 price_range: "0.0 - 0.0 ct"

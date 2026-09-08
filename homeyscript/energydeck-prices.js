@@ -23,6 +23,17 @@ nextDay.setUTCDate(nextDay.getUTCDate() + 1);
 const tomorrowDate = nextDay.toISOString().slice(0, 10);
 const warnings = [];
 const sources = {};
+const homeyAvailable = {};
+const fetchedAt = {};
+const cachedDays = [];
+const variables = await Homey.logic.getVariables();
+const existing = Object.values(variables).find(v => v.name === VARIABLE_NAME);
+let previous = {};
+try { previous = JSON.parse(existing?.value || '{}'); } catch (_) {}
+function validValues(values) {
+  return Array.isArray(values) && values.length === 96 &&
+    values.every(v => typeof v === 'number' && Number.isFinite(v));
+}
 
 // Internal website endpoint: raw NL spot prices in EUR/kWh, not the
 // provider-specific /api/v1 tariffs. The deck alone adds taxes and fees.
@@ -71,55 +82,76 @@ function compactPrices(result) {
   return intervals.map(interval => interval.value);
 }
 
-async function fetchDay(day, required) {
+async function fetchDay(day) {
   try {
     const values = compactPrices(await Homey.energy.fetchDynamicElectricityPrices({ date: day }));
     if (values.length !== 96) throw new Error('Expected 96 quarter-hour prices');
     sources[day] = 'Homey';
+    homeyAvailable[day] = true;
+    fetchedAt[day] = new Date().toISOString();
     log(`EnergyDeck prices ${day}: ${values.length} intervals loaded`);
     return values;
   } catch (error) {
+    homeyAvailable[day] = false;
     const message = `EnergyDeck prices ${day}: ${error?.message || error?.name || String(error)}`;
     log(message);
     warnings.push(message);
     try {
       const values = await fetchReserve(day);
       sources[day] = 'EpexPrijzen.nl (raw EUR/kWh)';
+      fetchedAt[day] = new Date().toISOString();
       log(`EnergyDeck prices ${day}: reserve source loaded 96 intervals`);
       return values;
     } catch (reserveError) {
       const failure = `EnergyDeck reserve ${day}: ${reserveError.message}`;
       warnings.push(failure);
       log(failure);
-      if (required) throw new Error(`${message}; ${failure}`);
+      // Retain only a complete matching calendar day, including yesterday's tomorrow.
+      const cached = [previous.today, previous.tomorrow].find(d => d?.date === day && validValues(d.values));
+      if (cached) {
+        sources[day] = previous.sources?.[day] ||
+          (cached.source === 'homey' ? 'Homey' : cached.source === 'epexprijzen' ? 'EpexPrijzen.nl (raw EUR/kWh)' : 'Onbekend');
+        fetchedAt[day] = previous.fetchedAt?.[day] || previous.updatedAt || '';
+        cachedDays.push(day);
+        warnings.push(`${day}: eerder opgeslagen dagprijzen gebruikt`);
+        return cached.values;
+      }
     }
     // Tomorrow may not be published yet. Never block today's update for it.
+    sources[day] = 'Geen';
+    fetchedAt[day] = '';
     return [];
   }
 }
 
-const todayValues = await fetchDay(date, true);
-const tomorrowValues = await fetchDay(tomorrowDate, false);
+const todayValues = await fetchDay(date);
+const tomorrowValues = await fetchDay(tomorrowDate);
 
+// Preserve the firmware's per-day provenance alongside the Flow diagnostics.
+function daySource(day, values) {
+  if (!values.length) return 'unavailable';
+  return sources[day] === 'Homey' ? 'homey' : sources[day]?.startsWith('EpexPrijzen') ? 'epexprijzen' : 'unknown';
+}
 const value = JSON.stringify({
   version: 2,
-  updatedAt: new Date().toISOString(),
+  updatedAt: fetchedAt[date] || previous.updatedAt || null,
+  checkedAt: new Date().toISOString(),
+  sources,
+  homeyAvailable,
+  fetchedAt,
+  cachedDays,
+  warnings,
   today: {
     date,
     values: todayValues,
-    source: sources[date] === 'Homey' ? 'homey' : 'epexprijzen',
+    source: daySource(date, todayValues),
   },
   tomorrow: {
     date: tomorrowDate,
     values: tomorrowValues,
-    source: tomorrowValues.length ? (sources[tomorrowDate] === 'Homey' ? 'homey' : 'epexprijzen') : 'unavailable',
+    source: daySource(tomorrowDate, tomorrowValues),
   },
 });
-
-const variables = await Homey.logic.getVariables();
-const existing = Object.values(variables).find(
-  variable => variable.name === VARIABLE_NAME,
-);
 
 let variable;
 if (existing) {
@@ -138,13 +170,15 @@ if (existing) {
 }
 
 return {
-  ok: true,
+  ok: validValues(todayValues),
   date,
   tomorrowDate,
   todayIntervals: todayValues.length,
   tomorrowIntervals: tomorrowValues.length,
   warnings,
   sources,
+  homeyAvailable,
+  cachedDays,
   variableId: variable.id,
   bytes: value.length,
 };

@@ -72,29 +72,47 @@ To install the bridge:
 
 1. Install the official HomeyScript app if it is not installed yet.
 2. Open [HomeyScript](https://my.homey.app/script) in a browser.
-3. Create a new script named `EnergyDeck Prices`.
+3. Use the existing script `EnergyDeskPrices` (the deployed name retains this spelling).
 4. Copy the contents of `homeyscript/energydeck-prices.js` into it.
 5. Save and run it once. The returned result should report 96 intervals for
    today. Tomorrow also reports 96 once Homey has published the next day's
    prices; before publication it can be empty.
 6. Run `./homey-setup.sh` again. It will show the created Logic variable ID.
 
-Later, an Advanced Flow can run this HomeyScript after new prices become
-available. EnergyDeck only reads the resulting Logic variable. Version 2 of
-the bridge stores compact arrays for both today and tomorrow. The simulator
-loads them at startup and refreshes the variable every 15 minutes.
+The version-2 payload remains compatible with the installed firmware. It retains
+`today.source` and `tomorrow.source` for the display's source indicator and adds
+persisted diagnostics for Flow use. The simulator loads the variable at startup
+and refreshes it every 15 minutes.
 
-Run the bridge hourly in a Homey Flow. Calendar dates explicitly use
-Europe/Amsterdam, independent of HomeyScript's host timezone. A missing or failed
-tomorrow request is logged with its date and returned as a warning; today's
-prices are still saved, with an empty tomorrow array. A failure to fetch today's
-prices stops the script with a dated error and leaves the previous variable
-unchanged. Check both `updatedAt` and the stored dates when diagnosing old data.
+Install `homeyscript/energie-actuele-prijs.js` as `EnergieActuelePrijs` and run it
+once to create its Logic variables. The Advanced Flow **Energie - Prijzen** has:
 
-After updating the repository script, replace the code in the existing HomeyScript
-and run it once. Keep the existing Flow and Logic variable ID. The version-2
-payload remains compatible with the installed firmware. Regression checks run
-locally with `node scripts/test-price-bridge.cjs` without accessing Homey.
+- Every 1 hour → run `EnergyDeskPrices` → run `EnergieActuelePrijs` after success.
+- Every 1 minute → run `EnergieActuelePrijs`.
+- Energy: electricity price changes → run `EnergieActuelePrijs`.
+
+The minute and Energy triggers only read the saved price list; they do not fetch
+from either provider. A Homey price event does not refresh the cached list itself.
+The scripts do not change the existing car or Sessy charging Flows. Connect those
+separately, with `Energie - Prijzen geldig` as a required condition.
+
+Homey is the primary source; invalid/missing prices fall back to EpexPrijzen.nl.
+If both fail, a complete cached day with the requested Amsterdam date is reused,
+including the previous payload's tomorrow after midnight. Otherwise the saved day
+is empty, the fetch result has `ok: false` for missing today, and the current-price
+script clears validity and cheapest-hour flags. This is a returned status, not a
+thrown provider error. Missing tomorrow does not block today's update.
+
+`checkedAt` is the latest attempt; `fetchedAt[date]` records the successful fetch
+for that day. Cache reuse preserves its original timestamp. `updatedAt` retains
+today's successful-fetch timestamp for compatibility. Inspect the dates and
+validity as well as timestamps. See [price fallback](PRICE-FALLBACK.md) for fields,
+variables, units, and limitations.
+
+After repository changes, copy the scripts to their existing HomeyScript entries;
+Git updates do not deploy them automatically. Keep existing IDs. Run the isolated
+checks with `node scripts/test-price-bridge.cjs` and
+`node scripts/test-current-price.cjs`; neither accesses Homey or starts charging.
 
 The updated dashboard keeps the Tomorrow tab visible but disabled until the
 price variable contains exactly 96 finite values for tomorrow's local calendar

@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const source = fs.readFileSync(path.join(__dirname, '../homeyscript/energydeck-prices.js'), 'utf8');
 
-async function run(instant, failTomorrow = false, failToday = false, invalid = false, reserve = null) {
+async function run(instant, failTomorrow = false, failToday = false, invalid = false, reserve = null, previous = null) {
   const RealDate = Date;
   class FixedDate extends RealDate {
     constructor(...args) { super(...(args.length ? args : [instant])); }
@@ -22,7 +22,7 @@ async function run(instant, failTomorrow = false, failToday = false, invalid = f
       return { pricesPerInterval: Array.from({ length: 96 }, () => ({ value: invalid ? NaN : 0.12 })) };
     } },
     logic: {
-      async getVariables() { return { existing: { id: 'existing', name: 'EnergyDeck Prices' } }; },
+      async getVariables() { return { existing: { id: 'existing', name: 'EnergyDeck Prices', value: previous ? JSON.stringify(previous) : undefined } }; },
       async updateVariable({ id, variable }) { writes.push(JSON.parse(variable.value)); return { id }; },
     },
   };
@@ -56,11 +56,15 @@ async function run(instant, failTomorrow = false, failToday = false, invalid = f
   assert.equal(available.writes[0].today.source, 'homey');
   assert.equal(available.writes[0].tomorrow.source, 'homey');
   const missing = await run('2026-09-06T10:00:00Z', false, true);
-  assert.match(missing.error.message, /2026-09-06.*NotFoundError/);
-  assert.equal(missing.writes.length, 0);
+  assert.equal(missing.error, undefined);
+  assert.equal(missing.value.ok, false);
+  assert.equal(missing.writes[0].today.values.length, 0);
+  assert.equal(missing.writes[0].today.source, 'unavailable');
+  assert.equal(missing.writes[0].homeyAvailable['2026-09-06'], false);
   const invalid = await run('2026-09-06T10:00:00Z', false, false, true);
-  assert.match(invalid.error.message, /finite numeric/);
-  assert.equal(invalid.writes.length, 0);
+  assert.equal(invalid.value.ok, false);
+  assert.equal(invalid.writes[0].today.values.length, 0);
+  assert.match(invalid.value.warnings.join(' '), /finite numeric/);
   const fixture = {
 
     today: Array.from({length: 96}, (_, i) => ({date: new Date(Date.parse('2026-09-06T00:00:00+02:00') + i * 900000).toISOString(), price: i === 0 ? -0.05 : 0.12})),
@@ -81,8 +85,24 @@ async function run(instant, failTomorrow = false, failToday = false, invalid = f
     {today: fixture.today.map((s,i) => i===20 ? fixture.today[19] : s)},
   ]) {
     const rejected = await run('2026-09-06T10:00:00Z', false, true, false, bad);
-    assert.ok(rejected.error);
-    assert.equal(rejected.writes.length, 0);
+    assert.equal(rejected.value.ok, false);
+    assert.equal(rejected.writes[0].today.values.length, 0);
   }
+  assert.equal(fallback.writes[0].homeyAvailable['2026-09-06'], false);
+  assert.equal(available.writes[0].homeyAvailable['2026-09-06'], true);
+  assert.ok(fallback.writes[0].checkedAt);
+  const previous = {updatedAt: '2026-09-05T14:00:00Z',
+    today: {date: '2026-09-05', values: Array(96).fill(9), source: 'homey'},
+    tomorrow: {date: '2026-09-06', values: Array(96).fill(-0.03), source: 'epexprijzen'}};
+  const cached = await run('2026-09-06T10:00:00Z', true, true, false, null, previous);
+  assert.equal(cached.value.ok, true);
+  assert.equal(cached.writes[0].today.values[0], -0.03);
+  assert.equal(cached.writes[0].today.source, 'epexprijzen');
+  assert.equal(cached.writes[0].updatedAt, previous.updatedAt);
+  assert.equal(cached.writes[0].homeyAvailable['2026-09-06'], false);
+  assert.equal(cached.writes[0].cachedDays[0], '2026-09-06');
+  const expired = await run('2026-09-07T10:00:00Z', true, true, false, null, previous);
+  assert.equal(expired.value.ok, false);
+  assert.equal(expired.writes[0].today.values.length, 0);
   console.log('PASS: missing tomorrow, both days, missing today, invalid values, Amsterdam midnight, DST and year rollover');
 })().catch(error => { console.error(error); process.exitCode = 1; });

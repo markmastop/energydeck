@@ -254,8 +254,8 @@ lvgl:
             width: 452
             height: 236
             radius: 14
-            bg_color: 0x14261B
-            border_color: 0x2B4937
+            bg_color: 0x0F1712
+            border_color: 0x343A37
             border_width: 1
             pad_all: 0
             scrollable: false
@@ -1307,8 +1307,8 @@ lvgl:
             width: 452
             height: 58
             radius: 14
-            bg_color: 0x14261B
-            border_color: 0x2B4937
+            bg_color: 0x0F1712
+            border_color: 0x343A37
             border_width: 1
             pad_all: 0
             scrollable: false
@@ -1351,8 +1351,8 @@ lvgl:
             width: 452
             height: 58
             radius: 14
-            bg_color: 0x18273D
-            border_color: 0x3B65A2
+            bg_color: 0x0F1712
+            border_color: 0x343A37
             border_width: 1
             pad_all: 0
             scrollable: false
@@ -1406,8 +1406,8 @@ lvgl:
             width: 294
             height: 140
             radius: 14
-            bg_color: 0x14261B
-            border_color: 0x2B4937
+            bg_color: 0x0F1712
+            border_color: 0x343A37
             border_width: 1
             pad_all: 0
             scrollable: false
@@ -1548,8 +1548,8 @@ lvgl:
             width: 294
             height: 140
             radius: 14
-            bg_color: 0x14261B
-            border_color: 0x2B4937
+            bg_color: 0x0F1712
+            border_color: 0x343A37
             border_width: 1
             pad_all: 0
             scrollable: false
@@ -1714,8 +1714,8 @@ lvgl:
             width: 294
             height: 140
             radius: 14
-            bg_color: 0x14261B
-            border_color: 0x2B4937
+            bg_color: 0x0F1712
+            border_color: 0x343A37
             border_width: 1
             pad_all: 0
             scrollable: false
@@ -1887,8 +1887,8 @@ lvgl:
             width: 452
             height: 60
             radius: 14
-            bg_color: 0x18231E
-            border_color: 0x34463C
+            bg_color: 0x0F1712
+            border_color: 0x343A37
             border_width: 1
             pad_all: 0
             scrollable: false

@@ -27,11 +27,11 @@ interval:
             auto *clip = lv_obj_create(lv_obj_get_parent(tab));
             lv_obj_remove_style_all(clip);
             lv_obj_set_pos(clip, lv_obj_get_x(tab), lv_obj_get_y(tab));
-            lv_obj_set_size(clip, 226, 28);
+            lv_obj_set_size(clip, 226, 40);
             lv_obj_clear_flag(clip, LV_OBJ_FLAG_SCROLLABLE);
             lv_obj_set_parent(tab, clip);
             lv_obj_set_pos(tab, 0, 0);
-            lv_obj_set_height(tab, 36);
+            lv_obj_set_height(tab, 48);
             lv_obj_align(lv_obj_get_child(tab, 0), LV_ALIGN_CENTER, 0, -5);
             lv_obj_set_width(lv_obj_get_child(tab, 0), 180);
             lv_label_set_long_mode(lv_obj_get_child(tab, 0), LV_LABEL_LONG_DOT);
@@ -41,7 +41,7 @@ interval:
           lv_obj_set_parent(id(price_source_warning), id(today_prices_button));
           lv_obj_set_parent(id(tomorrow_source_warning), id(tomorrow_prices_button));
           for (auto *icon : {id(price_source_warning), id(tomorrow_source_warning)}) {
-            lv_obj_set_pos(icon, 198, 4);
+            lv_obj_set_pos(icon, 198, 10);
             lv_obj_clear_flag(icon, LV_OBJ_FLAG_CLICKABLE);
           }
           aligned = true;
@@ -233,9 +233,9 @@ lvgl:
         - button:
             id: today_prices_button
             x: 14
-            y: 166
+            y: 154
             width: 226
-            height: 28
+            height: 40
             radius: 8
             border_width: 1
             border_color: 0x343A37
@@ -256,9 +256,9 @@ lvgl:
         - button:
             id: tomorrow_prices_button
             x: 240
-            y: 166
+            y: 154
             width: 226
-            height: 28
+            height: 40
             radius: 8
             border_width: 1
             border_color: 0x343A37

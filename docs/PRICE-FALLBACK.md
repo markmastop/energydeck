@@ -146,3 +146,9 @@ are unchanged: this migration aligns price presentation and advice.
 Verified with isolated current-price regressions covering negative/zero prices,
 33%/66% boundaries, flat days, rolling windows, missing tomorrow, invalid prices
 and source-only changes without charging signals.
+
+DataVista status and price bars use vivid green (`#00FF00`), yellow
+(`#FFFF00`) and red (`#FF0000`) by user preference. This includes the unused
+VC/VE display actions. Classification thresholds remain identical to EnergyDeck;
+the deck graph palette is unchanged. All eight action colors were verified
+after saving and reloading the live flow.

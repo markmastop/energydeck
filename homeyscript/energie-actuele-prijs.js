@@ -14,9 +14,18 @@ async function publishDashboard(ok, value, mean, values, sourceName, interval, r
   let category = 'N';
   let label = '⚠ Geen geldige prijzen | ' + reason;
   if (ok) {
-    const step = (Math.max(...values) - Math.min(...values)) / 5;
-    const normal = mean + 0.5 * step;
-    category = step === 0 ? 'N' : value <= normal - 2 * step ? 'VC' : value <= normal - step ? 'C' : value <= normal ? 'N' : value <= normal + step ? 'E' : 'VE';
+    // Match the deck's Today graph: noon-to-noon when tomorrow is complete.
+    const nextDay = new Date(midday + 86400000).toISOString().slice(0, 10);
+    const tomorrow = data.tomorrow;
+    const nextValues = tomorrow?.date === nextDay && Array.isArray(tomorrow.values)
+      && tomorrow.values.length === 96 && tomorrow.values.every(v => typeof v === 'number' && Number.isFinite(v))
+      ? tomorrow.values : null;
+    const window = Number(p.hour) >= 12 && nextValues
+      ? values.slice(48).concat(nextValues.slice(0, 48)) : values;
+    const minimum = Math.min(...window);
+    // Firmware floors the all-in EUR/kWh span at 0.001; convert to raw units.
+    const span = Math.max(0.001 / 1.21, Math.max(...window) - minimum);
+    category = value <= minimum + span * 0.33 ? 'C' : value >= minimum + span * 0.66 ? 'E' : 'N';
     // Match EnergyDeck's configured tax (ex VAT), VAT and supplier fee (incl VAT).
     // Presentation only: cached market prices and charging signals remain raw.
     const allInCents = raw => ((raw * 100 + 9.161) * 1.21 + 2.0).toFixed(1).replace('.', ',');
@@ -25,6 +34,7 @@ async function publishDashboard(ok, value, mean, values, sourceName, interval, r
     label = sourceLabel + ' | ' + allInCents(value) + ' ct | gem. ' + allInCents(mean) + ' | ' + category;
   }
   await set('Energie - Dashboardcategorie', category);
+  await set('Energie - Dashboardadvies', !ok ? '⚠ Geen geldige prijzen' : category === 'C' ? 'Nu apparaten gebruiken' : category === 'E' ? 'Beperk energiegebruik' : 'Zijn de apparaten echt nodig?');
   await set('Energie - Dashboardprijs', label);
 }
 const now = new Date();

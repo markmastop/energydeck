@@ -82,7 +82,7 @@ The current-price script also publishes two presentation-only Logic strings:
 Category is written before the label. The label uses all-in ct/kWh, matching the current EnergyDeck configuration:
 `(raw EUR/kWh * 100 + 9.161) * 1.21 + 2.0`. These presentation constants
 must be kept aligned with EnergyDeck tariff settings when those change. The
-source comes first (`⚠ Epex`) so narrow widgets retain the fallback warning.
+source comes first (`⚠`) so narrow widgets retain the fallback warning.
 For example, 0.061 EUR/kWh becomes 20.5 ct/kWh; cached numeric prices remain raw. Categories keep the existing range/5 and mean-based thresholds; a
 flat-price day is neutral. Invalid data shows no old numerical price and uses
 the neutral dashboard branch. Neither field changes legacy Sessy control values.

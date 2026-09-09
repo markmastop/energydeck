@@ -20,7 +20,7 @@ async function publishDashboard(ok, value, mean, values, sourceName, interval, r
     // Match EnergyDeck's configured tax (ex VAT), VAT and supplier fee (incl VAT).
     // Presentation only: cached market prices and charging signals remain raw.
     const allInCents = raw => ((raw * 100 + 9.161) * 1.21 + 2.0).toFixed(1).replace('.', ',');
-    const sourceLabel = /epex/i.test(sourceName) ? '⚠ Epex' : /^homey/i.test(sourceName) ? 'Homey' : '⚠ Bron?';
+    const sourceLabel = /epex/i.test(sourceName) ? '⚠' : /^homey/i.test(sourceName) ? 'Homey' : '⚠ Bron?';
     // Put provenance first so narrow DataVista rows cannot truncate the warning.
     label = sourceLabel + ' | ' + allInCents(value) + ' ct/kWh | gem. ' + allInCents(mean) + ' | ' + category;
   }

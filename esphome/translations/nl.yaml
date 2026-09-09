@@ -117,3 +117,8 @@ rain_now: "Nu regen"
 temperature_trend_unknown: "Over 3 uur --°"
 temperature_trend_format: "Over 3 uur %.1f°"
 tomorrow_unavailable: "Morgen - nog onbekend"
+
+price_source_homey: "Bron: Homey"
+price_source_epex: "Bron: EpexPrijzen.nl (alternatief)"
+price_source_unknown: "Bron: onbekend"
+price_source_unavailable: "Bron: geen geldige prijzen"

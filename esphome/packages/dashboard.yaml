@@ -71,6 +71,14 @@ lvgl:
             text_color: 0x62D98A
 
         - label:
+            id: current_price_source_label
+            x: 20
+            y: 34
+            width: 220
+            text: "${price_source_unknown}"
+            text_font: montserrat_10
+            text_color: 0xE8B94C
+        - label:
             id: price_period_label
             x: 20
             y: 51

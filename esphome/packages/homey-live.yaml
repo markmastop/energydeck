@@ -109,6 +109,8 @@ script:
           lv_obj_clear_flag(id(tomorrow_source_warning), LV_OBJ_FLAG_HIDDEN);
           id(show_tomorrow_prices) = false;
           lv_label_set_text(id(price_now_label), "--");
+          lv_label_set_text(id(current_price_source_label), "${price_source_unavailable}");
+          lv_obj_set_style_text_color(id(current_price_source_label), lv_color_hex(0xE8B94C), 0);
           lv_label_set_text(id(price_period_label), "${prices_unavailable}");
           lv_label_set_text(id(tomorrow_average_label), "${prices_stale}");
           lv_obj_set_style_text_color(id(tomorrow_average_label), lv_color_hex(0xEA665F), 0);
@@ -437,18 +439,36 @@ script:
                         maximum = std::max(maximum, prices[i]);
                       }
                       lv_label_set_text(id(price_chart_title_label), rolling ? "${price_chart_rolling}" : "${price_chart_title}");
-                      // Old bridge payloads have no provenance: do not assume Homey.
-                      auto is_homey_source = [&](const char *key) {
+                      // Recognize both per-day source and the older date-keyed sources map.
+                      // Unknown provenance must never be presented as a confirmed fallback.
+                      auto price_source_for = [&](const char *key) -> int {
+                        auto classify = [](const char *value) -> int {
+                          if (!value) return 0;
+                          if (strncmp(value, "\"homey\"", 7) == 0 || strncmp(value, "\"Homey", 6) == 0) return 1;
+                          if (strncmp(value, "\"epexprijzen\"", 12) == 0 || strncmp(value, "\"EpexPrijzen", 12) == 0) return 2;
+                          return 0;
+                        };
                         const char *section = strstr(encoded, key);
                         const char *end = section ? strchr(section, '}') : nullptr;
-                        const char *source = section ? strstr(section, "\"source\":\"homey\"") : nullptr;
-                        return source && end && source < end;
+                        if (!end) return 0;
+                        const char *source = strstr(section, "\"source\":");
+                        if (source && source < end) return classify(source + 9);
+                        const char *date = strstr(section, "\"date\":\"");
+                        if (!date || date + 18 > end) return 0;
+                        char date_key[16];
+                        snprintf(date_key, sizeof(date_key), "\"%.10s\":", date + 8);
+                        const char *sources = strstr(encoded, "\"sources\":{");
+                        const char *sources_end = sources ? strchr(sources, '}') : nullptr;
+                        const char *entry = sources ? strstr(sources, date_key) : nullptr;
+                        return entry && sources_end && entry < sources_end ? classify(entry + strlen(date_key)) : 0;
                       };
-                      // Each tab describes its own calendar day, independent of
-                      // selection and the rolling noon-to-noon graph window.
-                      if (is_homey_source("\"today\"")) lv_obj_add_flag(id(price_source_warning), LV_OBJ_FLAG_HIDDEN);
+                      const int today_source = price_source_for("\"today\"");
+                      // The headline is today's current price even while tomorrow's chart is selected.
+                      lv_label_set_text(id(current_price_source_label), today_source == 1 ? "${price_source_homey}" : today_source == 2 ? "${price_source_epex}" : "${price_source_unknown}");
+                      lv_obj_set_style_text_color(id(current_price_source_label), lv_color_hex(today_source == 1 ? 0x93A097 : 0xE8B94C), 0);
+                      if (today_source == 1) lv_obj_add_flag(id(price_source_warning), LV_OBJ_FLAG_HIDDEN);
                       else lv_obj_clear_flag(id(price_source_warning), LV_OBJ_FLAG_HIDDEN);
-                      if (tomorrow_available && is_homey_source("\"tomorrow\"")) lv_obj_add_flag(id(tomorrow_source_warning), LV_OBJ_FLAG_HIDDEN);
+                      if (tomorrow_available && price_source_for("\"tomorrow\"") == 1) lv_obj_add_flag(id(tomorrow_source_warning), LV_OBJ_FLAG_HIDDEN);
                       else lv_obj_clear_flag(id(tomorrow_source_warning), LV_OBJ_FLAG_HIDDEN);
                       lv_obj_t *ticks[] = {id(price_tick_0), id(price_tick_1), id(price_tick_2), id(price_tick_3), id(price_tick_4), id(price_tick_5), id(price_tick_6), id(price_tick_7), id(price_tick_8)};
                       for (int i = 0; i < 9; i++) {

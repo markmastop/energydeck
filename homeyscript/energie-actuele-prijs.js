@@ -17,8 +17,12 @@ async function publishDashboard(ok, value, mean, values, sourceName, interval, r
     const step = (Math.max(...values) - Math.min(...values)) / 5;
     const normal = mean + 0.5 * step;
     category = step === 0 ? 'N' : value <= normal - 2 * step ? 'VC' : value <= normal - step ? 'C' : value <= normal ? 'N' : value <= normal + step ? 'E' : 'VE';
-    const euro = n => n.toFixed(4).replace('.', ',');
-    label = '€ ' + euro(value) + '/kWh | gem. € ' + euro(mean) + ' | ' + category + ' | ' + sourceName + ' | ' + interval;
+    // Match EnergyDeck's configured tax (ex VAT), VAT and supplier fee (incl VAT).
+    // Presentation only: cached market prices and charging signals remain raw.
+    const allInCents = raw => ((raw * 100 + 9.161) * 1.21 + 2.0).toFixed(1).replace('.', ',');
+    const sourceLabel = /epex/i.test(sourceName) ? '⚠ Epex' : /^homey/i.test(sourceName) ? 'Homey' : '⚠ Bron?';
+    // Put provenance first so narrow DataVista rows cannot truncate the warning.
+    label = sourceLabel + ' | ' + allInCents(value) + ' ct/kWh | gem. ' + allInCents(mean) + ' | ' + category;
   }
   await set('Energie - Dashboardcategorie', category);
   await set('Energie - Dashboardprijs', label);

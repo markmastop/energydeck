@@ -28,7 +28,7 @@ async function run(instant, payload, existing = {}) {
   assert.equal(first.value('Goedkoopste 7 uren'), true);
   assert.equal(first.value('Homey prijzen beschikbaar'), false);
   assert.equal(first.value('Prijzen geldig'), true);
-  assert.match(first.value('Dashboardprijs'), /^⚠ Epex \| 13,1 ct\/kWh/);
+  assert.match(first.value('Dashboardprijs'), /^⚠ \| 13,1 ct\/kWh/);
   assert.equal(first.value('Dashboardcategorie'), 'VC');
   assert.ok(first.writes.indexOf('Energie - Dashboardcategorie') < first.writes.indexOf('Energie - Dashboardprijs'));
   assert.ok(!first.writes.some(n => ['kwh_prijs', 'kwh_prijs_categorie', 'kwh_prijs_hoog', 'sessy_status'].includes(n)));
@@ -39,10 +39,10 @@ async function run(instant, payload, existing = {}) {
   assert.equal(repeat.writes.length, 0, 'Repeated checks must not retrigger unchanged flags');
   const boundary = await run('2026-09-08T00:15:00Z', payload, first.vars);
   assert.equal(boundary.value('Marktprijs EUR per kWh'), 0.01);
-  assert.match(boundary.value('Dashboardprijs'), /^⚠ Epex \| 14,3 ct\/kWh/);
+  assert.match(boundary.value('Dashboardprijs'), /^⚠ \| 14,3 ct\/kWh/);
   const screenshotPayload = {...payload, today:{date:day, values:Array(96).fill(0.061)}};
   const screenshot = await run('2026-09-08T00:14:00Z', screenshotPayload);
-  assert.match(screenshot.value('Dashboardprijs'), /^⚠ Epex \| 20,5 ct\/kWh \| gem. 20,5/);
+  assert.match(screenshot.value('Dashboardprijs'), /^⚠ \| 20,5 ct\/kWh \| gem. 20,5/);
   assert.equal(screenshot.value('Marktprijs EUR per kWh'), 0.061);
   const homeyPayload = {...payload, sources: {[day]: 'Homey'}};
   const switched = await run('2026-09-08T00:14:30Z', homeyPayload, first.vars);

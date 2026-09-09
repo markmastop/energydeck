@@ -16,9 +16,11 @@ interval:
             lv_obj_align(lv_obj_get_child(button, 0), LV_ALIGN_CENTER, 0, -1);
             // Override the built-in raised theme in every interactive state.
             for (auto state : {LV_STATE_DEFAULT, LV_STATE_PRESSED, LV_STATE_DISABLED, LV_STATE_FOCUSED}) {
-              lv_obj_set_style_shadow_width(button, 0, LV_PART_MAIN | state);
-              lv_obj_set_style_shadow_opa(button, LV_OPA_TRANSP, LV_PART_MAIN | state);
-              lv_obj_set_style_outline_width(button, 0, LV_PART_MAIN | state);
+              const auto selector = static_cast<lv_style_selector_t>(LV_PART_MAIN) |
+                static_cast<lv_style_selector_t>(state);
+              lv_obj_set_style_shadow_width(button, 0, selector);
+              lv_obj_set_style_shadow_opa(button, LV_OPA_TRANSP, selector);
+              lv_obj_set_style_outline_width(button, 0, selector);
             }
           }
           // Clip the lower rounded corners of each tab: retain rounded tops

@@ -29,7 +29,7 @@ async function run(instant, payload, existing = {}) {
   assert.equal(first.value('Homey prijzen beschikbaar'), false);
   assert.equal(first.value('Prijzen geldig'), true);
   assert.match(first.value('Dashboardprijs'), /^⚠ \| 13,1 ct/);
-  assert.equal(first.value('Dashboardcategorie'), 'VC');
+  assert.equal(first.value('Dashboardcategorie'), 'C');
   assert.ok(first.writes.indexOf('Energie - Dashboardcategorie') < first.writes.indexOf('Energie - Dashboardprijs'));
   assert.ok(!first.writes.some(n => ['kwh_prijs', 'kwh_prijs_categorie', 'kwh_prijs_hoog', 'sessy_status'].includes(n)));
   assert.equal(first.writes.at(-1), 'Energie - Prijsupdate');
@@ -62,12 +62,29 @@ async function run(instant, payload, existing = {}) {
   assert.match(rollover.value('Dashboardprijs'), /3,4 ct/);
   const ties = await run('2026-09-08T01:00:00Z', {...payload, today:{date:day, values:Array(96).fill(0)}});
   assert.equal(ties.value('Goedkoopste 3 uren'), false, 'Equal-price hours use chronological tie breaking');
-  assert.equal(ties.value('Dashboardcategorie'), 'N', 'A flat day has no cheap/expensive spread');
+  assert.equal(ties.value('Dashboardcategorie'), 'C', 'Match the deck minimum-span rule for flat days');
+  // Tomorrow may change the rolling chart classification without changing charging signals.
+  const rollingToday = Array(96).fill(0.2); rollingToday[0] = -1; rollingToday[95] = 0.3;
+  const rollingPayload = {today:{date:day,values:rollingToday},tomorrow:{date:'2026-09-09',values:Array(96).fill(1)}};
+  const rolling = await run('2026-09-08T13:00:00Z', rollingPayload);
+  assert.equal(rolling.value('Dashboardcategorie'), 'C');
+  assert.equal(rolling.value('Dashboardadvies'), 'Nu apparaten gebruiken');
+  const missingTomorrow = await run('2026-09-08T13:00:00Z', {...rollingPayload,tomorrow:{}}, rolling.vars);
+  assert.equal(missingTomorrow.value('Dashboardcategorie'), 'E');
+  assert.equal(missingTomorrow.value('Dashboardadvies'), 'Beperk energiegebruik');
+  assert.equal(missingTomorrow.value('Prijsupdate'), rolling.value('Prijsupdate'));
+  const three = Array(96).fill(0.5); three[0]=0; three[95]=1;
+  for (const [value, expected] of [[0.329,'C'],[0.331,'N'],[0.659,'N'],[0.661,'E']]) {
+    three[8]=value;
+    const r=await run('2026-09-08T00:14:00Z',{today:{date:day,values:three}});
+    assert.equal(r.value('Dashboardcategorie'),expected);
+  }
   for (const bad of ['{', {}, {...payload, today:{date:'2026-09-07',values:Array(96).fill(1)}}, {...payload,today:{date:day,values:[null]}}]) {
     const r = await run('2026-09-08T00:15:00Z', bad, first.vars);
     assert.equal(r.result.ok, false);
     assert.equal(r.value('Prijzen geldig'), false);
     assert.match(r.value('Dashboardprijs'), /^⚠ Geen geldige prijzen/);
+    assert.equal(r.value('Dashboardadvies'), '⚠ Geen geldige prijzen');
     assert.ok(!r.value('Dashboardprijs').includes('€/kWh'));
     assert.equal(r.value('Dashboardcategorie'), 'N');
     assert.equal(r.writes.at(-1), 'Energie - Prijsupdate');

@@ -76,15 +76,15 @@ The current-price script also publishes two presentation-only Logic strings:
 
 | Variable | Purpose |
 | --- | --- |
-| Energie - Dashboardcategorie | VC/C/N/E/VE, derived from the same cached raw day prices |
+| Energie - Dashboardcategorie | C/N/E, matching the EnergyDeck Today graph price range |
 | Energie - Dashboardprijs | Source-first current price, daily average and category; or an explicit invalid-price warning |
 
 Category is written before the label. The compact label abbreviates the unit to `ct` (cents per kWh) and uses all-in prices, matching the current EnergyDeck configuration:
 `(raw EUR/kWh * 100 + 9.161) * 1.21 + 2.0`. These presentation constants
 must be kept aligned with EnergyDeck tariff settings when those change. The
 source comes first (`⚠`) so narrow widgets retain the fallback warning.
-For example, 0.061 EUR/kWh becomes 20.5 ct/kWh; cached numeric prices remain raw. Categories keep the existing range/5 and mean-based thresholds; a
-flat-price day is neutral. Invalid data shows no old numerical price and uses
+For example, 0.061 EUR/kWh becomes 20.5 ct/kWh; cached numeric prices remain raw. Categories use the deck's 33%/66% thresholds over its Today graph window.
+The deck's minimum-span behavior also applies to flat days. Invalid data shows no old numerical price and uses
 the neutral dashboard branch. Neither field changes legacy Sessy control values.
 
 In `Datavista - Set Information` (`14564d69-c3a3-4337-84e3-2bede54f6b22`):
@@ -118,3 +118,31 @@ the trend comparison, both arrow labels, and `kwh_vermogen_huidig`. Existing
 import/export direction logic and variable consumers are retained. These are
 live-power display changes; daily energy/gas totals and appliance-specific
 power readings are separate measurements. No charging test was triggered.
+
+## Unified deck price advice (2026-09-09)
+
+`Energie - Dashboardcategorie` now publishes C/N/E using the EnergyDeck graph
+thresholds: green through min + 33% of range, red from min + 66%, yellow
+between. After noon, complete matching tomorrow prices select the same
+noon-to-noon window as the Today tab. Otherwise today's calendar day is used.
+The firmware's 0.001 EUR/kWh minimum all-in span is converted with the configured
+1.21 VAT multiplier; keep this aligned if tariffs change. The mean displayed
+in DataVista remains the calendar-day average. Selecting Tomorrow on the deck
+shows that day's graph; it does not change the current-price dashboard advice.
+
+`Energie - Dashboardadvies` is written before `Dashboardprijs`: C means
+“Nu apparaten gebruiken”, N means “Zijn de apparaten echt nodig?”, E means
+“Beperk energiegebruik”. Invalid prices show “⚠ Geen geldige prijzen” with
+the neutral category. The three DataVista status actions read this variable.
+
+The missing status trigger was replaced with `Dashboardprijs` changed. The
+status input now fans out to all three category checks. The former Sessy target
+power override was removed from this display advice, preventing a conflicting
+green recommendation. Existing solar events can still refresh the same advice.
+The unused VC/VE price-display branches remain unreachable for the new three
+category model. Charging's existing cheapest-hour flags and completion signal
+are unchanged: this migration aligns price presentation and advice.
+
+Verified with isolated current-price regressions covering negative/zero prices,
+33%/66% boundaries, flat days, rolling windows, missing tomorrow, invalid prices
+and source-only changes without charging signals.

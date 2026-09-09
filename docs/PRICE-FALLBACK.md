@@ -90,7 +90,7 @@ the neutral dashboard branch. Neither field changes legacy Sessy control values.
 In `Datavista - Set Information` (`14564d69-c3a3-4337-84e3-2bede54f6b22`):
 
 - `widget_kwh_prijs` now combines `Energie - Dashboardprijs` and the existing
-  Sagemcom current-power tag.
+  HomeWizard P1 `Vermogen totaal` tag (updated 2026-09-09).
 - The five price display conditions read `Energie - Dashboardcategorie`.
 - The three category checks for the appliance-use dashboard advice also read
   `Energie - Dashboardcategorie`; the solar-surplus logic stays intact.
@@ -104,3 +104,17 @@ started. A display-only flow test completed the VC condition and DataVista
 status action using Epex fallback data. Existing current-price regressions also
 cover display formatting, invalid-cache warnings, source-only changes without
 charging signals, negative/zero prices, flat days and update ordering.
+
+## Unified live net-power source (2026-09-09)
+
+DataVista and EnergyDeck now both use HomeWizard P1 `P1_PHFEG76F` for
+instantaneous net power. DataVista has an additional HomeWizard power-changed
+trigger wired directly to the widget assignment; price changes still refresh it.
+EnergyDeck continues polling the same meter every 10 seconds, so the displays
+can briefly differ because of refresh timing and the deck's kW rounding.
+
+`Energie - Run Labels` also uses the HomeWizard trigger and total-power tag for
+the trend comparison, both arrow labels, and `kwh_vermogen_huidig`. Existing
+import/export direction logic and variable consumers are retained. These are
+live-power display changes; daily energy/gas totals and appliance-specific
+power readings are separate measurements. No charging test was triggered.

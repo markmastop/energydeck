@@ -69,3 +69,35 @@ The active Flow keeps ID `cd25bbee-d532-4ce1-8302-e3dc2b8277c9`.
 All 47 nodes and 40 connections were compared through the web UI; only the two
 price cards changed. No manual charging test was started. To roll back, disable
 the active Flow before enabling the backup; never run both simultaneously.
+
+## DataVista dashboard migration (2026-09-09)
+
+The current-price script also publishes two presentation-only Logic strings:
+
+| Variable | Purpose |
+| --- | --- |
+| Energie - Dashboardcategorie | VC/C/N/E/VE, derived from the same cached raw day prices |
+| Energie - Dashboardprijs | Formatted current price, daily average, category, source and quarter; or an explicit invalid-price warning |
+
+Category is written before the label. The label uses EUR/kWh, excluding taxes
+and fees. Categories keep the existing range/5 and mean-based thresholds; a
+flat-price day is neutral. Invalid data shows no old numerical price and uses
+the neutral dashboard branch. Neither field changes legacy Sessy control values.
+
+In `Datavista - Set Information` (`14564d69-c3a3-4337-84e3-2bede54f6b22`):
+
+- `widget_kwh_prijs` now combines `Energie - Dashboardprijs` and the existing
+  Sagemcom current-power tag.
+- The five price display conditions read `Energie - Dashboardcategorie`.
+- The three category checks for the appliance-use dashboard advice also read
+  `Energie - Dashboardcategorie`; the solar-surplus logic stays intact.
+- A new `Energie - Dashboardprijs` changed trigger directly runs the widget
+  assignment, bypassing the legacy Homey Energy calculations for display updates.
+
+The original price calculation branch remains for legacy consumers including
+Sessy. It can still refresh the widget, but that widget now always reads the
+new presentation values. Auto/Sessy charging flows were not edited or manually
+started. A display-only flow test completed the VC condition and DataVista
+status action using Epex fallback data. Existing current-price regressions also
+cover display formatting, invalid-cache warnings, source-only changes without
+charging signals, negative/zero prices, flat days and update ordering.

@@ -79,7 +79,7 @@ The current-price script also publishes two presentation-only Logic strings:
 | Energie - Dashboardcategorie | VC/C/N/E/VE, derived from the same cached raw day prices |
 | Energie - Dashboardprijs | Source-first current price, daily average and category; or an explicit invalid-price warning |
 
-Category is written before the label. The label uses all-in ct/kWh, matching the current EnergyDeck configuration:
+Category is written before the label. The compact label abbreviates the unit to `ct` (cents per kWh) and uses all-in prices, matching the current EnergyDeck configuration:
 `(raw EUR/kWh * 100 + 9.161) * 1.21 + 2.0`. These presentation constants
 must be kept aligned with EnergyDeck tariff settings when those change. The
 source comes first (`⚠`) so narrow widgets retain the fallback warning.

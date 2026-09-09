@@ -122,3 +122,5 @@ price_source_homey: "Bron: Homey"
 price_source_epex: "Bron: EpexPrijzen.nl (alternatief)"
 price_source_unknown: "Bron: onbekend"
 price_source_unavailable: "Bron: geen geldige prijzen"
+
+rain_intensity_scale: 'Zwaar\nMatig\nLicht'

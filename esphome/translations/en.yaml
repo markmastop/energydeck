@@ -122,3 +122,5 @@ price_source_homey: "Source: Homey"
 price_source_epex: "Source: EpexPrijzen.nl (fallback)"
 price_source_unknown: "Source: unknown"
 price_source_unavailable: "Source: no valid prices"
+
+rain_intensity_scale: 'Heavy\nMod.\nLight'

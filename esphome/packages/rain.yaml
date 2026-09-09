@@ -94,13 +94,12 @@ script:
                     values[i] = values[i + first];
                     minutes[i] = minutes[i + first];
                   }
-                  float maximum = 1.0f;
+                  float maximum = 0.0f;
                   int first_rain = -1;
                   for (int i = 0; i < visible; i++) {
                     maximum = std::max(maximum, values[i]);
                     if (first_rain < 0 && values[i] >= 0.1f) first_rain = i;
                   }
-                  maximum = ceilf(maximum);
                   lv_obj_t *plot = id(rain_plot);
                   if (lv_obj_get_child_count(plot) == 0) {
                     for (int i = 0; i < 24; i++) {
@@ -118,13 +117,20 @@ script:
                       continue;
                     }
                     lv_obj_remove_flag(bar, LV_OBJ_FLAG_HIDDEN);
-                    const int height = std::max(1, (int)roundf(values[i] / maximum * 23));
-                    lv_obj_set_pos(bar, i * 7, 24 - height);
+                    // Fixed intensity bands: light <2.5, moderate <7.5, heavy >=7.5 mm/h.
+                    // Equal visual bands keep drizzle readable without rescaling each forecast.
+                    const float value = values[i];
+                    const float level = value < 2.5f ? value / 2.5f :
+                      value < 7.5f ? 1.0f + (value - 2.5f) / 5.0f :
+                      2.0f + std::min(1.0f, (value - 7.5f) / 12.5f);
+                    const int height = value < 0.1f ? 1 :
+                      std::max(2, std::min(30, (int)roundf(level * 10)));
+                    lv_obj_set_pos(bar, i * 7, 30 - height);
                     lv_obj_set_size(bar, 6, height);
                     lv_obj_set_style_bg_color(bar, lv_color_hex(values[i] >= 0.1f ? 0x3AA7D8 : 0x344F48), 0);
                   }
                   lv_obj_remove_flag(plot, LV_OBJ_FLAG_HIDDEN);
-                  lv_label_set_text_fmt(id(rain_scale), "%.0f\nmm/h", maximum);
+                  lv_label_set_text(id(rain_scale), "${rain_intensity_scale}");
                   const int finish = (minutes[visible - 1] + 5) % 1440;
                   const int middle = (minutes[0] + ((finish - minutes[0] + 1440) % 1440) / 2) % 1440;
                   lv_label_set_text_fmt(id(rain_mid_time), "%02d:%02d", middle / 60, middle % 60);

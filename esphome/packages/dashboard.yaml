@@ -2055,9 +2055,9 @@ lvgl:
               - obj:
                   id: rain_plot
                   x: 270
-                  y: 18
+                  y: 14
                   width: 168
-                  height: 24
+                  height: 30
                   pad_all: 0
                   border_width: 0
                   radius: 0
@@ -2066,12 +2066,13 @@ lvgl:
                   hidden: true
               - label:
                   id: rain_scale
-                  x: 232
-                  y: 19
-                  width: 36
+                  x: 228
+                  y: 15
+                  width: 40
+                  text_line_space: 2
                   text: ""
                   text_align: RIGHT
-                  text_font: montserrat_10
+                  text_font: montserrat_8
                   text_color: 0x82958A
               - label:
                   id: rain_times

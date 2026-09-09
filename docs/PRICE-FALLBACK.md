@@ -1,10 +1,10 @@
 # Price source fallback
 
-Each stored day includes `source`: `homey`, `epexprijzen`, or `unavailable`. Each day tab displays its own yellow warning for fallback, missing or unknown-source data, independently of the selected chart window. No warning remains beside the chart title. Active Today is green; active Tomorrow is blue; inactive tabs remain dark. Update both the HomeyScript and firmware for source indicators.
+Each stored day includes `source`: `homey`, `epexprijzen`, or `unavailable`. Each day tab displays its own yellow warning for fallback, missing or unknown-source data, independently of the selected chart window. No warning remains beside the chart title. Active Today is green; active Tomorrow is blue; inactive tabs remain dark. The current-price headline also names the source explicitly, including EpexPrijzen.nl (fallback). It follows today even when tomorrow is selected. Firmware accepts per-day source fields and the older date-keyed sources map; unknown sources remain unknown. Update both the HomeyScript and firmware for source indicators.
 
 Install `homeyscript/energydeck-prices.js` in the existing HomeyScript. No firmware update is required. Homey remains primary. Missing or invalid days fall back to https://epexprijzen.nl/api/prices, fetched once per script run.
 
-This internal website endpoint supplies raw NL spot prices in EUR/kWh. Unlike the provider-specific /api/v1 endpoint, it excludes taxes and charges. The deck alone applies those. No division by 1000 is applied.
+This internal website endpoint supplies raw NL spot prices in EUR/kWh. Unlike the provider-specific /api/v1 endpoint, it excludes taxes and charges. The deck and DataVista presentation apply those; stored prices remain raw. No division by 1000 is applied.
 
 Validation checks finite numbers, timestamp timezones, Amsterdam dates, 96 consecutive quarters and midnight boundaries. Missing tomorrow never blocks valid today. Failure of both sources reuses a complete matching cached day, preserving its successful-fetch timestamp. Without a matching cached day, an empty day is stored and validity is false; stale dates are never reused. DST days with 92/100 quarters remain unsupported and are rejected.
 
@@ -77,10 +77,13 @@ The current-price script also publishes two presentation-only Logic strings:
 | Variable | Purpose |
 | --- | --- |
 | Energie - Dashboardcategorie | VC/C/N/E/VE, derived from the same cached raw day prices |
-| Energie - Dashboardprijs | Formatted current price, daily average, category, source and quarter; or an explicit invalid-price warning |
+| Energie - Dashboardprijs | Source-first current price, daily average and category; or an explicit invalid-price warning |
 
-Category is written before the label. The label uses EUR/kWh, excluding taxes
-and fees. Categories keep the existing range/5 and mean-based thresholds; a
+Category is written before the label. The label uses all-in ct/kWh, matching the current EnergyDeck configuration:
+`(raw EUR/kWh * 100 + 9.161) * 1.21 + 2.0`. These presentation constants
+must be kept aligned with EnergyDeck tariff settings when those change. The
+source comes first (`⚠ Epex`) so narrow widgets retain the fallback warning.
+For example, 0.061 EUR/kWh becomes 20.5 ct/kWh; cached numeric prices remain raw. Categories keep the existing range/5 and mean-based thresholds; a
 flat-price day is neutral. Invalid data shows no old numerical price and uses
 the neutral dashboard branch. Neither field changes legacy Sessy control values.
 

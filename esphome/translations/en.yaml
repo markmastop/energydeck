@@ -117,3 +117,8 @@ rain_now: "Rain now"
 temperature_trend_unknown: "In 3 hours --°"
 temperature_trend_format: "In 3 hours %.1f°"
 tomorrow_unavailable: "Tomorrow - not available"
+
+price_source_homey: "Source: Homey"
+price_source_epex: "Source: EpexPrijzen.nl (fallback)"
+price_source_unknown: "Source: unknown"
+price_source_unavailable: "Source: no valid prices"

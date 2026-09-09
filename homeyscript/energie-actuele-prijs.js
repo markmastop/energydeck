@@ -9,6 +9,20 @@ async function set(name, value) {
   if (old) await Homey.logic.updateVariable({id: old.id, variable: {value}});
   else await Homey.logic.createVariable({variable: {name, type: typeof value, value}});
 }
+// Dashboard-only values: do not change the legacy Sessy control variables.
+async function publishDashboard(ok, value, mean, values, sourceName, interval, reason) {
+  let category = 'N';
+  let label = '⚠ Geen geldige prijzen | ' + reason;
+  if (ok) {
+    const step = (Math.max(...values) - Math.min(...values)) / 5;
+    const normal = mean + 0.5 * step;
+    category = step === 0 ? 'N' : value <= normal - 2 * step ? 'VC' : value <= normal - step ? 'C' : value <= normal ? 'N' : value <= normal + step ? 'E' : 'VE';
+    const euro = n => n.toFixed(4).replace('.', ',');
+    label = '€ ' + euro(value) + '/kWh | gem. € ' + euro(mean) + ' | ' + category + ' | ' + sourceName + ' | ' + interval;
+  }
+  await set('Energie - Dashboardcategorie', category);
+  await set('Energie - Dashboardprijs', label);
+}
 const now = new Date();
 const fmt = new Intl.DateTimeFormat('en-GB', {timeZone: 'Europe/Amsterdam', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'});
 function parts(d) { return Object.fromEntries(fmt.formatToParts(d).map(p => [p.type, p.value])); }
@@ -37,6 +51,7 @@ if (!valid) await set('Energie - Goedkoopste 7 uren', false);
 if (!valid) {
   await set('Energie - Prijsstatus', problem);
   await set('Energie - Prijsinterval', 'Geen geldig interval');
+  await publishDashboard(false, 0, 0, [], '', '', problem);
   // Publish only after all invalidation flags are written.
   await set('Energie - Prijsupdate', JSON.stringify({day, valid: false}));
   return {ok: false, reason: problem};
@@ -53,6 +68,7 @@ await set('Energie - Goedkoopste 7 uren', top7);
 await set('Energie - Prijsstatus', 'Geldig | ' + source + (data.warnings?.some(w => w.includes(day + ': eerder opgeslagen')) ? ' | bewaarde dagprijzen' : ''));
 await set('Energie - Prijzen geldig', true);
 await set('Energie - Prijsinterval', day + ' ' + p.hour + ':' + String(Math.floor(Number(p.minute)/15)*15).padStart(2,'0'));
+await publishDashboard(true, prices[quarter], prices.reduce((a,b) => a+b, 0) / 96, prices, source, p.hour + ':' + String(Math.floor(Number(p.minute)/15)*15).padStart(2,'0'), '');
 // Stable completion signal: also changes for corrected prices/rankings within a quarter.
 await set('Energie - Prijsupdate', JSON.stringify({day, quarter, valid: true, price: prices[quarter], cheapest3Hours: top3, cheapest7Hours: top7}));
 return {ok: true, day, quarter, source, marketPrice: prices[quarter], cheapest3Hours: top3, cheapest7Hours: top7};

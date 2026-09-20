@@ -40,6 +40,7 @@ music_failed: "Geen start"
 music_offline: "Offline"
 music_volume_unknown: "Volume  --"
 music_volume_format: "Woonkamer %s  |  Keuken %s"
+music_volume_side_format: 'Woonkamer %s\nKeuken %s'
 music_button_wait: "Wachten"
 prices_unavailable: "Prijs niet beschikbaar"
 prices_stale: "Prijzen ontbreken of zijn verouderd"

@@ -61,9 +61,9 @@ interval:
             lv_obj_set_pos(icon, 198, 10);
             lv_obj_clear_flag(icon, LV_OBJ_FLAG_CLICKABLE);
           }
-          // Reuse the decoded 160px cover at 62px without another download.
+          // Reuse the larger cover; the download callback fits its decoded size.
           lv_image_set_pivot(id(small_music_cover_widget), 0, 0);
-          lv_image_set_scale(id(small_music_cover_widget), 99);
+          lv_image_set_scale(id(small_music_cover_widget), 58);
           aligned = true;
 
 lvgl:

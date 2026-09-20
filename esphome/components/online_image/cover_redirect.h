@@ -4,7 +4,7 @@
 namespace esphome::online_image {
 inline std::string compatible_cover_url(const std::string &url) {
   // TuneIn's large cached RADIONL image can be progressive. Its verified 300px
-  // variant is baseline JPEG and sufficient for both the player and thumbnails.
+  // variant limits progressive decoder memory and suffices for both views.
   const std::string large = "https://cdn-profiles.tunein.com/s106736/images/logog.jpg";
   if (url == large || url.rfind(large + "?", 0) == 0)
     return "https://cdn-profiles.tunein.com/s106736/images/logod.jpg";

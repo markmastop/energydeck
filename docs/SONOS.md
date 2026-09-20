@@ -172,9 +172,13 @@ and the observed Spotify hosts `i.scdn.co`, `image-cdn-ak.spotifycdn.com`,
 `image-cdn-fa.spotifycdn.com`, `seed-mix-image.spotifycdn.com` are permitted.
 No music service login or Homey authorization is sent with these requests.
 
-RADIONL's TuneIn redirect uses the verified 300×300 `logod.jpg` variant instead
-of `logog.jpg`, whose cached response can be progressive JPEG. The baseline
-variant works with the embedded decoder and applies to both player and favorites.
+RADIONL's TuneIn redirect uses the 300×300 `logod.jpg` variant instead of the
+600px `logog.jpg` to reduce decoding memory. Either may be delivered as progressive
+JPEG by the CDN. Ordinary JPEGs use JPEGDEC; progressive files automatically use
+the bounded stb_image fallback for both player and favorites. Limits are 640px
+per side, 400,000 pixels, 512 KiB input and 4 MiB decoder allocations in PSRAM.
+Failure leaves the existing icon rather than an incomplete image. Hardware
+decoding latency remains to be checked after a separately authorized upload.
 
 Run `node scripts/test-music-controls.cjs` for the actual C++ model's offline
 tests: XML/entity handling, malformed replies, URL restrictions, coordinator

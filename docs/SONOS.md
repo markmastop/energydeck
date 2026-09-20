@@ -154,6 +154,10 @@ on ESP-IDF with bounded size/time; see its README.
 
 ## Validation
 
+Transport capabilities are parsed as exact comma-separated names with surrounding
+whitespace trimmed. Both `Next,Previous` and Sonos' `Next, Previous` enable skip
+controls; unavailable actions and partial names remain disabled.
+
 Favorites use three columns of 146×44 px tiles (4 px gaps), a 32×32 cover and
 two-line ellipsized 12 px text. Borderless tiles retain a full touch target.
 Artwork is read from the favorite or embedded metadata. Visible tiles load one

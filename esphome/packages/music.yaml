@@ -115,6 +115,7 @@ script:
           lv_obj_set_parent(id(shared_energy_header), id(sonos_page)->obj);
           lv_obj_set_pos(id(shared_energy_header), 0, 0);
       - lvgl.page.show: sonos_page
+      - script.execute: render_sonos_energy_header
       - script.execute: render_music
       - if:
           condition:
@@ -130,7 +131,45 @@ script:
           lv_obj_set_parent(id(shared_energy_header), id(energydeck_main_page)->obj);
           lv_obj_set_pos(id(shared_energy_header), 0, 0);
       - lvgl.page.show: energydeck_main_page
+      - script.execute: render_sonos_energy_header
       - script.execute: select_detail_tab
+
+  # Reuse live dashboard widgets and colors; changing pages adds no requests.
+  - id: render_sonos_energy_header
+    then:
+      - lambda: |-
+          const bool detail = id(music_page_open);
+          for (auto *widget : {id(electricity_today_arc), id(electricity_today_value_label),
+              id(electricity_today_unit_label), id(electricity_ytd_label)}) {
+            if (detail) lv_obj_add_flag(widget, LV_OBJ_FLAG_HIDDEN);
+            else lv_obj_clear_flag(widget, LV_OBJ_FLAG_HIDDEN);
+          }
+          const int shift = detail ? -76 : 0;
+          lv_obj_set_x(id(solar_now_arc), 402 + shift);
+          lv_obj_set_x(id(solar_now_value_label), 407 + shift);
+          lv_obj_set_x(id(solar_now_unit_label), 420 + shift);
+          lv_obj_set_x(id(solar_today_label), 390 + shift);
+          if (!detail) {
+            lv_obj_add_flag(id(sonos_battery_gauge), LV_OBJ_FLAG_HIDDEN);
+            return;
+          }
+          lv_obj_clear_flag(id(sonos_battery_gauge), LV_OBJ_FLAG_HIDDEN);
+          const std::string status = lv_label_get_text(id(battery_status_label));
+          const auto separator = status.find(" | ");
+          const bool known = separator != std::string::npos;
+          std::string percentage = known ? lv_label_get_text(id(battery_percentage_label)) : "--";
+          const auto percent = percentage.find('%');
+          if (percent != std::string::npos) percentage.resize(percent);
+          lv_label_set_text(id(sonos_battery_value), percentage.c_str());
+          lv_arc_set_value(id(sonos_battery_arc), known ? lv_bar_get_value(id(battery_level_bar)) : 0);
+          const auto level_color = known ? lv_obj_get_style_bg_color(id(battery_level_bar), LV_PART_INDICATOR) : lv_color_hex(0xA9B8AE);
+          const auto state_color = lv_obj_get_style_text_color(id(battery_status_label), LV_PART_MAIN);
+          lv_obj_set_style_arc_color(id(sonos_battery_arc), level_color, LV_PART_INDICATOR);
+          lv_obj_set_style_text_color(id(sonos_battery_unit), level_color, 0);
+          lv_label_set_text(id(sonos_battery_power), known ? status.substr(separator + 3).c_str() : "-- W");
+          lv_label_set_text(id(sonos_battery_state), known ? status.substr(0, separator).c_str() : status.c_str());
+          lv_obj_set_style_text_color(id(sonos_battery_power), state_color, 0);
+          lv_obj_set_style_text_color(id(sonos_battery_state), state_color, 0);
 
   # Read-only polls and explicitly clicked commands share one serialized queue.
   - id: sonos_requests

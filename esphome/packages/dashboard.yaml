@@ -3,6 +3,7 @@
 interval:
   - interval: 1s
     then:
+      - script.execute: render_sonos_energy_header
       - lambda: |-
           // ESPHome's button text shorthand creates an unaligned child label.
           // Initialize after LVGL setup; alignment persists across text updates.
@@ -168,6 +169,7 @@ lvgl:
                   text: "${energy_today_value}"
                   text_font: montserrat_18
               - label:
+                  id: electricity_today_unit_label
                   x: 344
                   y: 83
                   text: "kWh"
@@ -261,6 +263,7 @@ lvgl:
                   text: "0.0"
                   text_font: montserrat_18
               - label:
+                  id: solar_now_unit_label
                   x: 420
                   y: 83
                   text: "kW"
@@ -274,6 +277,69 @@ lvgl:
                   text: "${solar_today}"
                   text_font: montserrat_12
                   text_color: 0xA9B8AE
+
+              - obj:
+                  id: sonos_battery_gauge
+                  hidden: true
+                  x: 390
+                  y: 40
+                  width: 90
+                  height: 108
+                  pad_all: 0
+                  border_width: 0
+                  bg_opa: TRANSP
+                  text_color: 0xEEF6F0
+                  scrollable: false
+                  widgets:
+                    - arc:
+                        id: sonos_battery_arc
+                        x: 12
+                        y: 2
+                        width: 66
+                        height: 66
+                        value: 0
+                        adjustable: false
+                        arc_width: 7
+                        arc_color: 0x303A33
+                        indicator:
+                          arc_width: 7
+                          arc_color: 0x45BD70
+                        knob:
+                          bg_opa: TRANSP
+                    - label:
+                        id: sonos_battery_value
+                        x: 17
+                        y: 21
+                        width: 56
+                        text: "--"
+                        text_align: CENTER
+                        text_font: montserrat_18
+                    - label:
+                        id: sonos_battery_unit
+                        x: 17
+                        y: 43
+                        width: 56
+                        text: "%"
+                        text_align: CENTER
+                    - label:
+                        id: sonos_battery_power
+                        x: 0
+                        y: 71
+                        width: 90
+                        height: 16
+                        text: "-- W"
+                        text_align: CENTER
+                        text_font: montserrat_12
+                    - label:
+                        id: sonos_battery_state
+                        x: 0
+                        y: 88
+                        width: 90
+                        height: 16
+                        text: ""
+                        long_mode: DOT
+                        text_align: CENTER
+                        text_font: montserrat_10
 
         - button:
             id: today_prices_button

@@ -79,18 +79,24 @@ image:
         - lvgl.image.update:
             id: music_cover_widget
             src: music_cover
+        - lvgl.image.update:
+            id: small_music_cover_widget
+            src: music_cover
         - lambda: |-
             id(music_cover_downloading) = false;
-            if (!id(music_cover_key).empty() && id(music_cover_key) == id(music_cover_requested))
-              lv_obj_clear_flag(id(music_cover_widget), LV_OBJ_FLAG_HIDDEN);
-            else
-              lv_obj_add_flag(id(music_cover_widget), LV_OBJ_FLAG_HIDDEN);
+            for (auto *cover : {id(music_cover_widget), id(small_music_cover_widget)}) {
+              if (!id(music_cover_key).empty() && id(music_cover_key) == id(music_cover_requested))
+                lv_obj_clear_flag(cover, LV_OBJ_FLAG_HIDDEN);
+              else
+                lv_obj_add_flag(cover, LV_OBJ_FLAG_HIDDEN);
+            }
     on_error:
       then:
         - lambda: |-
             id(music_cover_downloading) = false;
             id(music_cover_requested).clear();
             lv_obj_add_flag(id(music_cover_widget), LV_OBJ_FLAG_HIDDEN);
+            lv_obj_add_flag(id(small_music_cover_widget), LV_OBJ_FLAG_HIDDEN);
 
 script:
   - id: open_music_page
@@ -211,17 +217,22 @@ script:
   - id: refresh_music_cover
     then:
       - lambda: |-
-          if (!id(music_page_open)) return;
+          if (!id(music_page_open) && id(detail_tab) != 1) return;
           const auto &room = id(sonos).current();
           const std::string path = room.known() && room.playing && !room.tv ? room.cover : "";
           const std::string key = path.empty() ? "" :
             path + "|" + room.title + "|" + room.artist + "|" + std::to_string(millis() / 60000);
-          if (key != id(music_cover_key))
+          if (key != id(music_cover_key)) {
             lv_obj_add_flag(id(music_cover_widget), LV_OBJ_FLAG_HIDDEN);
+            lv_obj_add_flag(id(small_music_cover_widget), LV_OBJ_FLAG_HIDDEN);
+          }
           id(music_cover_key) = key;
           if (id(music_cover_downloading)) return;
           if (key == id(music_cover_requested)) {
-            if (!path.empty()) lv_obj_clear_flag(id(music_cover_widget), LV_OBJ_FLAG_HIDDEN);
+            if (!path.empty()) {
+              lv_obj_clear_flag(id(music_cover_widget), LV_OBJ_FLAG_HIDDEN);
+              lv_obj_clear_flag(id(small_music_cover_widget), LV_OBJ_FLAG_HIDDEN);
+            }
             return;
           }
           if (!path.empty()) {
@@ -235,10 +246,9 @@ script:
   - id: select_detail_tab
     then:
       - lambda: |-
-          if (id(detail_tab) == 1) id(detail_tab) = 0;
-          lv_obj_t *cards[] = {id(gas_card), id(extra_card)};
-          for (int i = 0; i < 2; ++i) {
-            if ((id(detail_tab) == 2) == (i == 1)) lv_obj_clear_flag(cards[i], LV_OBJ_FLAG_HIDDEN);
+          lv_obj_t *cards[] = {id(gas_card), id(music_card), id(extra_card)};
+          for (int i = 0; i < 3; ++i) {
+            if (id(detail_tab) == i) lv_obj_clear_flag(cards[i], LV_OBJ_FLAG_HIDDEN);
             else lv_obj_add_flag(cards[i], LV_OBJ_FLAG_HIDDEN);
           }
           lv_obj_t *tabs[] = {id(gas_tab), id(music_tab), id(extra_tab)};
@@ -250,6 +260,8 @@ script:
             lv_obj_set_style_border_color(tabs[i], lv_color_hex(active ? accents[i] : 0x34463C), 0);
             lv_obj_set_style_border_width(tabs[i], active ? 2 : 1, 0);
           }
+      - script.execute: render_music
+      - script.execute: refresh_music_cover
 
   - id: render_music
     then:
@@ -305,6 +317,24 @@ script:
           }
           if (waiting || id(music_favorites_loading)) lv_obj_add_state(id(music_favorites_refresh), LV_STATE_DISABLED);
           else lv_obj_clear_state(id(music_favorites_refresh), LV_STATE_DISABLED);
+          // Compact and full players share the same snapshot and command state.
+          const std::pair<lv_obj_t *, lv_obj_t *> labels[] = {
+            {id(small_music_title), id(music_title)}, {id(small_music_artist), id(music_artist)},
+            {id(small_music_status), id(music_status)}, {id(small_music_volume), id(music_volume)}
+          };
+          for (const auto &pair : labels) {
+            lv_label_set_text(pair.first, lv_label_get_text(pair.second));
+            lv_obj_set_style_text_color(pair.first, lv_obj_get_style_text_color(pair.second, LV_PART_MAIN), 0);
+          }
+          const std::pair<lv_obj_t *, lv_obj_t *> buttons[] = {
+            {id(small_music_room_select), id(music_room_select)}, {id(small_music_play), id(music_play)},
+            {id(small_music_minus), id(music_minus)}, {id(small_music_plus), id(music_plus)}
+          };
+          for (const auto &pair : buttons) {
+            lv_label_set_text(lv_obj_get_child(pair.first, 0), lv_label_get_text(lv_obj_get_child(pair.second, 0)));
+            if (lv_obj_has_state(pair.second, LV_STATE_DISABLED)) lv_obj_add_state(pair.first, LV_STATE_DISABLED);
+            else lv_obj_clear_state(pair.first, LV_STATE_DISABLED);
+          }
 
   - id: sonos_favorite_requests
     mode: single

@@ -1,8 +1,15 @@
 # Sonos: dedicated local player and favorites
 
-The dashboard's **Sonos** button opens a separate full-screen player. **Dashboard**
-returns to the previous Gas/Climate view. Playback changes never navigate between
-pages. Opening the page or changing the displayed room never starts music.
+The dashboard's right-hand **Sonos** button shows the compact player in the
+Gas/Climate card position, with the active tab highlighted green. Its **Page**
+button (**Pagina** in Dutch), replacing the former Radio button, opens the
+full-screen player. **Dashboard** returns to the compact Sonos card. Playback
+changes never navigate between pages. Opening either view or changing the
+displayed room never starts music or a Homey Flow.
+
+Both players share room selection, current title/artist, volume, waiting/error
+state and playback controls. The compact cover scales the same decoded image to
+62×62 pixels without another network request; the full page keeps its 160px cover.
 
 The compact live energy header stays at the top on both pages. Sonos starts at
 y=154, the top edge of the dashboard's Today/Tomorrow tabs. The same header widgets
@@ -103,7 +110,7 @@ coordinator or an absolute URL with that same origin; external artwork URLs are
 not fetched. Redirects remain disabled.
 
 JPEG covers are 160×160 pixels, beside one-line ellipsized title and artist.
-New cover downloads only start while the Sonos page is open.
+New cover downloads only start while either Sonos view is selected.
 Cover changes include URL, title, artist and a one-minute refresh bucket. Failed
 downloads retry on the next poll; late results cannot reveal the wrong cover
 after a room/source change. Missing/unsupported artwork uses the music-note

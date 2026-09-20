@@ -73,7 +73,6 @@ struct pngle_t { void *user; void (*done)(pngle_t*) = nullptr; };
 void pngle_set_done_callback(pngle_t *p, void (*cb)(pngle_t*)) { p->done = cb; }
 void *pngle_get_user_data(pngle_t *p) { return p->user; }
 namespace runtime_image {
-constexpr int JPEG = 1;
 struct PngDecoder {
   static bool fail;
   pngle_t png{this}, *pngle_ = &png;
@@ -85,9 +84,7 @@ struct PngDecoder {
 bool PngDecoder::fail = false;
 }
 ${cpp.slice(decoderStart, decoderEnd)}
-using FallbackJpegDecoder = runtime_image::PngDecoder;
 struct Image {
-  int get_format() const { return runtime_image::JPEG; }
   bool png_response_ = false;
   size_t total_size_ = 0, decoded_bytes_ = 42;
   int jpeg_calls = 0;
@@ -127,8 +124,7 @@ int main() {
   assert(chunked.select(0) && chunked.total_size_ == 0);
   runtime_image::PngDecoder::fail = true;
   assert(!chunked.select(0));
-  runtime_image::PngDecoder::fail = false;
-  Image jpeg; assert(jpeg.select(100) && jpeg.decoder_ && jpeg.total_size_ == 100);
+  Image jpeg; assert(jpeg.select(100) && jpeg.jpeg_calls == 1 && !jpeg.decoder_);
 }
 `;
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'energydeck-cover-formats-'));

@@ -144,11 +144,7 @@ script:
             if (detail) lv_obj_add_flag(widget, LV_OBJ_FLAG_HIDDEN);
             else lv_obj_clear_flag(widget, LV_OBJ_FLAG_HIDDEN);
           }
-          const int shift = detail ? -76 : 0;
-          lv_obj_set_x(id(solar_now_arc), 402 + shift);
-          lv_obj_set_x(id(solar_now_value_label), 407 + shift);
-          lv_obj_set_x(id(solar_now_unit_label), 420 + shift);
-          lv_obj_set_x(id(solar_today_label), 390 + shift);
+          // Solar stays in its familiar right-hand position on both pages.
           if (!detail) {
             lv_obj_add_flag(id(sonos_battery_gauge), LV_OBJ_FLAG_HIDDEN);
             return;

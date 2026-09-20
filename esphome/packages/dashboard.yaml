@@ -281,7 +281,7 @@ lvgl:
               - obj:
                   id: sonos_battery_gauge
                   hidden: true
-                  x: 390
+                  x: 314
                   y: 40
                   width: 90
                   height: 108

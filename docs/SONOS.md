@@ -14,12 +14,12 @@ state and playback controls. The compact cover scales the same decoded image to
 The compact live energy header stays at the top on both pages. Sonos starts at
 y=154, the top edge of the dashboard's Today/Tomorrow tabs. The same header widgets
 are moved between pages, so clock, price and gauges retain their normal updates.
-On Sonos Detail the gauges show current grid power (left), solar power/yield
-(middle), and battery percentage, power and charging/discharging status (right).
+On Sonos Detail the gauges show current grid power (left), battery percentage,
+power and charging/discharging status (middle), and solar power/yield (right).
 The battery arc copies the main battery bar's low/medium/high charge colors;
 its status/power copy the charging/discharging/standby text colors. Unavailable
-battery data shows dashes. Returning restores the original daily-energy gauge
-and right-hand solar gauge. This is display-only, with no extra polling.
+battery data shows dashes. Returning restores the original daily-energy gauge;
+solar stays on the right on both pages. This is display-only, with no extra polling.
 
 The page has a 272×272 cover, ellipsized title/artist, room selector, playback,
 skip, volume and mute controls, plus a scrollable two-column favorites grid.

@@ -1,8 +1,8 @@
 # Sonos: dedicated local player and favorites
 
 The dashboard's right-hand **Sonos** button shows the compact player in the
-Gas/Climate card position, with the active tab highlighted green. Its **Page**
-button (**Pagina** in Dutch), replacing the former Radio button, opens the
+Gas/Climate card position, with the active tab highlighted green. Its **Detail**
+button, replacing the former Radio button, opens the
 full-screen player. **Dashboard** returns to the compact Sonos card. Playback
 changes never navigate between pages. Opening either view or changing the
 displayed room never starts music or a Homey Flow.

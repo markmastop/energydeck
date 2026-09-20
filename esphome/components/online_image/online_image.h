@@ -7,6 +7,7 @@
 #include "esphome/core/component.h"
 #include "esphome/core/defines.h"
 #include "esphome/core/helpers.h"
+#include "favorite_artwork.h"
 #ifdef USE_LVGL
 #include "src/misc/cache/instance/lv_image_cache.h"
 #endif

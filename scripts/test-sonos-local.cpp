@@ -134,17 +134,29 @@ void test_controls() {
 Favorite favorite(bool radio = false, std::string id = "FV:2/1") {
   const std::string cls = radio ? "object.item.audioItem.audioBroadcast" : "object.container.playlistContainer";
   return {id, "Rock & Soul", radio ? "x-sonosapi-stream:radio?sid=1&flags=2" : "x-rincon-cpcontainer:playlist?sid=9&flags=2",
-    "<DIDL-Lite><item><upnp:class>" + cls + "</upnp:class><dc:title>Rock &amp; Soul</dc:title></item></DIDL-Lite>", radio};
+    "<DIDL-Lite><item><upnp:class>" + cls + "</upnp:class><dc:title>Rock &amp; Soul</dc:title></item></DIDL-Lite>", radio, ""};
 }
 std::string favorite_page(const std::vector<Favorite> &items, int total, std::string version = "1") {
   std::string didl = "<DIDL-Lite>";
   for (const auto &f : items) didl += "<item id=\"" + f.id + "\"><dc:title>" + escape(f.title) + "</dc:title><res>" + escape(f.uri) +
-    "</res><r:resMD>" + escape(f.metadata) + "</r:resMD></item>";
+    "</res><upnp:albumArtURI>" + escape(f.cover) + "</upnp:albumArtURI><r:resMD>" + escape(f.metadata) + "</r:resMD></item>";
   didl += "</DIDL-Lite>";
   return response("Browse", "<Result>" + escape(didl) + "</Result><NumberReturned>" + std::to_string(items.size()) +
     "</NumberReturned><TotalMatches>" + std::to_string(total) + "</TotalMatches><UpdateID>" + version + "</UpdateID>");
 }
 void test_favorites() {
+  {
+    Favorites covers; auto item = favorite(); item.cover = "https://i.scdn.co/image/abc";
+    covers.begin(kitchen); covers.accept(200, favorite_page({item}, 1));
+    assert(covers.items[0].cover == item.cover);
+    item.cover = "https://i.scdn.co.evil/image/abc";
+    covers.begin(kitchen); covers.accept(200, favorite_page({item}, 1));
+    assert(covers.items[0].cover.empty());
+    item.cover.clear();
+    item.metadata = "<item><class>object.container.playlistContainer</class><albumArtURI>https://image-cdn-ak.spotifycdn.com/image/test</albumArtURI></item>";
+    covers.begin(kitchen); covers.accept(200, favorite_page({item}, 1));
+    assert(covers.items[0].cover == "https://image-cdn-ak.spotifycdn.com/image/test");
+  }
   Favorites f; auto music = favorite(), radio = favorite(true,"FV:2/2"), pinned = favorite(false,"FV:2/3"); pinned.uri.clear();
   f.begin(kitchen); assert(f.request().action == "Browse" && f.request().url() == kitchen + "/MediaServer/ContentDirectory/Control");
   f.accept(200,favorite_page({music,radio,pinned},3));

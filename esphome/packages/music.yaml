@@ -73,9 +73,17 @@ image:
     resize: 272x272
     buffer_size: 8192
     update_interval: never
-    # No credentials: artwork comes from the local Sonos coordinator.
+    # No credentials: coordinator artwork or allowlisted Sonos HTTPS proxies.
     on_download_finished:
       then:
+        - lambda: |-
+            // Runtime buffers can reuse an address with different dimensions.
+            auto *descriptor = id(music_cover).get_lv_image_dsc();
+            lv_image_cache_drop(descriptor);
+            descriptor->header.w = id(music_cover).get_width();
+            descriptor->header.h = id(music_cover).get_height();
+            descriptor->header.stride = id(music_cover).get_width_stride();
+            descriptor->data_size = descriptor->header.stride * descriptor->header.h;
         - lvgl.image.update:
             id: music_cover_widget
             src: music_cover
@@ -280,6 +288,10 @@ script:
             return;
           }
           if (!path.empty()) {
+            // Detach both consumers before the decoder mutates its shared buffer.
+            lv_image_set_src(id(music_cover_widget), static_cast<const void *>(nullptr));
+            lv_image_set_src(id(small_music_cover_widget), static_cast<const void *>(nullptr));
+            lv_image_cache_drop(id(music_cover).get_lv_image_dsc());
             id(music_cover_requested) = key;
             id(music_cover_downloading) = true;
             id(music_cover).set_url(path);
@@ -395,7 +407,7 @@ script:
           // from reintroducing filled rectangles around secondary controls.
           const lv_state_t plain_states[] = {LV_STATE_DEFAULT, LV_STATE_DISABLED, LV_STATE_FOCUSED, LV_STATE_PRESSED,
             static_cast<lv_state_t>(LV_STATE_DISABLED | LV_STATE_FOCUSED)};
-          for (auto *button : {id(music_back), id(music_previous), id(music_next), id(music_minus), id(music_plus), id(music_mute)}) {
+          for (auto *button : {id(small_music_room_select), id(music_back), id(music_previous), id(music_next), id(music_minus), id(music_plus), id(music_mute)}) {
             const bool disabled = lv_obj_has_state(button, LV_STATE_DISABLED);
             for (auto state : plain_states) {
               lv_obj_set_style_bg_opa(button, LV_OPA_TRANSP, state);

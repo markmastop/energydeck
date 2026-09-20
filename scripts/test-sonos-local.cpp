@@ -21,6 +21,7 @@ std::string topology(bool grouped, bool living_leader = false, bool missing_livi
     "<ZoneGroup Coordinator=\"" + lid + "\">" + l + "</ZoneGroup><ZoneGroup Coordinator=\"" + kid + "\">" + k + "</ZoneGroup>") + "</ZoneGroups>";
 }
 struct Fixture {
+  bool radio = false;
   bool grouped = true, living_leader = false, missing_living = false, all_fail = false;
   bool live[2] = {true,true}, tv[2] = {false,false}, fail[2] = {false,false};
   int volume[2] = {5,7};
@@ -39,6 +40,8 @@ int poll(State &s, const Fixture &f) {
     if(q.action == "GetMediaInfo") body = std::string("<CurrentURI>") + (f.tv[i] ? "x-sonos-htastream:RINCON_foo:spdif" : "x-rincon-queue:foo#0") + "</CurrentURI>";
     if(q.action == "GetPositionInfo") body = "<TrackMetaData>" + escape("<DIDL-Lite><item><dc:title>" + escape(f.title[i]) +
       "</dc:title><dc:creator>Artist &amp; guest</dc:creator><upnp:albumArtURI>/getaa?s=1&amp;u=track</upnp:albumArtURI></item></DIDL-Lite>") + "</TrackMetaData>";
+    if (f.radio && q.action == "GetMediaInfo") body += "<CurrentURIMetaData>" + escape("<item><title>Qmusic</title><albumArtURI>https://sali.sonos.superhi.fi/image?w=60&amp;image=logo.png</albumArtURI></item>") + "</CurrentURIMetaData>";
+    if (f.radio && q.action == "GetPositionInfo") body = "<TrackMetaData>" + escape("<item><title>stream.mp3?secret=hidden</title><streamContent>Song - Artist</streamContent></item>") + "</TrackMetaData>";
     if(q.action == "GetVolume") body = "<CurrentVolume>" + std::to_string(f.volume[i]) + "</CurrentVolume>";
     if(q.action == "GetMute") body = "<CurrentMute>0</CurrentMute>";
     if(q.action == "GetCurrentTransportActions") body = "<Actions>Play,Pause,Next,Previous</Actions>";
@@ -47,6 +50,13 @@ int poll(State &s, const Fixture &f) {
   s.finish(); return requests;
 }
 void test_xml() {
+  assert(artwork_url("https://sali.sonos.superhi.fi/image?x=1", living) == "https://sali.sonos.superhi.fi/image?x=1");
+  for (auto url : {"https://sali.sonos.superhi.fi.evil/image", "https://sali.sonos.radio@evil/image", "http://sali.sonos.radio/image", "//evil/image"}) assert(artwork_url(url, living).empty());
+  State radio; Fixture fixture; fixture.radio = true; poll(radio, fixture);
+  assert(radio.current().artist == "Qmusic" && radio.current().title == "Song - Artist");
+  assert(radio.current().cover == "https://sali.sonos.superhi.fi/image?w=60&image=logo.png");
+  fixture.radio = false; poll(radio, fixture);
+  assert(radio.current().cover == kitchen + "/getaa?s=1&u=track");
   assert(unescape("A &amp; B &lt;3 &#233; &#x1F3B5;") == "A & B <3 é 🎵");
   assert(unescape("&amp;lt;") == "&lt;");
   assert(Xml("<root a='x&gt;y'><ns:title><![CDATA[A < B]]></ns:title></root>").text("title") == "A < B");

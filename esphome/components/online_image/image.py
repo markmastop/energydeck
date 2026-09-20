@@ -111,6 +111,8 @@ _CALLBACK_AUTOMATIONS = (
 
 
 async def setup_online_image(config: ConfigType) -> None:
+    # Radio proxies can serve PNG even when the track artwork is JPEG.
+    runtime_image.enable_format("PNG")
     # Use the enhanced helper function to get all runtime image parameters
     settings = await runtime_image.process_runtime_image_config(config)
     add_metadata(

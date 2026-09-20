@@ -7,6 +7,9 @@
 #include "esphome/core/component.h"
 #include "esphome/core/defines.h"
 #include "esphome/core/helpers.h"
+#ifdef USE_LVGL
+#include "src/misc/cache/instance/lv_image_cache.h"
+#endif
 
 namespace esphome::online_image {
 
@@ -44,6 +47,7 @@ class OnlineImage final : public PollingComponent,
 
   void update() override;
   void loop() override;
+  runtime_image::ImageFormat get_format() const { return png_response_ ? runtime_image::PNG : RuntimeImage::get_format(); }
 
   /** Set the URL to download the image from. */
   void set_url(const std::string &url) {
@@ -73,6 +77,7 @@ class OnlineImage final : public PollingComponent,
   }
 
  protected:
+  bool png_response_{false};
   bool validate_url_(const std::string &url);
   void end_connection_();
 

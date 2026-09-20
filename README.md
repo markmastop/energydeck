@@ -14,8 +14,9 @@ The dashboard is designed to show:
 - live go-eCharger connection, charging and completion status;
 - a button that starts the existing Homey EV charging Flow;
 - a [direct local Sonos player](docs/SONOS.md) for Woonkamer and Keuken,
-  on a dedicated page, following room/group changes and prioritizing music over
-  TV, with favorites and playback controls directly from Sonos (no Homey Flow).
+  in a compact dashboard card and on a dedicated page, following room/group
+  changes and prioritizing music over TV, with favorites and playback controls
+  directly from Sonos (no Homey Flow).
 
 ## Status
 

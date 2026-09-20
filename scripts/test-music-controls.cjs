@@ -22,4 +22,19 @@ try {
   const page = fs.readFileSync(path.join(__dirname, '../esphome/packages/sonos-page.yaml'), 'utf8');
   if (!/id: music_back\s+x: 14\s+y: 154/.test(page))
     throw new Error('Sonos must start at the top of the energy tabs');
+  const dashboard = fs.readFileSync(path.join(__dirname, '../esphome/packages/dashboard.yaml'), 'utf8');
+  const tab = dashboard.split('id: music_tab\n')[1].split('        - button:')[0];
+  if (!tab.includes('id(detail_tab) = 1') || !tab.includes('script.execute: select_detail_tab') || tab.includes('open_music_page'))
+    throw new Error('Right Sonos tab must select the compact card, not navigate');
+  const openPage = dashboard.split('id: music_page_button\n')[1].split('              - obj:')[0];
+  if (!openPage.includes('${music_open_page}') || !openPage.includes('script.execute: open_music_page') || openPage.includes('start_radio'))
+    throw new Error('Compact Page button must only open the full player');
+  if (!music.includes('{id(gas_card), id(music_card), id(extra_card)}') || music.includes('if (id(detail_tab) == 1) id(detail_tab) = 0'))
+    throw new Error('Returning from the full page must preserve the compact Sonos tab');
+  for (const widget of ['title', 'artist', 'volume', 'status', 'play', 'minus', 'plus', 'room_select']) {
+    if (!music.includes(`{id(small_music_${widget}), id(music_${widget})}`))
+      throw new Error(`Compact ${widget} must share the full player state`);
+  }
+  if (!music.includes('if (!id(music_page_open) && id(detail_tab) != 1) return;'))
+    throw new Error('Artwork must refresh for both Sonos views');
 } finally { fs.rmSync(temp, {recursive: true, force: true}); }

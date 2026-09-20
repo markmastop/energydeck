@@ -6,7 +6,7 @@ from esphome.components.http_request import CONF_HTTP_REQUEST_ID, HttpRequestCom
 from esphome.components.image import CONF_TRANSPARENCY, add_metadata
 import esphome.config_validation as cv
 from esphome.const import CONF_BUFFER_SIZE, CONF_ID, CONF_ON_ERROR, CONF_TYPE, CONF_URL
-from esphome.core import Lambda
+from esphome.core import CORE, Lambda
 from esphome.types import ConfigType
 
 AUTO_LOAD = ["runtime_image"]
@@ -111,6 +111,12 @@ _CALLBACK_AUTOMATIONS = (
 
 
 async def setup_online_image(config: ConfigType) -> None:
+    if "lvgl" in CORE.config:
+        from esphome.components.lvgl import defines as lv_defines
+
+        # LVGL 9's RGB565 scaling path also requires its alpha-capable renderer,
+        # even for opaque covers. Register before LVGL writes lv_conf.h.
+        lv_defines.add_define("LV_DRAW_SW_SUPPORT_RGB565A8", "1")
     # Radio proxies can serve PNG even when the track artwork is JPEG.
     runtime_image.enable_format("PNG")
     # Use the enhanced helper function to get all runtime image parameters

@@ -71,6 +71,9 @@ try {
   execFileSync('c++', ['-std=c++17', '-Wall', '-Wextra', '-Werror', path.join(dir, 'test.cpp'), '-o', path.join(dir, 'test')]);
   execFileSync(path.join(dir, 'test'));
   const yaml = fs.readFileSync(path.join(root, 'esphome/packages/music.yaml'), 'utf8');
+  const schema = fs.readFileSync(path.join(root, 'esphome/components/online_image/image.py'), 'utf8');
+  if (!schema.includes('lv_defines.add_define("LV_DRAW_SW_SUPPORT_RGB565A8", "1")'))
+    throw new Error('Opaque RGB565 cover scaling requires RGB565A8 renderer support');
   if (!cpp.includes('this->parent_->get(target, std::vector<http_request::Header>{},')) throw new Error('Redirect must not forward request headers');
   for (const fragment of ['descriptor->header.stride =', 'lv_image_cache_drop(descriptor)',
     'lv_image_set_src(id(music_cover_widget), static_cast<const void *>(nullptr))',

@@ -9,7 +9,7 @@ interval:
           static bool aligned = false;
           if (aligned) return;
           lv_obj_t *buttons[] = {id(force_charge_button), id(radio_button),
-            id(music_minus), id(music_plus), id(music_play),
+            id(music_minus), id(music_plus), id(music_play), id(music_room_select),
             id(gas_tab), id(music_tab), id(extra_tab),
             id(today_prices_button), id(tomorrow_prices_button)};
           for (auto *button : buttons) {
@@ -1625,12 +1625,22 @@ lvgl:
             pad_all: 0
             scrollable: false
             widgets:
-              - label:
-                  x: 16
-                  y: 12
+              - button:
+                  id: music_room_select
+                  x: 10
+                  y: 3
+                  width: 184
+                  height: 30
+                  radius: 6
+                  pad_all: 0
+                  bg_color: 0x0F1712
+                  border_width: 0
+                  shadow_width: 0
                   text: "${music_rooms}"
                   text_font: montserrat_12
                   text_color: 0xEEF6F0
+                  on_click:
+                    - script.execute: switch_music_room
               - label:
                   id: music_status
                   x: 201

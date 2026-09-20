@@ -12,7 +12,10 @@ The dashboard is designed to show:
 - Sessy state of charge, charging direction and power;
 - gas consumption from HomeWizard;
 - live go-eCharger connection, charging and completion status;
-- a button that starts the existing Homey EV charging Flow.
+- a button that starts the existing Homey EV charging Flow;
+- a [direct local Sonos player](docs/SONOS.md) for Woonkamer and Keuken,
+  following room/group changes and prioritizing music over TV; Radio still
+  starts the existing Homey Flow.
 
 ## Status
 

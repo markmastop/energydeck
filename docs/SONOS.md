@@ -1,75 +1,108 @@
-# Sonos preview
+# Sonos: direct local playback state
 
-The music tab is labelled **Sonos**. The **Radio** button inside that card
-starts the existing Homey Flow; selecting the Sonos tab only opens the card.
+The **Sonos** tab opens the player. The green **Radio** button still starts the
+existing Homey Advanced Flow **Sonos - Beneden RadioNL**. Homey remains responsible
+for station choice, power-switch checks, starting volume and grouping. Opening a
+tab or changing the displayed room never starts music.
 
-When either speaker starts playing, the Sonos tab is selected automatically,
-including playback already active at startup. Subsequent polling respects manual
-tab selection. Only confirmed stopped playback in both rooms resets detection;
-temporary connection failures cannot cause repeated automatic switching.
-When both speakers are confirmed stopped or paused, an active Sonos card returns
-to Gas. A manually selected Extra or Gas tab remains unchanged. Missing data
-does not count as stopped playback.
+## Why not read playback metadata from Homey?
 
-The detail area has three mutually exclusive cards selected by the right-hand
-tabs: Gas (pink), Radio (green), and Extra (blue placeholder). Gas is selected
-at startup. Only the active tab has a coloured background and a thicker accent
-border; inactive tabs remain dark. Polling does not change the selected tab.
-The player displays small JPEG album artwork supplied by Homey, with a
-code-drawn music-note fallback. Artwork is 62 by 62 pixels. Title, artist and
-room volumes share the same left alignment to its right, above the controls.
-Title and artist each have a fixed one-line height and ellipsis overflow,
-preventing long metadata from overlapping adjacent rows.
+A simultaneous read on 2026-09-20 found that Homey's cloud Sonos devices still
+reported John Mayer — Slow Dancing in a Burning Room, last updated 27 minutes
+earlier, while the local group coordinator reported Eric Clapton — Wonderful
+Tonight. More frequent Homey reads cannot repair that stale source.
 
-The local online_image component fixes chunked JPEG downloads on ESP-IDF.
-It waits for the complete file before decoding and explicitly finalizes it;
-see esphome/components/online_image/README.md for bounds and upstream version.
+EnergyDeck now polls Sonos locally every **10 seconds** (formerly Homey every
+30 seconds). It reads ZoneGroupTopology first, then transport state, media source
+and track metadata from each distinct coordinator, and volume from each room.
+Requests are sequential with an 80 ms yield for the UI. A slow cycle is not
+overlapped. Failed/truncated replies show offline/missing data instead of silently
+falling back to stale Homey titles.
 
-The **Radio** button inside the Radio card links to the existing Advanced Flow
-**Sonos - Beneden RadioNL**. The display never selects a station or groups
-speakers itself: change the favourite, startup volume, power-switch checks and
-grouping in that same Homey Flow without rebuilding the firmware. Recreating
-the Flow gives it a new ID and requires updating homey_radio_flow_id in
-esphome/packages/music.yaml.
+This uses the speakers' local UPnP/SOAP interface, not the Sonos cloud Control API
+or its OAuth credentials. It was checked against the service descriptions exposed
+by these speakers. Local firmware compatibility must be retested after major
+Sonos updates.
 
-Selecting a tab only changes the visible card and never starts music.
-Radio immediately displays a disabled waiting state. A successful HTTP response
-means the Flow was accepted, not that music has started. Fresh observations of
-both speakers playing clear the waiting state; after 90 seconds, or a request
-error, a retry message is shown. This does not verify station selection or
-group membership. A late successful playback update also clears an earlier
-timeout warning. The display does not retry the Flow automatically.
+## Rooms, groups and TV
 
-Woonkamer and Keuken are read sequentially every 30 seconds, with a 500 ms gap,
-and after a successful user request. The card shows title/artist from a playing
-speaker (Woonkamer takes priority), and each room's actual volume. Unavailable
-rooms show missing data rather than stale playback metadata.
+- Woonkamer and Keuken in the same group: one **Woonkamer + Keuken** card.
+  Metadata follows the actual coordinator, not a fixed preferred speaker.
+- Separate rooms: show the playing room; music takes priority over TV when both
+  are playing. If both play music, retain the current room.
+- Tap the room heading (with **>**) to switch rooms manually. That choice remains
+  while the selected room is playing; stopping or regrouping restores automatic
+  selection.
+- TV is detected from the coordinator's `x-sonos-htastream:` source. Show **TV**
+  and clear old song/artist/artwork. TV volume remains available; Pause/Play is
+  disabled because the TV controls its source.
+- A playback start opens Sonos automatically. Confirmed stopped playback in both
+  rooms returns an active Sonos card to Gas. Manual Gas/Climate choices are
+  respected during continuous playback. Missing data does not count as stopped.
 
-Validation: simulator compilation and whitespace checks. The real Flow is
-intentionally not triggered by automated checks. Review the layout and test
-Radio manually in the simulator. No physical-device upload is included.
+Pause/Play goes directly to the selected room's coordinator. Minus/plus adjust
+the displayed room by two percentage points, clamped to 0–100. For the combined
+Woonkamer/Keuken group, both configured rooms are adjusted, preserving their
+volume offset except at the bounds. Other household rooms are not volume targets.
+Playback controls inherently affect the coordinator's actual group, so avoid
+adding unrelated rooms if they should remain unaffected by Pause/Play.
 
-## Playback and volume
+Commands are only created after a user click. The displayed target is captured,
+fresh topology/volume is read, and a changed group scope cancels the command.
+Controls are disabled during requests and unavailable data; read-back verifies
+the result. There is no automatic command retry and mute state is unchanged.
 
-The separate Pause/Play button writes speaker_playing for both configured rooms.
-The minus/plus buttons adjust each room's volume by two percentage points,
-bounded to 0–100%, preserving the existing offset except at those boundaries.
-Controls refresh both rooms before calculating their targets, serialize writes,
-disable during processing, and read the status back afterwards. Missing data or
-failed/unconfirmed requests show a compact warning rather than claiming success.
-Volume buttons do not change mute state. No grouping is performed by these
-controls; the Radio Flow remains responsible for establishing the intended group.
+Radio shows Waiting immediately and times out after 90 seconds. Fresh grouped
+music playback in both rooms confirms the start, including a late success after a
+timeout. TV playback alone cannot confirm Radio. This does not verify the station
+name; the Flow remains the source of station selection. The Flow is not retried
+automatically.
 
-Commands use the Homey capability endpoint and require homey.device.control:
-https://athombv.github.io/node-homey-api/HomeyAPIV3Local.ManagerDevices.html#setCapabilityValue
+## Network and artwork
 
-Artwork is fetched only from Homey's /api/image/ path and refreshed when its
-URL, update timestamp, title or artist changes, and every minute while playing.
-Homey can reuse both its image URL and timestamp across different tracks.
-Failed downloads retry on the next status
-refresh. Redirect following is disabled for the shared HTTP client to avoid
-forwarding the Homey token; weather/rain URLs must therefore be final URLs.
-Unsupported image formats fall back to the music note.
+The current bootstrap addresses in `esphome/packages/music.yaml` are:
 
-Run node scripts/test-music-controls.cjs to test the actual firmware calculation
-and late-start-recovery fragments without issuing any live commands.
+- Woonkamer: `http://192.168.0.190:1400`
+- Keuken: `http://192.168.0.191:1400`
+
+Reserve these IPs in the router's DHCP settings. Either reachable speaker's
+topology resolves both configured player UUIDs and their current coordinator,
+including coordinator changes. This version does not run multicast discovery
+on the deck; if both bootstrap IPs change, update the substitutions. The deck
+must be allowed to reach the speakers on TCP port 1400 (no client isolation).
+
+No Sonos request carries the Homey bearer token. Topology endpoints are restricted
+to private IPv4 addresses on port 1400. Artwork must be a relative path on the
+coordinator or an absolute URL with that same origin; external artwork URLs are
+not fetched. Redirects remain disabled.
+
+JPEG covers remain 62×62 pixels, alongside one-line ellipsized title and artist.
+Cover changes include URL, title, artist and a one-minute refresh bucket. Failed
+downloads retry on the next poll; late results cannot reveal the wrong cover
+after a room/source change. Missing/unsupported artwork uses the music-note
+fallback. TV never displays an old music cover.
+
+The vendored online_image component still handles complete chunked JPEG downloads
+on ESP-IDF with bounded size/time; see its README.
+
+## Validation
+
+Run `node scripts/test-music-controls.cjs` for the actual C++ model's offline
+tests: XML/entity handling, malformed replies, URL restrictions, coordinator
+changes, separate/grouped rooms, TV/music priority, manual selection, missing
+speakers, command scope changes, volume bounds and command confirmation.
+
+Run `node scripts/test-chunked-cover.cjs` for the JPEG download regression tests.
+
+The C++ test's `--probe` mode emits only Get* requests for a read-only live
+comparison. Automated/live diagnostic checks must not start the Radio Flow,
+change groups, pause music or change volume. Compile the simulator and physical
+firmware separately; upload to the deck only when explicitly requested.
+
+2026-09-20 validation: native simulator and ESP32 builds passed. A read-only
+live probe decoded the actual kitchen coordinator's current track for both
+rooms; simulator logs confirmed recurring direct reads and successful JPEG
+cover download/decode. The automation tool could not access the SDL window, so
+visual layout verification remains manual. Live controls, TV playback and
+regrouping were not exercised against the household; those paths were tested
+with synthetic replies. No firmware upload was performed.

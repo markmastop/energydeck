@@ -50,6 +50,23 @@ int poll(State &s, const Fixture &f) {
   s.finish(); return requests;
 }
 void test_xml() {
+  State follow; Fixture playback;
+  poll(follow, playback);
+  assert(follow.follow_compact_tab(0) == 1); // Also when already playing at boot.
+  assert(follow.follow_compact_tab(2) == 2); // Preserve manual Climate selection.
+  playback.all_fail = true; poll(follow, playback);
+  assert(follow.follow_compact_tab(1) == 1); // Offline is not stopped.
+  playback.all_fail = false; poll(follow, playback);
+  assert(follow.follow_compact_tab(0) == 0); // Recovery is not a new start.
+  playback.live[0] = playback.live[1] = false; poll(follow, playback);
+  follow.rooms[0].transitioning = true;
+  assert(follow.follow_compact_tab(1) == 1);
+  follow.rooms[0].transitioning = false;
+  assert(follow.follow_compact_tab(1) == 0);
+  playback.grouped = false; playback.live[1] = true; poll(follow, playback);
+  assert(follow.follow_compact_tab(0) == 1); // Kitchen alone starts music.
+  playback.live[1] = false; poll(follow, playback);
+  assert(follow.follow_compact_tab(2) == 2); // Stopping does not replace Climate.
   assert(artwork_url("https://sali.sonos.superhi.fi/image?x=1", living) == "https://sali.sonos.superhi.fi/image?x=1");
   for (auto url : {"https://sali.sonos.superhi.fi.evil/image", "https://sali.sonos.radio@evil/image", "http://sali.sonos.radio/image", "//evil/image"}) assert(artwork_url(url, living).empty());
   State radio; Fixture fixture; fixture.radio = true; poll(radio, fixture);

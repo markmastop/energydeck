@@ -230,7 +230,8 @@ script:
       - script.wait: sonos_requests
       - lambda: |-
           id(sonos).finish();
-          // Polling never navigates. Only an explicit tap opens/closes Sonos.
+          // Follow playback only in the compact dashboard card, never pages.
+          id(detail_tab) = id(sonos).follow_compact_tab(id(detail_tab));
           if (id(music_favorite_pending) && id(sonos).command_confirmed()) {
             id(music_favorite_pending) = false;
             id(music_command_failed) = false;
@@ -239,6 +240,7 @@ script:
           ESP_LOGD("sonos_local", "Direct Sonos: selected=%d grouped=%d known=%d playing=%d tv=%d",
             id(sonos).selected, id(sonos).grouped(), id(sonos).current().known(),
             id(sonos).current().playing, id(sonos).current().tv);
+      - script.execute: select_detail_tab
       - script.execute: render_music
       - script.execute: refresh_music_cover
 

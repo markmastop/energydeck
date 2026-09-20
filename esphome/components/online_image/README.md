@@ -19,6 +19,9 @@ PNG responses are selected by Content-Type, regardless of the configured JPEG
 default. PNGLE's completion callback handles chunked PNGs and rejects unfinished
 images; PNG transfers also have a 512 KiB / 15 second limit. The UI detaches both
 cover widgets before decoding and invalidates LVGL's cache before reattaching.
+Code generation also enables `LV_DRAW_SW_SUPPORT_RGB565A8`: LVGL 9 requires it
+alongside RGB565 support when scaling opaque RGB565 covers. Without it, decoding
+succeeds but the transform renderer rejects color format 0x12.
 
 Sonos radio proxies may return a redirect to TuneIn's image CDN. The downloader
 allows one HTTPS hop from the two approved Sonos proxies to

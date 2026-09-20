@@ -24,9 +24,11 @@ try {
     throw new Error('Favorites should not have a heading or manual refresh button');
   if (!music.includes('interval: 5min') || !music.split('  - id: open_music_page')[1].split('  - id: close_music_page')[0].includes('script.execute: refresh_music_favorites'))
     throw new Error('Favorites must still refresh automatically and on opening');
-  const back = page.split('id: music_back\n')[1].split('  - label:')[0];
+  const back = page.split('id: music_back\n')[1].split(/\n  - label:/)[0];
   if (!back.includes('x: 14') || !back.includes('y: 154'))
     throw new Error('Sonos must start at the top of the energy tabs');
+  if (back.includes('\\uf060') || !back.includes('- line:') || !back.includes('clickable: false'))
+    throw new Error('The back arrow must be drawn without a missing font glyph');
   const cover = page.split('id: music_cover_frame\n')[1].split('  - label:')[0];
   if (!cover.includes('width: 272') || !cover.includes('height: 272'))
     throw new Error('The detail cover must have the larger square footprint');

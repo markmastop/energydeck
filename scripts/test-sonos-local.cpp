@@ -29,7 +29,7 @@ struct Fixture {
 int poll(State &s, const Fixture &f) {
   s.begin(living,kitchen); int requests = 0;
   while(s.has_request()) {
-    assert(++requests < 12);
+    assert(++requests < 20);
     const auto q = s.request(); int i = q.host == living ? 0 : 1;
     assert(q.action.rfind("Get",0) == 0); // Polling must never control playback.
     if (f.all_fail || f.fail[i]) { s.accept(0,""); continue; }
@@ -40,6 +40,8 @@ int poll(State &s, const Fixture &f) {
     if(q.action == "GetPositionInfo") body = "<TrackMetaData>" + escape("<DIDL-Lite><item><dc:title>" + escape(f.title[i]) +
       "</dc:title><dc:creator>Artist &amp; guest</dc:creator><upnp:albumArtURI>/getaa?s=1&amp;u=track</upnp:albumArtURI></item></DIDL-Lite>") + "</TrackMetaData>";
     if(q.action == "GetVolume") body = "<CurrentVolume>" + std::to_string(f.volume[i]) + "</CurrentVolume>";
+    if(q.action == "GetMute") body = "<CurrentMute>0</CurrentMute>";
+    if(q.action == "GetCurrentTransportActions") body = "<Actions>Play,Pause,Next,Previous</Actions>";
     s.accept(200,response(q.action,body));
   }
   s.finish(); return requests;
@@ -57,7 +59,7 @@ void test_xml() {
 }
 void test_states() {
   State s; Fixture f;
-  assert(poll(s,f) == 6);
+  assert(poll(s,f) == 9);
   assert(s.grouped() && s.radio_confirmed());
   assert(s.rooms[0].title == "Kitchen track" && s.rooms[1].title == "Kitchen track");
   assert(s.rooms[0].volume == 5 && s.rooms[1].volume == 7);
@@ -101,7 +103,85 @@ void test_controls() {
     assert(s.request().arguments.find("<DesiredVolume>" + std::to_string(std::max(0,std::min(100,100-v+step)))) != std::string::npos);
   }
 }
+
+Favorite favorite(bool radio = false, std::string id = "FV:2/1") {
+  const std::string cls = radio ? "object.item.audioItem.audioBroadcast" : "object.container.playlistContainer";
+  return {id, "Rock & Soul", radio ? "x-sonosapi-stream:radio?sid=1&flags=2" : "x-rincon-cpcontainer:playlist?sid=9&flags=2",
+    "<DIDL-Lite><item><upnp:class>" + cls + "</upnp:class><dc:title>Rock &amp; Soul</dc:title></item></DIDL-Lite>", radio};
+}
+std::string favorite_page(const std::vector<Favorite> &items, int total, std::string version = "1") {
+  std::string didl = "<DIDL-Lite>";
+  for (const auto &f : items) didl += "<item id=\"" + f.id + "\"><dc:title>" + escape(f.title) + "</dc:title><res>" + escape(f.uri) +
+    "</res><r:resMD>" + escape(f.metadata) + "</r:resMD></item>";
+  didl += "</DIDL-Lite>";
+  return response("Browse", "<Result>" + escape(didl) + "</Result><NumberReturned>" + std::to_string(items.size()) +
+    "</NumberReturned><TotalMatches>" + std::to_string(total) + "</TotalMatches><UpdateID>" + version + "</UpdateID>");
+}
+void test_favorites() {
+  Favorites f; auto music = favorite(), radio = favorite(true,"FV:2/2"), pinned = favorite(false,"FV:2/3"); pinned.uri.clear();
+  f.begin(kitchen); assert(f.request().action == "Browse" && f.request().url() == kitchen + "/MediaServer/ContentDirectory/Control");
+  f.accept(200,favorite_page({music,radio,pinned},3));
+  assert(f.known && !f.failed && !f.has_request() && f.items.size() == 2);
+  assert(f.items[0].title == music.title && f.items[0].metadata == music.metadata && !f.items[0].radio && f.items[1].radio);
+  std::vector<Favorite> first;
+  for (int i=0;i<8;++i) first.push_back(favorite(false,"FV:2/" + std::to_string(i)));
+  f.begin(living); f.accept(200,favorite_page(first,9));
+  assert(!f.known && f.has_request() && f.request().arguments.find("<StartingIndex>8</StartingIndex>") != std::string::npos);
+  f.accept(200,favorite_page({favorite(false,"FV:2/8")},9)); assert(f.known && f.items.size() == 9);
+  f.begin(living); f.accept(200,favorite_page(first,9)); f.accept(200,favorite_page({music},9,"2"));
+  assert(f.failed && !f.known && !f.has_request()); // Never combine different list versions.
+  f.begin(living); f.accept(200,favorite_page({},0)); assert(f.known && f.items.empty());
+  f.begin(living); f.accept(200,favorite_page({},4)); assert(f.failed); // No infinite pagination.
+  f.begin(living); f.accept(200,favorite_page({music,music},2)); assert(f.failed); // Duplicate IDs.
+  f.begin(living); f.accept(200,"<broken>"); assert(f.failed);
+  f.begin(living); f.accept(500,"<Fault/>"); assert(f.failed);
+  f.begin(living); f.accept(200,favorite_page(first,101)); assert(f.failed);
+
+  State s; Fixture fixture; fixture.grouped = false; fixture.tv[0] = true; poll(s,fixture);
+  s.capture(); poll(s,fixture); assert(s.prepare_favorite(radio));
+  assert(s.request().action == "SetAVTransportURI" && s.request().host == kitchen);
+  assert(s.request().arguments.find("sid=1&amp;flags=2") != std::string::npos);
+  s.accept(200,response("SetAVTransportURI","")); assert(s.request().action == "Play");
+  s.accept(200,response("Play","")); assert(!s.has_request() && !s.command_failed);
+  assert(!s.command_confirmed()); // Old playing track is not confirmation.
+  s.rooms[1].uri = radio.uri; assert(s.command_confirmed());
+  s.capture(); poll(s,fixture); assert(s.prepare_favorite(music));
+  assert(s.request().action == "AddURIToQueue" && s.request().arguments.find("<EnqueueAsNext>0</EnqueueAsNext>") != std::string::npos);
+  s.accept(200,response("AddURIToQueue","<FirstTrackNumberEnqueued>17</FirstTrackNumberEnqueued><NumTracksAdded>20</NumTracksAdded>"));
+  assert(s.request().action == "SetAVTransportURI"); s.accept(200,response("SetAVTransportURI",""));
+  assert(s.request().action == "Seek" && s.request().arguments.find("<Target>17</Target>") != std::string::npos);
+  s.accept(200,response("Seek","")); assert(s.request().action == "Play"); s.accept(200,response("Play",""));
+  assert(!s.has_request()); s.rooms[1].uri = "x-rincon-queue:" + kid + "#0"; s.rooms[1].track = 17; assert(s.command_confirmed());
+  for (int failure : {0,500}) {
+    s.capture(); poll(s,fixture); assert(s.prepare_favorite(music)); s.accept(failure,"<Fault/>");
+    assert(s.command_failed && !s.has_request()); // A failed enqueue must not start an old queue.
+  }
+  s.capture(); poll(s,fixture); assert(s.prepare_favorite(music));
+  s.accept(200,response("AddURIToQueue","<FirstTrackNumberEnqueued>0</FirstTrackNumberEnqueued><NumTracksAdded>0</NumTracksAdded>"));
+  assert(s.command_failed && !s.has_request());
+  s.capture(); fixture.grouped = true; poll(s,fixture); assert(!s.prepare_favorite(music));
+  s.capture(); poll(s,fixture); assert(s.prepare_favorite(radio));
+  s.accept(500,"<Fault/>"); assert(!s.has_request()); // No Play after failed SetURI.
+  s.capture(); poll(s,fixture); assert(s.prepare_command(5));
+  assert(s.request().action == "SetMute" && s.request().host == living);
+  s.accept(200,response("SetMute","")); assert(s.request().host == kitchen);
+  s.accept(200,response("SetMute","")); s.rooms[0].mute = s.rooms[1].mute = 1; assert(s.command_confirmed());
+  s.capture(); poll(s,fixture); assert(s.prepare_command(4)); assert(s.request().action == "Next");
+  s.accept(200,response("Next","")); assert(!s.command_confirmed()); s.rooms[s.selected].track_uri = "new-track"; assert(s.command_confirmed());
+}
 int main(int argc, char **argv) {
+  if(argc > 1 && std::string(argv[1]) == "--favorites-probe") {
+    Favorites f; f.begin(kitchen);
+    while(f.has_request()) {
+      const auto q=f.request();
+      std::cout << q.action << '\t' << q.url() << '\t' << q.soap_action() << '\t' << q.body() << std::endl;
+      std::string status,body; if(!std::getline(std::cin,status) || !std::getline(std::cin,body)) return 2;
+      f.accept(std::atoi(status.c_str()),body);
+    }
+    std::cout << "RESULT favorites=" << f.items.size() << " known=" << f.known << std::endl;
+    for(const auto &item:f.items) std::cout << "FAVORITE " << (item.radio ? "radio: " : "music: ") << item.title << std::endl;
+    return f.known ? 0 : 1;
+  }
   // This probe path never calls prepare_command and cannot create writes.
   if(argc > 1 && std::string(argv[1]) == "--probe") {
     State s; s.begin(living,kitchen);
@@ -116,6 +196,7 @@ int main(int argc, char **argv) {
     for(const auto &r:s.rooms) std::cout << "ROOM known=" << r.known() << " playing=" << r.playing << " tv=" << r.tv << " volume=" << r.volume << " title=" << r.title << " artist=" << r.artist << " cover=" << r.cover << std::endl;
     return 0;
   }
-  test_xml(); test_states(); test_controls();
+  test_xml(); test_states(); test_controls(); test_favorites();
+  std::cout << "PASS: paged favorites, filtering, XML escaping, direct radio, queue append/seek, failed-command abort, mute and skip" << std::endl;
   std::cout << "PASS: Sonos XML, topology/coordinator, solo/group, music/TV priority, selection, offline, artwork and scoped controls" << std::endl;
 }

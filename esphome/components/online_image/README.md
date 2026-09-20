@@ -20,5 +20,10 @@ default. PNGLE's completion callback handles chunked PNGs and rejects unfinished
 images; PNG transfers also have a 512 KiB / 15 second limit. The UI detaches both
 cover widgets before decoding and invalidates LVGL's cache before reattaching.
 
+Sonos radio proxies may return a redirect to TuneIn's image CDN. The downloader
+allows one HTTPS hop from the two approved Sonos proxies to
+`cdn-profiles.tunein.com` only, with no forwarded headers. Shared-client automatic
+redirects stay disabled.
+
 Remove this override when an upstream release includes equivalent handling.
 Run node scripts/test-chunked-cover.cjs for offline branch tests.

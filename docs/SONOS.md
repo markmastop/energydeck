@@ -123,7 +123,11 @@ No Sonos request carries the Homey bearer token. Topology endpoints are restrict
 to private IPv4 addresses on port 1400. Artwork must be a relative path on the
 coordinator, an absolute URL with that same origin, or HTTPS on the Sonos radio
 image proxies `sali.sonos.superhi.fi` and `sali.sonos.radio`. Other external hosts
-are rejected. Redirects remain disabled; no Homey credentials accompany artwork.
+are rejected. Automatic redirects remain disabled on the shared client. Artwork
+alone may follow exactly one HTTPS redirect from either Sonos proxy to
+`cdn-profiles.tunein.com`, without forwarding any request headers. Other hosts,
+HTTP downgrades and further redirects are rejected; Homey credentials are never
+sent with the redirected request.
 
 JPEG and PNG covers are decoded at up to 272×272 pixels, above ellipsized title
 and artist. Track artwork takes precedence over the station artwork from

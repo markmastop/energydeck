@@ -4,7 +4,11 @@ The dashboard's right-hand **Sonos** button shows the compact player in the
 Gas/Climate card position, with the active tab highlighted green. Its **Detail**
 button, replacing the former Radio button, opens the
 full-screen player. The **back arrow** returns to the compact Sonos card. Playback
-changes never navigate between pages. Opening either view or changing the
+changes never navigate between pages. The compact dashboard card switches to
+Sonos when playback starts (including playback detected at boot), and back to
+Gas when playback stops or pauses while that card is selected. Manual Gas/Climate
+selections remain usable until the next playback start. Unknown or transitioning
+states do not count as stopped. Opening either view or changing the
 displayed room never starts music or a Homey Flow.
 
 Both players share room selection, current title/artist, volume, waiting/error

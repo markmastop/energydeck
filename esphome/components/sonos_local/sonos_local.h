@@ -164,7 +164,7 @@ struct Room {
   int volume = -1, mute = -1, track = -1;
   bool next = false, previous = false;
   bool topology = false, transport = false, media = false, position = false;
-  bool playing = false, tv = false;
+  bool playing = false, tv = false, transitioning = false;
   bool known() const { return topology && transport && media && position; }
 };
 
@@ -285,7 +285,22 @@ class State {
   const Room &current() const { return rooms[selected]; }
   bool grouped() const { return rooms[0].topology && rooms[1].topology && rooms[0].coordinator == rooms[1].coordinator; }
   bool any_playing() const { return (rooms[0].known() && rooms[0].playing) || (rooms[1].known() && rooms[1].playing); }
-  bool all_stopped() const { return rooms[0].known() && rooms[1].known() && !rooms[0].playing && !rooms[1].playing; }
+  bool all_stopped() const { return rooms[0].known() && rooms[1].known() && !rooms[0].playing && !rooms[1].playing && !rooms[0].transitioning && !rooms[1].transitioning; }
+  // Follow playback edges, not every poll: manual Gas/Climate selections remain
+  // usable during playback. Unknown/transitioning replies never imply a stop.
+  int follow_compact_tab(int tab) {
+    if (any_playing()) {
+      const bool started = !compact_playing_;
+      compact_playing_ = true;
+      return started ? 1 : tab;
+    }
+    if (all_stopped()) {
+      const bool stopped = compact_playing_;
+      compact_playing_ = false;
+      if (stopped && tab == 1) return 0;
+    }
+    return tab;
+  }
   bool radio_confirmed() const { return grouped() && rooms[0].known() && rooms[1].known() && rooms[0].playing && rooms[1].playing && !rooms[0].tv; }
   bool has_request() const { return cursor_ < requests_.size(); }
   const Request &request() const { return requests_[cursor_]; }
@@ -350,6 +365,7 @@ class State {
         auto state = xml.text("CurrentTransportState");
         r.transport = state == "PLAYING" || state == "PAUSED_PLAYBACK" || state == "STOPPED" || state == "NO_MEDIA_PRESENT" || state == "TRANSITIONING";
         r.playing = state == "PLAYING";
+        r.transitioning = state == "TRANSITIONING";
       } else if (req.action == "GetMediaInfo") {
         r.media = xml.has("CurrentURI"); r.uri = xml.text("CurrentURI");
         r.tv = r.uri.rfind("x-sonos-htastream:", 0) == 0;
@@ -461,6 +477,7 @@ class State {
   std::vector<Request> requests_;
   size_t cursor_ = 0;
   bool topology_ok_ = false, manual_ = false, commanding_ = false, target_playing_ = false;
+  bool compact_playing_ = false;
   int captured_room_ = 0, target_room_ = 0, target_action_ = 0;
   std::string captured_scope_, target_scope_;
   std::string target_track_uri_, favorite_uri_;

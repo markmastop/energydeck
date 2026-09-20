@@ -14,7 +14,9 @@ try {
   if (/Authorization:/.test(image)) throw new Error('Homey credentials must never be sent to Sonos artwork');
   if (music.includes('advancedflow/') || music.includes('Authorization:')) throw new Error('The Sonos page must not depend on Homey');
   const poll = music.split('  - id: refresh_music\n')[1].split('  - id: switch_music_room')[0];
-  if (poll.includes('lvgl.page.show') || poll.includes('select_detail_tab')) throw new Error('Polling must not navigate');
+  if (poll.includes('lvgl.page.show') || poll.includes('open_music_page')) throw new Error('Polling must not navigate pages');
+  if (!poll.includes('follow_compact_tab(id(detail_tab))') || !poll.includes('script.execute: select_detail_tab'))
+    throw new Error('Polling must follow playback in the compact card');
   for (const page of ['sonos_page', 'energydeck_main_page']) {
     if (!music.includes(`lv_obj_set_parent(id(shared_energy_header), id(${page})->obj)`))
       throw new Error('Both pages must share the live energy header');

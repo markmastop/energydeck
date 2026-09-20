@@ -20,6 +20,10 @@ try {
       throw new Error('Both pages must share the live energy header');
   }
   const page = fs.readFileSync(path.join(__dirname, '../esphome/packages/sonos-page.yaml'), 'utf8');
+  if (page.includes('music_favorites_refresh') || page.includes('${music_favorites}'))
+    throw new Error('Favorites should not have a heading or manual refresh button');
+  if (!music.includes('interval: 5min') || !music.split('  - id: open_music_page')[1].split('  - id: close_music_page')[0].includes('script.execute: refresh_music_favorites'))
+    throw new Error('Favorites must still refresh automatically and on opening');
   const back = page.split('id: music_back\n')[1].split('  - label:')[0];
   if (!back.includes('x: 14') || !back.includes('y: 154'))
     throw new Error('Sonos must start at the top of the energy tabs');

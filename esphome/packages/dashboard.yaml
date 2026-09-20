@@ -8,7 +8,7 @@ interval:
           // Initialize after LVGL setup; alignment persists across text updates.
           static bool aligned = false;
           if (aligned) return;
-          lv_obj_t *buttons[] = {id(force_charge_button), id(music_back), id(music_favorites_refresh),
+          lv_obj_t *buttons[] = {id(force_charge_button), id(music_back),
             id(music_page_button), id(small_music_room_select), id(small_music_minus),
             id(small_music_plus), id(small_music_play),
             id(music_previous), id(music_next), id(music_mute),
@@ -29,7 +29,7 @@ interval:
           // Keep unavailable music controls subdued, not light-grey theme slabs.
           for (auto *button : {id(music_previous), id(music_next), id(music_play),
               id(music_minus), id(music_plus), id(music_mute), id(music_room_select),
-              id(music_favorites_refresh), id(small_music_room_select), id(small_music_play), id(small_music_minus), id(small_music_plus)}) {
+              id(small_music_room_select), id(small_music_play), id(small_music_minus), id(small_music_plus)}) {
             lv_obj_set_style_bg_color(button, lv_color_hex(0x151E19), LV_STATE_DISABLED);
             lv_obj_set_style_border_color(button, lv_color_hex(0x26362D), LV_STATE_DISABLED);
             lv_obj_set_style_text_color(button, lv_color_hex(0x77857C), LV_STATE_DISABLED);

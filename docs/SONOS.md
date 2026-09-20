@@ -79,8 +79,9 @@ the result. There is no automatic command retry.
 
 ## Sonos favorites
 
-ContentDirectory `Browse` reads `FV:2` in pages of eight when the page opens,
-when Refresh is tapped, and every five minutes while open. A complete, consistent
+ContentDirectory `Browse` reads `FV:2` in pages of eight when the page opens
+and every five minutes while open. There is no section heading or manual refresh
+button; the favorite tiles follow the player directly. A complete, consistent
 UpdateID is required; unavailable or malformed data disables favorites rather
 than silently using an outdated list. Collection and payload sizes are bounded.
 Entries without playable URI/metadata (such as pinned discovery shortcuts) are

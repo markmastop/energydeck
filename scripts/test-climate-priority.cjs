@@ -1,0 +1,14 @@
+const fs = require('node:fs'), path = require('node:path'), assert = require('node:assert/strict');
+const read = name => fs.readFileSync(path.join(__dirname, '../esphome/packages', name), 'utf8');
+const climate = read('climate.yaml'), music = read('music.yaml'), dashboard = read('dashboard.yaml');
+const tab = dashboard.split('id: extra_tab\n')[1].split('\n        - obj:')[0];
+assert(tab.includes('script.execute: refresh_climate'));
+assert(tab.indexOf('script.execute: select_detail_tab') < tab.indexOf('script.execute: refresh_climate'));
+assert(climate.includes('mode: single'));
+assert(climate.includes('interval: 60s') && climate.includes('startup_delay: 20s'));
+assert.equal((climate.match(/- http_request.get:/g) || []).length, 6);
+assert.equal((climate.match(/- delay: 80ms/g) || []).length, 5);
+assert(!climate.includes('delay: 500ms'));
+assert.equal((music.match(/id\(refresh_climate\)\.is_running\(\)/g) || []).length, 2);
+assert(read('homey-live.yaml').includes('timeout: 8s'));
+console.log('PASS: immediate Climate refresh, single-flight polling, shorter sequential spacing, artwork priority and unchanged HTTP timeout');

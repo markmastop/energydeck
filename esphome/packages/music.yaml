@@ -182,7 +182,7 @@ script:
     then:
       - lambda: |-
           if (!id(music_page_open) || id(favorite_artwork).busy || id(music_cover_downloading) ||
-              id(music_busy) || id(music_favorites_loading) || !id(sonos_favorites).known) return;
+              id(refresh_climate).is_running() || id(music_busy) || id(music_favorites_loading) || !id(sonos_favorites).known) return;
           const auto &items = id(sonos_favorites).items;
           const int scroll = lv_obj_get_scroll_y(id(music_favorites_grid));
           const int height = lv_obj_get_height(id(music_favorites_grid));
@@ -369,7 +369,8 @@ script:
             return;
           }
           if (!path.empty()) {
-            if (id(favorite_artwork).busy) return;
+            // Finish the foreground climate refresh before starting artwork.
+            if (id(favorite_artwork).busy || id(refresh_climate).is_running()) return;
             // Detach both consumers before the decoder mutates its shared buffer.
             lv_image_set_src(id(music_cover_widget), static_cast<const void *>(nullptr));
             lv_image_set_src(id(small_music_cover_widget), static_cast<const void *>(nullptr));

@@ -2061,6 +2061,7 @@ lvgl:
             on_click:
               - lambda: id(detail_tab) = 2;
               - script.execute: select_detail_tab
+              - script.execute: refresh_climate
 
         - obj:
             x: 14

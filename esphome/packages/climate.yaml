@@ -8,6 +8,7 @@ interval:
 
 script:
   - id: refresh_climate
+    # Opening the tab also starts this script; single mode coalesces repeat taps.
     mode: single
     then:
       - http_request.get:
@@ -37,7 +38,7 @@ script:
               - lvgl.label.update:
                   id: climate_living_value
                   text: "-- °C"
-      - delay: 500ms
+      - delay: 80ms
       - http_request.get:
           url: "${homey_address}/api/manager/devices/device/564a9710-c503-4d04-9996-6c27b5f28157"
           request_headers:
@@ -65,7 +66,7 @@ script:
               - lvgl.label.update:
                   id: climate_extension_value
                   text: "-- °C"
-      - delay: 500ms
+      - delay: 80ms
       - http_request.get:
           url: "${homey_address}/api/manager/devices/device/0d278a3e-aeb7-4cb3-bb2d-131766931482"
           request_headers:
@@ -93,7 +94,7 @@ script:
               - lvgl.label.update:
                   id: climate_lieke_value
                   text: "-- °C"
-      - delay: 500ms
+      - delay: 80ms
       - http_request.get:
           url: "${homey_address}/api/manager/devices/device/ed3cdd0e-2562-453a-a381-5c7d72bdf871"
           request_headers:
@@ -121,7 +122,7 @@ script:
               - lvgl.label.update:
                   id: climate_saar_value
                   text: "-- °C"
-      - delay: 500ms
+      - delay: 80ms
       - http_request.get:
           url: "${homey_address}/api/manager/devices/device/b4a69ec5-a37b-4617-b490-d4c7b74534b9"
           request_headers:
@@ -149,7 +150,7 @@ script:
               - lvgl.label.update:
                   id: climate_renate_value
                   text: "-- °C"
-      - delay: 500ms
+      - delay: 80ms
       - http_request.get:
           url: "${homey_address}/api/manager/devices/device/fae4c622-df59-4e18-8722-53fc9eb1cfb0"
           request_headers:
@@ -177,5 +178,3 @@ script:
               - lvgl.label.update:
                   id: climate_mark_value
                   text: "-- °C"
-      - delay: 500ms
-

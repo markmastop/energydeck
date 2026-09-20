@@ -87,9 +87,6 @@ image:
         - lvgl.image.update:
             id: music_cover_widget
             src: music_cover
-        - lvgl.image.update:
-            id: small_music_cover_widget
-            src: music_cover
         - lambda: |-
             id(music_cover_downloading) = false;
             // Fill the rounded square without stretching or a letterbox strip.
@@ -99,7 +96,30 @@ image:
               lv_image_set_pivot(id(music_cover_widget), 0, 0);
               lv_image_set_scale(id(music_cover_widget), scale);
               lv_obj_set_pos(id(music_cover_widget), (272 - w * scale / 256) / 2, (272 - h * scale / 256) / 2);
-              lv_image_set_scale(id(small_music_cover_widget), std::max(1, 62 * 256 / std::max(w, h)));
+              // Keep a separate native-size thumbnail: no shared transformed
+              // RGB565 buffer/cache between the large and compact widgets.
+              static uint8_t thumbnail[62 * 62 * 2];
+              static lv_image_dsc_t mini;
+              lv_image_cache_drop(&mini);
+              const auto *source = id(music_cover).get_lv_image_dsc();
+              const int side = std::min(w, h);
+              for (int y = 0; y < 62; ++y) {
+                for (int x = 0; x < 62; ++x) {
+                  const int sx = (w - side) / 2 + x * side / 62;
+                  const int sy = (h - side) / 2 + y * side / 62;
+                  const auto *pixel = source->data + sy * source->header.stride + sx * 2;
+                  thumbnail[(y * 62 + x) * 2] = pixel[0];
+                  thumbnail[(y * 62 + x) * 2 + 1] = pixel[1];
+                }
+              }
+              mini = *source;
+              mini.header.w = mini.header.h = 62;
+              mini.header.stride = 62 * 2;
+              mini.data_size = sizeof(thumbnail);
+              mini.data = thumbnail;
+              lv_image_set_pivot(id(small_music_cover_widget), 0, 0);
+              lv_image_set_scale(id(small_music_cover_widget), 256);
+              lv_image_set_src(id(small_music_cover_widget), &mini);
             }
             for (auto *cover : {id(music_cover_widget), id(small_music_cover_widget)}) {
               if (!id(music_cover_key).empty() && id(music_cover_key) == id(music_cover_requested))

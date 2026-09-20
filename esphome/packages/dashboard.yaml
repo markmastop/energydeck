@@ -64,7 +64,7 @@ interval:
           }
           // Reuse the larger cover; the download callback fits its decoded size.
           lv_image_set_pivot(id(small_music_cover_widget), 0, 0);
-          lv_image_set_scale(id(small_music_cover_widget), 58);
+          lv_image_set_scale(id(small_music_cover_widget), 256);
           aligned = true;
 
 lvgl:

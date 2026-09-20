@@ -885,8 +885,8 @@ script:
               - lambda: |-
                   if (response->status_code != 200) {
                     lv_label_set_text(id(electricity_today_value_label), "--");
-                    lv_label_set_text(id(electricity_ytd_label), "${energy_ytd}");
-                    lv_label_set_text(id(electricity_peak_label), "${power_peak}");
+                    lv_label_set_text_fmt(id(electricity_ytd_label), "${energy_ytd_format}", 0.0);
+                    lv_label_set_text_fmt(id(electricity_peak_label), "${power_peak_format}", 0.0);
                     ESP_LOGW("homey", "Electricity summary request returned HTTP %d", response->status_code);
                     return;
                   }
@@ -917,8 +917,8 @@ script:
 
                   if (!parsed) {
                     lv_label_set_text(id(electricity_today_value_label), "--");
-                    lv_label_set_text(id(electricity_ytd_label), "${energy_ytd}");
-                    lv_label_set_text(id(electricity_peak_label), "${power_peak}");
+                    lv_label_set_text_fmt(id(electricity_ytd_label), "${energy_ytd_format}", 0.0);
+                    lv_label_set_text_fmt(id(electricity_peak_label), "${power_peak_format}", 0.0);
                     ESP_LOGW("homey", "Could not parse electricity day summary");
                   }
           on_error:

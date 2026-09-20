@@ -56,14 +56,14 @@ sunrise_format: "Zon op %s  |"
 sunset: "Zon onder --:--"
 sunset_format: "Zon onder %s"
 energy_today_value: "0,0"
-energy_ytd: '0 kWh\nYTD'
+energy_ytd: "0 kWh\nYTD"
 energy_ytd_format: '%.0f kWh\nYTD'
 energy_today: "Stroom\nvandaag"
 tap_for_ytd: "tik voor YTD"
 today_short: "Vandaag"
-power_peak: '0,0 kW\nmax'
+power_peak: "0,0 kW\nmax"
 power_peak_format: '%.1f kW\nmax'
-solar_today: '0,0 kWh\nvandaag'
+solar_today: "0,0 kWh\nvandaag"
 solar_today_format: '%.1f kWh\nvandaag'
 solar_unavailable: "--"
 today: "Vandaag"

@@ -84,6 +84,14 @@ image:
             src: music_cover
         - lambda: |-
             id(music_cover_downloading) = false;
+            // Fill the rounded square without stretching or a letterbox strip.
+            const int w = id(music_cover).get_width(), h = id(music_cover).get_height();
+            if (w > 0 && h > 0) {
+              const int scale = (160 * 256 + std::min(w, h) - 1) / std::min(w, h);
+              lv_image_set_pivot(id(music_cover_widget), 0, 0);
+              lv_image_set_scale(id(music_cover_widget), scale);
+              lv_obj_set_pos(id(music_cover_widget), (160 - w * scale / 256) / 2, (160 - h * scale / 256) / 2);
+            }
             for (auto *cover : {id(music_cover_widget), id(small_music_cover_widget)}) {
               if (!id(music_cover_key).empty() && id(music_cover_key) == id(music_cover_requested))
                 lv_obj_clear_flag(cover, LV_OBJ_FLAG_HIDDEN);
@@ -279,7 +287,8 @@ script:
             lv_color_hex(id(music_command_failed) || !known ? 0xEA665F : 0x7FE0A2), 0);
           lv_label_set_text(lv_obj_get_child(id(music_room_select), 0), s.grouped() ? "${music_rooms}" :
             s.selected == 0 ? "${music_living_select}" : "${music_kitchen_select}");
-          if (waiting) lv_obj_add_state(id(music_room_select), LV_STATE_DISABLED);
+          // A single combined group offers no second selectable playback target.
+          if (waiting || s.grouped()) lv_obj_add_state(id(music_room_select), LV_STATE_DISABLED);
           else lv_obj_clear_state(id(music_room_select), LV_STATE_DISABLED);
           lv_label_set_text(id(music_title), !known ? "${music_offline}" :
             playing && room.tv ? "${music_tv}" :
@@ -296,7 +305,7 @@ script:
           if (s.grouped()) lv_label_set_text_fmt(id(music_volume), "${music_volume_format}", a, b);
           else lv_label_set_text_fmt(id(music_volume), "${music_single_volume_format}", s.selected == 0 ? a : b);
           lv_label_set_text(lv_obj_get_child(id(music_play), 0),
-            waiting ? "${music_button_wait}" : room.tv ? "${music_tv}" : playing ? "${music_pause}" : "${music_resume}");
+            waiting ? LV_SYMBOL_REFRESH : room.tv ? "${music_tv}" : playing ? LV_SYMBOL_PAUSE : LV_SYMBOL_PLAY);
           lv_label_set_text(lv_obj_get_child(id(music_mute), 0), s.muted() ? "${music_unmute}" : "${music_mute}");
           lv_obj_set_style_bg_color(id(music_mute), lv_color_hex(s.muted() ? 0x66512A : 0x18231E), 0);
           for (auto *button : {id(music_play), id(music_minus), id(music_plus), id(music_previous), id(music_next), id(music_mute)}) {
@@ -335,6 +344,9 @@ script:
             if (lv_obj_has_state(pair.second, LV_STATE_DISABLED)) lv_obj_add_state(pair.first, LV_STATE_DISABLED);
             else lv_obj_clear_state(pair.first, LV_STATE_DISABLED);
           }
+          // Retain clear word labels in the compact card's existing layout.
+          lv_label_set_text(lv_obj_get_child(id(small_music_play), 0),
+            waiting ? "${music_button_wait}" : room.tv ? "${music_tv}" : playing ? "${music_pause}" : "${music_resume}");
 
   - id: sonos_favorite_requests
     mode: single
@@ -398,8 +410,8 @@ script:
           for (size_t i = 0; i < f.items.size(); ++i) {
             auto *button = lv_button_create(id(music_favorites_grid));
             lv_obj_remove_style_all(button);
-            lv_obj_set_pos(button, (i % 2) * 222, (i / 2) * 80);
-            lv_obj_set_size(button, 212, 70);
+            lv_obj_set_pos(button, (i % 2) * 228, (i / 2) * 64);
+            lv_obj_set_size(button, 220, 56);
             lv_obj_set_style_radius(button, 8, 0);
             lv_obj_set_style_bg_opa(button, LV_OPA_COVER, 0);
             lv_obj_set_style_bg_color(button, lv_color_hex(0x18231E), 0);
@@ -408,17 +420,39 @@ script:
             lv_obj_set_style_bg_color(button, lv_color_hex(0x24583B), LV_STATE_PRESSED);
             lv_obj_set_style_opa(button, LV_OPA_50, LV_STATE_DISABLED);
             auto *kind = lv_label_create(button);
-            lv_obj_set_pos(kind, 12, 9);
-            lv_obj_set_style_text_font(kind, &lv_font_montserrat_12, 0);
+            lv_obj_set_pos(kind, 12, 20);
+            lv_obj_set_style_text_font(kind, &lv_font_montserrat_14, 0);
             lv_obj_set_style_text_color(kind, lv_color_hex(0x7FE0A2), 0);
-            lv_label_set_text(kind, f.items[i].radio ? LV_SYMBOL_AUDIO " ${music_favorite_radio}" : LV_SYMBOL_LIST " ${music_favorite_playlist}");
+            lv_label_set_text(kind, f.items[i].radio ? LV_SYMBOL_AUDIO : LV_SYMBOL_LIST);
             auto *title = lv_label_create(button);
-            lv_obj_set_pos(title, 12, 30);
-            lv_obj_set_size(title, 188, 32);
+            lv_obj_set_pos(title, 38, 10);
+            lv_obj_set_size(title, 170, 36);
             lv_label_set_long_mode(title, LV_LABEL_LONG_DOT);
             lv_obj_set_style_text_font(title, &lv_font_montserrat_14, 0);
             lv_obj_set_style_text_color(title, lv_color_hex(0xEEF6F0), 0);
-            lv_label_set_text(title, f.items[i].title.c_str());
+            // Hide unsupported display glyphs (e.g. emoji), preserving the
+            // original favorite title and playback metadata in the model.
+            const auto &raw = f.items[i].title;
+            std::string display;
+            for (size_t j = 0; j < raw.size();) {
+              const size_t start = j;
+              const unsigned char lead = raw[j++];
+              uint32_t cp = lead;
+              int extra = 0;
+              if ((lead & 0xE0) == 0xC0) { cp = lead & 0x1F; extra = 1; }
+              else if ((lead & 0xF0) == 0xE0) { cp = lead & 0x0F; extra = 2; }
+              else if ((lead & 0xF8) == 0xF0) { cp = lead & 0x07; extra = 3; }
+              bool valid = lead < 0x80 || extra > 0;
+              while (extra-- > 0) {
+                if (j >= raw.size() || (static_cast<unsigned char>(raw[j]) & 0xC0) != 0x80) { valid = false; break; }
+                cp = (cp << 6) | (raw[j++] & 0x3F);
+              }
+              lv_font_glyph_dsc_t glyph{};
+              if (valid && lv_font_montserrat_14.get_glyph_dsc(&lv_font_montserrat_14, &glyph, cp, 0) && !glyph.is_placeholder)
+                display.append(raw, start, j - start);
+            }
+            if (display.find_first_not_of(' ') == std::string::npos) display = "${music_favorite_playlist}";
+            lv_label_set_text(title, display.c_str());
             lv_obj_add_event_cb(button, [](lv_event_t *event) {
               const int index = static_cast<int>(reinterpret_cast<uintptr_t>(lv_event_get_user_data(event)));
               id(play_music_favorite).execute(index);

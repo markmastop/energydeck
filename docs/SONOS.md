@@ -17,6 +17,12 @@ are moved between pages, so clock, price and gauges retain their normal updates.
 
 The page has a 160×160 cover, ellipsized title/artist, room selector, playback,
 skip, volume and mute controls, plus a scrollable two-column favorites grid.
+The cover fills a rounded square with an aspect-preserving center crop. Compact
+transport icons sit above a separate volume row and its percentages. Unavailable
+controls use a muted dark treatment. A combined group is a read-only heading;
+separate room names retain their selection arrow. Favorites show a small type
+icon and up to two title lines, with six tiles visible before scrolling. Missing
+font glyphs are omitted from display only; playback metadata remains untouched.
 Favorites come directly from Sonos; no Homey Flow is involved. This also means
 starting a favorite does not switch power outlets, regroup speakers or set a
 starting volume. It uses the selected room's current group and volume.

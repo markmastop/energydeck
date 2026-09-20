@@ -358,9 +358,22 @@ class State {
       if (req.action == "GetMute") {
         r.mute = number(xml.text("CurrentMute"), 1);
       } else if (req.action == "GetCurrentTransportActions") {
-        const auto actions = "," + xml.text("Actions") + ",";
-        r.next = actions.find(",Next,") != std::string::npos;
-        r.previous = actions.find(",Previous,") != std::string::npos;
+        // Sonos commonly separates actions with comma + space. Trim each token
+        // without accepting partial names such as NextTrack or X_DLNA_Next.
+        const auto actions = xml.text("Actions");
+        r.next = r.previous = false;
+        for (size_t start = 0; start < actions.size();) {
+          const auto comma = actions.find(',', start);
+          const auto token = actions.substr(start, comma == std::string::npos ? comma : comma - start);
+          const auto first = token.find_first_not_of(" \t\r\n");
+          if (first != std::string::npos) {
+            const auto name = token.substr(first, token.find_last_not_of(" \t\r\n") - first + 1);
+            r.next |= name == "Next";
+            r.previous |= name == "Previous";
+          }
+          if (comma == std::string::npos) break;
+          start = comma + 1;
+        }
       } else if (req.action == "GetVolume") {
         const auto value = xml.text("CurrentVolume");
         if (!value.empty() && value.size() <= 3 && std::all_of(value.begin(), value.end(), [](char c) { return c >= '0' && c <= '9'; })) {

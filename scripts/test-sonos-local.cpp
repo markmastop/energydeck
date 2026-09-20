@@ -26,6 +26,7 @@ struct Fixture {
   bool live[2] = {true,true}, tv[2] = {false,false}, fail[2] = {false,false};
   int volume[2] = {5,7};
   std::string title[2] = {"Living track","Kitchen track"};
+  std::string actions = "Play,Pause,Next,Previous";
 };
 int poll(State &s, const Fixture &f) {
   s.begin(living,kitchen); int requests = 0;
@@ -44,7 +45,7 @@ int poll(State &s, const Fixture &f) {
     if (f.radio && q.action == "GetPositionInfo") body = "<TrackMetaData>" + escape("<item><title>stream.mp3?secret=hidden</title><streamContent>Song - Artist</streamContent></item>") + "</TrackMetaData>";
     if(q.action == "GetVolume") body = "<CurrentVolume>" + std::to_string(f.volume[i]) + "</CurrentVolume>";
     if(q.action == "GetMute") body = "<CurrentMute>0</CurrentMute>";
-    if(q.action == "GetCurrentTransportActions") body = "<Actions>Play,Pause,Next,Previous</Actions>";
+    if(q.action == "GetCurrentTransportActions") body = "<Actions>" + escape(f.actions) + "</Actions>";
     s.accept(200,response(q.action,body));
   }
   s.finish(); return requests;
@@ -108,6 +109,21 @@ void test_states() {
   f.title[1] = "Björk & Beyoncé <live>"; poll(s,f); assert(s.current().title == f.title[1]);
 }
 void test_controls() {
+  for (const auto &actions : {"Set, Stop, Pause, Play, X_DLNA_SeekTime, Next, Previous, X_DLNA_SeekTrackNr",
+       "Play,Pause,Next,Previous", " \tNext \r\n, , Previous  ,"}) {
+    State parsed; Fixture fixture; fixture.actions = actions;
+    for (int action : {3, 4}) {
+      poll(parsed, fixture); assert(parsed.current().next && parsed.current().previous);
+      parsed.capture(); poll(parsed, fixture); assert(parsed.prepare_command(action));
+      assert(parsed.request().host == kitchen);
+      assert(parsed.request().action == (action == 3 ? "Previous" : "Next"));
+    }
+  }
+  for (const auto &actions : {"Stop, Play", "NextTrack, X_DLNA_Previous", "", " , \t,"}) {
+    State parsed; Fixture fixture; fixture.actions = actions;
+    poll(parsed, fixture); assert(!parsed.current().next && !parsed.current().previous);
+    parsed.capture(); assert(!parsed.prepare_command(3)); assert(!parsed.prepare_command(4));
+  }
   State s; Fixture f; f.grouped = false; f.tv[0] = true;
   poll(s,f); assert(s.selected == 1);
   s.capture(); poll(s,f); assert(s.prepare_command(0));

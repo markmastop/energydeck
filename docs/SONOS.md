@@ -135,6 +135,9 @@ and artist. Track artwork takes precedence over the station artwork from
 never the technical stream URL. The compact grouped-room label is transparent.
 Both cover widgets detach before decoding, and the LVGL image cache and descriptor
 dimensions are refreshed before displaying a newly decoded buffer.
+The compact cover uses its own persistent 62×62 RGB565 thumbnail, center-cropped
+from the decoded artwork and displayed at native scale. It does not share the
+large cover's transformed rendering buffer.
 New cover downloads only start while either Sonos view is selected.
 Cover changes include URL, title, artist and a one-minute refresh bucket. Failed
 downloads retry on the next poll; late results cannot reveal the wrong cover

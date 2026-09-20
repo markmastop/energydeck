@@ -7,13 +7,42 @@ const start = cpp.indexOf('  bool decoder_ready;');
 const end = cpp.indexOf('  if (!decoder_ready)', start);
 const decoderStart = cpp.indexOf('class CompletedPngDecoder');
 const decoderEnd = cpp.indexOf('\nOnlineImage::OnlineImage', decoderStart);
+const musicYaml = fs.readFileSync(path.join(root, 'esphome/packages/music.yaml'), 'utf8');
+const thumbnailStart = musicYaml.indexOf('              const int side =');
+const thumbnailEnd = musicYaml.indexOf('              mini = *source;', thumbnailStart);
+if (thumbnailStart < 0 || thumbnailEnd < 0) throw new Error('Native thumbnail copy missing');
 if (start < 0 || end < 0) throw new Error('Decoder selection block missing');
 const source = `
 #include <cassert>
 #include <memory>
 #include <cstddef>
+#include <cstdint>
+#include <vector>
+#include <algorithm>
 #include "${path.join(root, 'esphome/components/online_image/cover_redirect.h')}"
 using std::make_unique;
+void test_thumbnail(int w, int h) {
+  struct Image { struct { int stride; } header; const uint8_t *data; } image;
+  const int stride = w * 2 + 8; // Exercise padded source rows too.
+  std::vector<uint8_t> pixels(stride * h, 0);
+  for (int y = 0; y < h; ++y) for (int x = 0; x < w; ++x) {
+    pixels[y * stride + x * 2] = x % 251;
+    pixels[y * stride + x * 2 + 1] = y % 251;
+  }
+  image.header.stride = stride; image.data = pixels.data();
+  const auto *source = &image;
+  uint8_t guarded[62 * 62 * 2 + 2] = {};
+  guarded[0] = guarded[sizeof(guarded)-1] = 123;
+  auto *thumbnail = guarded + 1;
+${musicYaml.slice(thumbnailStart, thumbnailEnd)}
+  assert(guarded[0] == 123 && guarded[sizeof(guarded)-1] == 123);
+  for (int y = 0; y < 62; ++y) for (int x = 0; x < 62; ++x) {
+    assert(thumbnail[(y * 62 + x) * 2] == ((w - side) / 2 + x * side / 62) % 251);
+    assert(thumbnail[(y * 62 + x) * 2 + 1] == ((h - side) / 2 + y * side / 62) % 251);
+  }
+  auto saved = thumbnail[0]; pixels.assign(pixels.size(), 255);
+  assert(thumbnail[0] == saved); // Independent of the next full-cover decode.
+}
 struct pngle_t { void *user; void (*done)(pngle_t*) = nullptr; };
 void pngle_set_done_callback(pngle_t *p, void (*cb)(pngle_t*)) { p->done = cb; }
 void *pngle_get_user_data(pngle_t *p) { return p->user; }
@@ -41,6 +70,7 @@ ${cpp.slice(start, end)}
   }
 };
 int main() {
+  test_thumbnail(272,272); test_thumbnail(272,136); test_thumbnail(136,272); test_thumbnail(1,1);
   using esphome::online_image::allowed_cover_redirect;
   const std::string proxy = "https://sali.sonos.superhi.fi/image?w=60";
   const std::string logo = "https://cdn-profiles.tunein.com/s87683/images/logog.png?t=1";

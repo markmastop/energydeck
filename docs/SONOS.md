@@ -180,6 +180,13 @@ JPEG covers use JPEGDEC; PNG covers use PNGLE. The extra stb_image decoder has
 been removed. Progressive JPEGs are unsupported and leave the fallback icon
 visible. RADIONL artwork is skipped before downloading.
 
+On CrowPanel, mbedTLS allocates from external PSRAM rather than internal SRAM.
+The observed `mbedtls_ssl_setup returned -0x7F00` is a TLS allocation failure,
+before artwork decoding starts. The normal PSRAM-aware malloc setting alone does
+not change mbedTLS's allocation policy. HTTPS verification and timeouts remain
+unchanged; this applies to all mbedTLS connections, not only artwork. Hardware
+cover-download recovery must be verified after uploading this configuration.
+
 Run `node scripts/test-music-controls.cjs` for the actual C++ model's offline
 tests: XML/entity handling, malformed replies, URL restrictions, coordinator
 changes, separate/grouped rooms, TV/music priority, manual selection, missing

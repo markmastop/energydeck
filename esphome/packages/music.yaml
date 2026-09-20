@@ -334,8 +334,6 @@ script:
             if (block_favorites) lv_obj_add_state(button, LV_STATE_DISABLED);
             else lv_obj_clear_state(button, LV_STATE_DISABLED);
           }
-          if (waiting || id(music_favorites_loading)) lv_obj_add_state(id(music_favorites_refresh), LV_STATE_DISABLED);
-          else lv_obj_clear_state(id(music_favorites_refresh), LV_STATE_DISABLED);
           // Compact and full players share the same snapshot and command state.
           const std::pair<lv_obj_t *, lv_obj_t *> labels[] = {
             {id(small_music_title), id(music_title)}, {id(small_music_artist), id(music_artist)},

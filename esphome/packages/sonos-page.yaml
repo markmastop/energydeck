@@ -214,32 +214,12 @@ widgets:
       text_font: montserrat_12
       text_color: 0xA9B8AE
       text_align: CENTER
-  - label:
-      x: 14
-      y: 564
-      text: "${music_favorites}"
-      text_font: montserrat_18
-  - button:
-      id: music_favorites_refresh
-      x: 426
-      y: 552
-      width: 40
-      height: 40
-      radius: 8
-      pad_all: 0
-      bg_color: 0x18231E
-      border_color: 0x34463C
-      border_width: 1
-      text: "\uf021"
-      text_font: montserrat_18
-      on_click:
-        - script.execute: refresh_music_favorites
   - obj:
       id: music_favorites_grid
       x: 14
-      y: 602
+      y: 570
       width: 452
-      height: 184
+      height: 216
       pad_all: 0
       border_width: 0
       bg_opa: TRANSP

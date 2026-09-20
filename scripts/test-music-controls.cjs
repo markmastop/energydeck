@@ -39,11 +39,11 @@ try {
   }
   const dashboard = fs.readFileSync(path.join(__dirname, '../esphome/packages/dashboard.yaml'), 'utf8');
   const header = music.split('  - id: render_sonos_energy_header\n')[1].split('  # Read-only polls')[0];
-  if (!header.includes('detail ? -76 : 0') || !header.includes('id(electricity_today_unit_label)') ||
+  if (header.includes('lv_obj_set_x(id(solar_') || !dashboard.includes('id: sonos_battery_gauge\n                  hidden: true\n                  x: 314') || !header.includes('id(electricity_today_unit_label)') ||
       !header.includes('lv_bar_get_value(id(battery_level_bar))') ||
       !header.includes('lv_obj_get_style_bg_color(id(battery_level_bar), LV_PART_INDICATOR)') ||
       !header.includes('lv_obj_get_style_text_color(id(battery_status_label), LV_PART_MAIN)'))
-    throw new Error('Sonos header must restore solar position and reuse battery values/colors');
+    throw new Error('Sonos header must keep solar right, battery middle and reuse battery values/colors');
   const tab = dashboard.split('id: music_tab\n')[1].split('        - button:')[0];
   if (!tab.includes('id(detail_tab) = 1') || !tab.includes('script.execute: select_detail_tab') || tab.includes('open_music_page'))
     throw new Error('Right Sonos tab must select the compact card, not navigate');

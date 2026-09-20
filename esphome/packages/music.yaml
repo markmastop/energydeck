@@ -1,4 +1,4 @@
-# Direct LAN Sonos state and controls; station/group setup stays in Homey.
+# Dedicated Sonos page. Homey is not involved in favorites or playback controls.
 external_components:
   - source:
       type: local
@@ -8,18 +8,20 @@ external_components:
 sonos_local:
 
 substitutions:
-  homey_radio_flow_id: "0625c152-4c2f-42b5-9e4f-331a8096c48d"
-  # Bootstrap addresses; topology resolves the current group coordinator.
   sonos_living_address: "http://192.168.0.190:1400"
   sonos_kitchen_address: "http://192.168.0.191:1400"
 
 globals:
   - id: sonos
     type: energydeck_sonos::State
+  - id: sonos_favorites
+    type: energydeck_sonos::Favorites
+  - id: music_favorite_copy
+    type: energydeck_sonos::Favorite
   - id: detail_tab
     type: int
     initial_value: "0"
-  - id: music_was_playing
+  - id: music_page_open
     type: bool
     initial_value: "false"
   - id: music_busy
@@ -28,10 +30,10 @@ globals:
   - id: music_command_failed
     type: bool
     initial_value: "false"
-  - id: radio_pending
+  - id: music_favorites_loading
     type: bool
     initial_value: "false"
-  - id: radio_failed
+  - id: music_favorite_pending
     type: bool
     initial_value: "false"
   - id: music_cover_key
@@ -53,6 +55,13 @@ interval:
             lambda: return !id(music_busy);
           then:
             - script.execute: refresh_music
+  - interval: 5min
+    then:
+      - if:
+          condition:
+            lambda: return id(music_page_open) && !id(music_busy) && !id(music_favorite_pending);
+          then:
+            - script.execute: refresh_music_favorites
 
 image:
   - platform: online_image
@@ -61,10 +70,10 @@ image:
     url: "${sonos_living_address}/unavailable"
     format: JPEG
     type: RGB565
-    resize: 62x62
+    resize: 160x160
     buffer_size: 8192
     update_interval: never
-    # Deliberately no Authorization header: this is a speaker, not Homey.
+    # No credentials: artwork comes from the local Sonos coordinator.
     on_download_finished:
       then:
         - lvgl.image.update:
@@ -84,8 +93,31 @@ image:
             lv_obj_add_flag(id(music_cover_widget), LV_OBJ_FLAG_HIDDEN);
 
 script:
-  # A single bounded request at a time, with a yield between requests for LVGL.
-  # Only music_control can populate this queue with writes.
+  - id: open_music_page
+    then:
+      - lambda: |-
+          id(music_page_open) = true;
+          lv_obj_set_parent(id(shared_energy_header), id(sonos_page)->obj);
+          lv_obj_set_pos(id(shared_energy_header), 0, 0);
+      - lvgl.page.show: sonos_page
+      - script.execute: render_music
+      - if:
+          condition:
+            lambda: return !id(music_busy);
+          then:
+            - script.execute: refresh_music
+      - script.execute: refresh_music_favorites
+
+  - id: close_music_page
+    then:
+      - lambda: |-
+          id(music_page_open) = false;
+          lv_obj_set_parent(id(shared_energy_header), id(energydeck_main_page)->obj);
+          lv_obj_set_pos(id(shared_energy_header), 0, 0);
+      - lvgl.page.show: energydeck_main_page
+      - script.execute: select_detail_tab
+
+  # Read-only polls and explicitly clicked commands share one serialized queue.
   - id: sonos_requests
     mode: single
     then:
@@ -98,7 +130,6 @@ script:
                 request_headers:
                   Content-Type: 'text/xml; charset="utf-8"'
                   SOAPAction: !lambda |-
-                    // ESPHome header lambdas require a stable const char*.
                     static std::string header;
                     header = id(sonos).request().soap_action();
                     return header.c_str();
@@ -121,24 +152,11 @@ script:
       - script.wait: sonos_requests
       - lambda: |-
           id(sonos).finish();
-          const bool playing = id(sonos).any_playing();
-          if (playing && !id(music_was_playing)) {
-            id(detail_tab) = 1;
-            id(select_detail_tab).execute();
-          }
-          if (playing) id(music_was_playing) = true;
-          else if (id(sonos).all_stopped()) {
-            if (id(music_was_playing) && id(detail_tab) == 1) {
-              id(detail_tab) = 0;
-              id(select_detail_tab).execute();
-            }
-            id(music_was_playing) = false;
-          }
-          // Only fresh grouped music, not unrelated TV playback, confirms Radio.
-          if (id(sonos).radio_confirmed()) {
-            id(radio_pending) = false;
-            id(radio_failed) = false;
-            id(radio_timeout).stop();
+          // Polling never navigates. Only an explicit tap opens/closes Sonos.
+          if (id(music_favorite_pending) && id(sonos).command_confirmed()) {
+            id(music_favorite_pending) = false;
+            id(music_command_failed) = false;
+            id(music_favorite_timeout).stop();
           }
           ESP_LOGD("sonos_local", "Direct Sonos: selected=%d grouped=%d known=%d playing=%d tv=%d",
             id(sonos).selected, id(sonos).grouped(), id(sonos).current().known(),
@@ -150,7 +168,7 @@ script:
     then:
       - if:
           condition:
-            lambda: return !id(music_busy);
+            lambda: return !id(music_busy) && !id(music_favorite_pending);
           then:
             - lambda: id(sonos).switch_room();
             - script.execute: render_music
@@ -163,7 +181,7 @@ script:
     then:
       - if:
           condition:
-            lambda: return !id(radio_pending) && !id(music_busy);
+            lambda: return !id(music_favorite_pending) && !id(music_busy);
           then:
             - lambda: |-
                 id(sonos).capture();
@@ -193,6 +211,7 @@ script:
   - id: refresh_music_cover
     then:
       - lambda: |-
+          if (!id(music_page_open)) return;
           const auto &room = id(sonos).current();
           const std::string path = room.known() && room.playing && !room.tv ? room.cover : "";
           const std::string key = path.empty() ? "" :
@@ -212,24 +231,25 @@ script:
             id(music_cover).update();
           }
 
+
   - id: select_detail_tab
     then:
       - lambda: |-
-          lv_obj_t *cards[] = {id(gas_card), id(music_card), id(extra_card)};
+          if (id(detail_tab) == 1) id(detail_tab) = 0;
+          lv_obj_t *cards[] = {id(gas_card), id(extra_card)};
+          for (int i = 0; i < 2; ++i) {
+            if ((id(detail_tab) == 2) == (i == 1)) lv_obj_clear_flag(cards[i], LV_OBJ_FLAG_HIDDEN);
+            else lv_obj_add_flag(cards[i], LV_OBJ_FLAG_HIDDEN);
+          }
           lv_obj_t *tabs[] = {id(gas_tab), id(music_tab), id(extra_tab)};
           const uint32_t accents[] = {0xFF3485, 0x45BD70, 0x5799E4};
           const uint32_t fills[] = {0x672B4B, 0x24583B, 0x294E77};
           for (int i = 0; i < 3; ++i) {
             const bool active = i == id(detail_tab);
-            if (active) lv_obj_clear_flag(cards[i], LV_OBJ_FLAG_HIDDEN);
-            else lv_obj_add_flag(cards[i], LV_OBJ_FLAG_HIDDEN);
             lv_obj_set_style_bg_color(tabs[i], lv_color_hex(active ? fills[i] : 0x18231E), 0);
             lv_obj_set_style_border_color(tabs[i], lv_color_hex(active ? accents[i] : 0x34463C), 0);
             lv_obj_set_style_border_width(tabs[i], active ? 2 : 1, 0);
-            lv_obj_set_style_text_color(lv_obj_get_child(tabs[i], 0),
-              lv_color_hex(active ? 0xEEF6F0 : 0xA9B8AE), 0);
           }
-
 
   - id: render_music
     then:
@@ -238,25 +258,23 @@ script:
           const auto &room = s.current();
           const bool known = room.known();
           const bool playing = known && room.playing;
-          const char *status = id(music_busy) ? "${music_button_wait}" :
+          const bool waiting = id(music_busy) || id(music_favorite_pending);
+          const char *status = waiting ? "${music_button_wait}" :
             id(music_command_failed) ? "${music_control_failed}" :
-            id(radio_pending) ? "${music_waiting}" :
-            id(radio_failed) ? "${music_failed}" :
-            !known ? "${music_offline}" :
-            playing ? "${music_playing}" : "${music_paused}";
+            !known ? "${music_offline}" : playing ? "${music_playing}" : "${music_paused}";
           lv_label_set_text(id(music_status), status);
           lv_obj_set_style_text_color(id(music_status),
-            lv_color_hex(id(music_command_failed) || id(radio_failed) || !known ? 0xEA665F : 0x7FE0A2), 0);
-          const char *heading = s.grouped() ? "${music_rooms}" :
-            s.selected == 0 ? "${music_living_select}" : "${music_kitchen_select}";
-          lv_label_set_text(lv_obj_get_child(id(music_room_select), 0), heading);
-          if (id(music_busy)) lv_obj_add_state(id(music_room_select), LV_STATE_DISABLED);
+            lv_color_hex(id(music_command_failed) || !known ? 0xEA665F : 0x7FE0A2), 0);
+          lv_label_set_text(lv_obj_get_child(id(music_room_select), 0), s.grouped() ? "${music_rooms}" :
+            s.selected == 0 ? "${music_living_select}" : "${music_kitchen_select}");
+          if (waiting) lv_obj_add_state(id(music_room_select), LV_STATE_DISABLED);
           else lv_obj_clear_state(id(music_room_select), LV_STATE_DISABLED);
           lv_label_set_text(id(music_title), !known ? "${music_offline}" :
             playing && room.tv ? "${music_tv}" :
             playing && !room.title.empty() ? room.title.c_str() :
             playing ? "${music_playing}" : "${music_ready}");
           lv_label_set_text(id(music_artist), playing && !room.tv ? room.artist.c_str() : "");
+          lv_label_set_text(id(music_cover_fallback), room.tv ? "${music_tv}" : LV_SYMBOL_AUDIO);
           char a[12], b[12];
           for (int i = 0; i < 2; ++i) {
             char *v = i == 0 ? a : b;
@@ -266,68 +284,163 @@ script:
           if (s.grouped()) lv_label_set_text_fmt(id(music_volume), "${music_volume_format}", a, b);
           else lv_label_set_text_fmt(id(music_volume), "${music_single_volume_format}", s.selected == 0 ? a : b);
           lv_label_set_text(lv_obj_get_child(id(music_play), 0),
-            room.tv ? "${music_tv}" : playing ? "${music_pause}" : "${music_resume}");
-          for (auto *button : {id(music_play), id(music_minus), id(music_plus)}) {
-            const bool disabled = id(music_busy) || id(radio_pending) || !known ||
-              (button == id(music_play) ? room.tv : !s.can_volume());
-            if (disabled) lv_obj_add_state(button, LV_STATE_DISABLED);
+            waiting ? "${music_button_wait}" : room.tv ? "${music_tv}" : playing ? "${music_pause}" : "${music_resume}");
+          lv_label_set_text(lv_obj_get_child(id(music_mute), 0), s.muted() ? "${music_unmute}" : "${music_mute}");
+          lv_obj_set_style_bg_color(id(music_mute), lv_color_hex(s.muted() ? 0x66512A : 0x18231E), 0);
+          for (auto *button : {id(music_play), id(music_minus), id(music_plus), id(music_previous), id(music_next), id(music_mute)}) {
+            bool unavailable = !known;
+            if (button == id(music_play)) unavailable |= room.tv;
+            else if (button == id(music_minus) || button == id(music_plus)) unavailable |= !s.can_volume();
+            else if (button == id(music_previous)) unavailable |= room.tv || !room.previous;
+            else if (button == id(music_next)) unavailable |= room.tv || !room.next;
+            else unavailable |= !s.can_mute();
+            if (waiting || unavailable) lv_obj_add_state(button, LV_STATE_DISABLED);
             else lv_obj_clear_state(button, LV_STATE_DISABLED);
           }
-      - lvgl.button.update:
-          id: radio_button
-          text: !lambda |-
-            return std::string(id(radio_pending) ? "${music_button_wait}" : "${music_start}");
-          bg_color: !lambda |-
-            return lv_color_hex(id(radio_pending) ? 0x626A70 : 0x24764A);
-          state:
-            disabled: !lambda return id(radio_pending) || id(music_busy);
+          const bool block_favorites = waiting || id(music_favorites_loading) || !known || !id(sonos_favorites).known;
+          for (uint32_t i = 0; i < lv_obj_get_child_count(id(music_favorites_grid)); ++i) {
+            auto *button = lv_obj_get_child(id(music_favorites_grid), i);
+            if (block_favorites) lv_obj_add_state(button, LV_STATE_DISABLED);
+            else lv_obj_clear_state(button, LV_STATE_DISABLED);
+          }
+          if (waiting || id(music_favorites_loading)) lv_obj_add_state(id(music_favorites_refresh), LV_STATE_DISABLED);
+          else lv_obj_clear_state(id(music_favorites_refresh), LV_STATE_DISABLED);
 
-  - id: radio_timeout
-    mode: restart
-    then:
-      - delay: 90s
-      - lambda: |-
-          id(radio_pending) = false;
-          id(radio_failed) = true;
-      - script.execute: render_music
-
-  - id: start_radio
+  - id: sonos_favorite_requests
     mode: single
     then:
-      - lambda: |-
-          id(radio_pending) = true;
-          id(radio_failed) = false;
-      - script.execute: render_music
-      - script.execute: radio_timeout
-      # Let LVGL paint the waiting state before starting the HTTP request.
-      - delay: 100ms
-      - http_request.post:
-          url: "${homey_address}/api/manager/flow/advancedflow/${homey_radio_flow_id}/trigger"
-          request_headers:
-            Authorization: "Bearer ${homey_token}"
-            Content-Type: "application/json"
-          body: "{}"
-          capture_response: true
-          max_response_buffer_size: 1024
-          on_response:
-            then:
-              - if:
-                  condition:
-                    lambda: return response->status_code >= 200 && response->status_code < 300;
+      - while:
+          condition:
+            lambda: return id(sonos_favorites).has_request();
+          then:
+            - http_request.post:
+                url: !lambda return id(sonos_favorites).request().url();
+                request_headers:
+                  Content-Type: 'text/xml; charset="utf-8"'
+                  SOAPAction: '"urn:schemas-upnp-org:service:ContentDirectory:1#Browse"'
+                body: !lambda return id(sonos_favorites).request().body();
+                capture_response: true
+                max_response_buffer_size: 65536
+                on_response:
                   then:
-                    - logger.log: "Radio Flow accepted; waiting for speaker status"
-                    - delay: 2s
-                    - script.execute: refresh_music
-                  else:
-                    - script.execute: radio_error
-          on_error:
-            then:
-              - script.execute: radio_error
+                    - lambda: id(sonos_favorites).accept(response->status_code, body);
+                on_error:
+                  then:
+                    - lambda: id(sonos_favorites).accept(0, "");
+            - delay: 80ms
 
-  - id: radio_error
+  - id: refresh_music_favorites
+    mode: single
     then:
-      - script.stop: radio_timeout
+      - if:
+          condition:
+            lambda: return !id(music_busy) && !id(music_favorite_pending);
+          then:
+            - lambda: |-
+                id(music_favorites_loading) = true;
+                lv_label_set_text(id(music_favorites_status), "${music_favorites_loading}");
+                id(sonos_favorites).begin(id(sonos).current().coordinator_host.empty() ?
+                  "${sonos_kitchen_address}" : id(sonos).current().coordinator_host);
+            - script.execute: render_music
+            - script.execute: sonos_favorite_requests
+            - script.wait: sonos_favorite_requests
+            - if:
+                condition:
+                  lambda: return id(sonos_favorites).failed;
+                then:
+                  - lambda: id(sonos_favorites).begin("${sonos_living_address}");
+                  - script.execute: sonos_favorite_requests
+                  - script.wait: sonos_favorite_requests
+            - lambda: id(music_favorites_loading) = false;
+            - script.execute: render_music_favorites
+            - script.execute: render_music
+
+  - id: render_music_favorites
+    then:
       - lambda: |-
-          id(radio_pending) = false;
-          id(radio_failed) = true;
+          auto &f = id(sonos_favorites);
+          lv_obj_clean(id(music_favorites_grid));
+          lv_obj_scroll_to_y(id(music_favorites_grid), 0, LV_ANIM_OFF);
+          lv_label_set_text(id(music_favorites_status), !f.known ? "${music_favorites_error}" :
+            f.items.empty() ? "${music_favorites_empty}" : "");
+          if (!f.known) return;
+          ESP_LOGI("sonos_local", "Loaded %u playable Sonos favorites", unsigned(f.items.size()));
+          for (size_t i = 0; i < f.items.size(); ++i) {
+            auto *button = lv_button_create(id(music_favorites_grid));
+            lv_obj_remove_style_all(button);
+            lv_obj_set_pos(button, (i % 2) * 222, (i / 2) * 80);
+            lv_obj_set_size(button, 212, 70);
+            lv_obj_set_style_radius(button, 8, 0);
+            lv_obj_set_style_bg_opa(button, LV_OPA_COVER, 0);
+            lv_obj_set_style_bg_color(button, lv_color_hex(0x18231E), 0);
+            lv_obj_set_style_border_width(button, 1, 0);
+            lv_obj_set_style_border_color(button, lv_color_hex(0x34463C), 0);
+            lv_obj_set_style_bg_color(button, lv_color_hex(0x24583B), LV_STATE_PRESSED);
+            lv_obj_set_style_opa(button, LV_OPA_50, LV_STATE_DISABLED);
+            auto *kind = lv_label_create(button);
+            lv_obj_set_pos(kind, 12, 9);
+            lv_obj_set_style_text_font(kind, &lv_font_montserrat_12, 0);
+            lv_obj_set_style_text_color(kind, lv_color_hex(0x7FE0A2), 0);
+            lv_label_set_text(kind, f.items[i].radio ? LV_SYMBOL_AUDIO " ${music_favorite_radio}" : LV_SYMBOL_LIST " ${music_favorite_playlist}");
+            auto *title = lv_label_create(button);
+            lv_obj_set_pos(title, 12, 30);
+            lv_obj_set_size(title, 188, 32);
+            lv_label_set_long_mode(title, LV_LABEL_LONG_DOT);
+            lv_obj_set_style_text_font(title, &lv_font_montserrat_14, 0);
+            lv_obj_set_style_text_color(title, lv_color_hex(0xEEF6F0), 0);
+            lv_label_set_text(title, f.items[i].title.c_str());
+            lv_obj_add_event_cb(button, [](lv_event_t *event) {
+              const int index = static_cast<int>(reinterpret_cast<uintptr_t>(lv_event_get_user_data(event)));
+              id(play_music_favorite).execute(index);
+            }, LV_EVENT_CLICKED, reinterpret_cast<void *>(static_cast<uintptr_t>(i)));
+          }
+
+  - id: play_music_favorite
+    mode: single
+    parameters:
+      index: int
+    then:
+      - if:
+          condition:
+            lambda: |-
+              return !id(music_busy) && !id(music_favorite_pending) && !id(music_favorites_loading) &&
+                id(sonos_favorites).known && index >= 0 && size_t(index) < id(sonos_favorites).items.size();
+          then:
+            - lambda: |-
+                id(music_favorite_copy) = id(sonos_favorites).items[index];
+                id(sonos).capture();
+                id(music_busy) = true;
+                id(music_command_failed) = false;
+            - script.execute: render_music
+            - delay: 100ms
+            - script.execute: refresh_music
+            - script.wait: refresh_music
+            - if:
+                condition:
+                  lambda: return id(sonos).prepare_favorite(id(music_favorite_copy));
+                then:
+                  - script.execute: sonos_requests
+                  - script.wait: sonos_requests
+                  - lambda: |-
+                      id(music_command_failed) = id(sonos).command_failed;
+                      id(music_favorite_pending) = !id(music_command_failed);
+                else:
+                  - lambda: id(music_command_failed) = true;
+            - lambda: id(music_busy) = false;
+            - script.execute: render_music
+            - if:
+                condition:
+                  lambda: return id(music_favorite_pending);
+                then:
+                  - script.execute: music_favorite_timeout
+                  - delay: 3s
+                  - script.execute: refresh_music
+
+  - id: music_favorite_timeout
+    mode: restart
+    then:
+      - delay: 30s
+      - lambda: |-
+          id(music_favorite_pending) = false;
+          id(music_command_failed) = true;
       - script.execute: render_music

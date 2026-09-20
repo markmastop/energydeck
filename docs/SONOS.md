@@ -1,9 +1,18 @@
-# Sonos: direct local playback state
+# Sonos: dedicated local player and favorites
 
-The **Sonos** tab opens the player. The green **Radio** button still starts the
-existing Homey Advanced Flow **Sonos - Beneden RadioNL**. Homey remains responsible
-for station choice, power-switch checks, starting volume and grouping. Opening a
-tab or changing the displayed room never starts music.
+The dashboard's **Sonos** button opens a separate full-screen player. **Dashboard**
+returns to the previous Gas/Climate view. Playback changes never navigate between
+pages. Opening the page or changing the displayed room never starts music.
+
+The compact live energy header stays at the top on both pages. Sonos starts at
+y=154, the top edge of the dashboard's Today/Tomorrow tabs. The same header widgets
+are moved between pages, so clock, price and gauges retain their normal updates.
+
+The page has a 160×160 cover, ellipsized title/artist, room selector, playback,
+skip, volume and mute controls, plus a scrollable two-column favorites grid.
+Favorites come directly from Sonos; no Homey Flow is involved. This also means
+starting a favorite does not switch power outlets, regroup speakers or set a
+starting volume. It uses the selected room's current group and volume.
 
 ## Why not read playback metadata from Homey?
 
@@ -14,7 +23,7 @@ Tonight. More frequent Homey reads cannot repair that stale source.
 
 EnergyDeck now polls Sonos locally every **10 seconds** (formerly Homey every
 30 seconds). It reads ZoneGroupTopology first, then transport state, media source
-and track metadata from each distinct coordinator, and volume from each room.
+and track metadata/actions from each distinct coordinator, and volume/mute from each room.
 Requests are sequential with an 80 ms yield for the UI. A slow cycle is not
 overlapped. Failed/truncated replies show offline/missing data instead of silently
 falling back to stale Homey titles.
@@ -36,27 +45,44 @@ Sonos updates.
 - TV is detected from the coordinator's `x-sonos-htastream:` source. Show **TV**
   and clear old song/artist/artwork. TV volume remains available; Pause/Play is
   disabled because the TV controls its source.
-- A playback start opens Sonos automatically. Confirmed stopped playback in both
-  rooms returns an active Sonos card to Gas. Manual Gas/Climate choices are
-  respected during continuous playback. Missing data does not count as stopped.
+- Starting/stopping playback does not change the current page. Dashboard Gas and
+  Climate remain available regardless of playback.
 
 Pause/Play goes directly to the selected room's coordinator. Minus/plus adjust
 the displayed room by two percentage points, clamped to 0–100. For the combined
 Woonkamer/Keuken group, both configured rooms are adjusted, preserving their
 volume offset except at the bounds. Other household rooms are not volume targets.
-Playback controls inherently affect the coordinator's actual group, so avoid
-adding unrelated rooms if they should remain unaffected by Pause/Play.
+Mute toggles both configured rooms when grouped, or just the selected room when
+separate. Previous/Next are enabled only when Sonos reports the action available.
+Playback controls and favorite selection inherently affect the coordinator's
+actual group, so avoid adding unrelated rooms if they should remain unaffected.
 
 Commands are only created after a user click. The displayed target is captured,
 fresh topology/volume is read, and a changed group scope cancels the command.
 Controls are disabled during requests and unavailable data; read-back verifies
-the result. There is no automatic command retry and mute state is unchanged.
+the result. There is no automatic command retry.
 
-Radio shows Waiting immediately and times out after 90 seconds. Fresh grouped
-music playback in both rooms confirms the start, including a late success after a
-timeout. TV playback alone cannot confirm Radio. This does not verify the station
-name; the Flow remains the source of station selection. The Flow is not retried
-automatically.
+## Sonos favorites
+
+ContentDirectory `Browse` reads `FV:2` in pages of eight when the page opens,
+when Refresh is tapped, and every five minutes while open. A complete, consistent
+UpdateID is required; unavailable or malformed data disables favorites rather
+than silently using an outdated list. Collection and payload sizes are bounded.
+Entries without playable URI/metadata (such as pinned discovery shortcuts) are
+omitted. Tiles show title and a radio/music icon, not remote thumbnail downloads.
+
+- Radio: set the favorite URI with its original metadata, then Play.
+- Playlist/album/track: append to the existing queue, select that queue, seek to
+  the first newly added track, then Play. The old queue is never cleared.
+- A failed command stops the remaining sequence. There is no automatic retry.
+- Waiting appears immediately; fresh playback URI (and queue track when relevant)
+  must confirm the selection within 30 seconds. Existing unrelated playback is
+  not sufficient confirmation. A timeout reports an unconfirmed action, not proof
+  that the speaker did nothing; check before retrying to avoid duplicate entries.
+
+The original Sonos favorite metadata is preserved and XML-escaped when sent.
+No music-service credentials are stored on the deck. Availability still depends
+on the associated music service and the speaker's local API support.
 
 ## Network and artwork
 
@@ -76,7 +102,8 @@ to private IPv4 addresses on port 1400. Artwork must be a relative path on the
 coordinator or an absolute URL with that same origin; external artwork URLs are
 not fetched. Redirects remain disabled.
 
-JPEG covers remain 62×62 pixels, alongside one-line ellipsized title and artist.
+JPEG covers are 160×160 pixels, beside one-line ellipsized title and artist.
+New cover downloads only start while the Sonos page is open.
 Cover changes include URL, title, artist and a one-minute refresh bucket. Failed
 downloads retry on the next poll; late results cannot reveal the wrong cover
 after a room/source change. Missing/unsupported artwork uses the music-note
@@ -90,19 +117,25 @@ on ESP-IDF with bounded size/time; see its README.
 Run `node scripts/test-music-controls.cjs` for the actual C++ model's offline
 tests: XML/entity handling, malformed replies, URL restrictions, coordinator
 changes, separate/grouped rooms, TV/music priority, manual selection, missing
-speakers, command scope changes, volume bounds and command confirmation.
+speakers, command scope changes, volume bounds and command confirmation. Favorites
+tests cover pagination, invalid/stale pages, filtering, radio, queue append/seek,
+failure aborts, mute, skip and read-back confirmation.
 
 Run `node scripts/test-chunked-cover.cjs` for the JPEG download regression tests.
 
 The C++ test's `--probe` mode emits only Get* requests for a read-only live
-comparison. Automated/live diagnostic checks must not start the Radio Flow,
-change groups, pause music or change volume. Compile the simulator and physical
+comparison; `--favorites-probe` emits only Browse requests. Automated/live diagnostic
+checks must not start favorites, modify queues, change groups, pause music or
+change volume. Compile the simulator and physical
 firmware separately; upload to the deck only when explicitly requested.
 
-2026-09-20 validation: native simulator and ESP32 builds passed. A read-only
-live probe decoded the actual kitchen coordinator's current track for both
-rooms; simulator logs confirmed recurring direct reads and successful JPEG
-cover download/decode. The automation tool could not access the SDL window, so
-visual layout verification remains manual. Live controls, TV playback and
-regrouping were not exercised against the household; those paths were tested
-with synthetic replies. No firmware upload was performed.
+2026-09-20 dedicated-page validation: all regression scripts and the native
+simulator/ESP32 builds passed. A read-only live favorites probe decoded 13 playable
+favorites, excluding three non-playable discovery entries. A regression check
+also verifies that the shared header moves to both pages and Sonos starts at
+the energy tabs' y=154 position. The automation tool could not reliably inspect
+the final SDL preview; visual layout verification remains manual. The preview
+was restricted to Sonos TCP port 1400, blocking unrelated weather/Homey requests.
+No live playback, queue, mute, volume or grouping changes were used for testing;
+command behavior was verified with synthetic replies. No firmware upload was
+performed.

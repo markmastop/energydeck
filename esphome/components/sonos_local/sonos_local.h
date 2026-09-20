@@ -148,8 +148,9 @@ inline std::string origin(const std::string &url) {
 
 struct Room {
   std::string uuid, host, coordinator, coordinator_host, members;
-  std::string title, artist, cover, uri;
-  int volume = -1;
+  std::string title, artist, cover, uri, track_uri;
+  int volume = -1, mute = -1, track = -1;
+  bool next = false, previous = false;
   bool topology = false, transport = false, media = false, position = false;
   bool playing = false, tv = false;
   bool known() const { return topology && transport && media && position; }
@@ -159,7 +160,8 @@ struct Request {
   std::string host, service, action, arguments;
   int room = -1;
   std::string url() const {
-    return host + (service == "ZoneGroupTopology" ? "/ZoneGroupTopology/Control" :
+    return host + (service == "ContentDirectory" ? "/MediaServer/ContentDirectory/Control" :
+      service == "ZoneGroupTopology" ? "/ZoneGroupTopology/Control" :
       service == "RenderingControl" ? "/MediaRenderer/RenderingControl/Control" : "/MediaRenderer/AVTransport/Control");
   }
   std::string soap_action() const { return "\"urn:schemas-upnp-org:service:" + service + ":1#" + action + "\""; }
@@ -167,6 +169,100 @@ struct Request {
     return "<s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\"><s:Body><u:" + action +
       " xmlns:u=\"urn:schemas-upnp-org:service:" + service + ":1\">" + arguments + "</u:" + action + "></s:Body></s:Envelope>";
   }
+};
+
+inline std::string xml_escape(const std::string &s) {
+  std::string result;
+  for (char c : s) {
+    switch (c) {
+      case '&': result += "&amp;"; break;
+      case '<': result += "&lt;"; break;
+      case '>': result += "&gt;"; break;
+      case '"': result += "&quot;"; break;
+      case '\'': result += "&apos;"; break;
+      default: result += c;
+    }
+  }
+  return result;
+}
+
+inline int number(const std::string &s, int maximum = 100000) {
+  if (s.empty() || s.size() > 6) return -1;
+  int n = 0;
+  for (char c : s) { if (c < '0' || c > '9') return -1; n = n * 10 + c - '0'; }
+  return n > maximum ? -1 : n;
+}
+
+struct Favorite {
+  std::string id, title, uri, metadata;
+  bool radio = false;
+};
+
+class Favorites {
+ public:
+  std::vector<Favorite> items;
+  bool known = false, failed = false;
+  void begin(const std::string &host) {
+    host_ = origin(host); offset_ = 0; bytes_ = 0; pending_.clear(); version_.clear();
+    known = false; failed = host_.empty(); active_ = !failed;
+  }
+  bool has_request() const { return active_; }
+  Request request() const {
+    return {host_, "ContentDirectory", "Browse", "<ObjectID>FV:2</ObjectID><BrowseFlag>BrowseDirectChildren</BrowseFlag><Filter>*</Filter><StartingIndex>" +
+      std::to_string(offset_) + "</StartingIndex><RequestedCount>8</RequestedCount><SortCriteria></SortCriteria>", -1};
+  }
+  void accept(int status, const std::string &body) {
+    if (!active_) return;
+    Xml response(body);
+    if (status != 200 || !response.valid || !response.has("BrowseResponse") || response.has("Fault")) { fail(); return; }
+    const int returned = number(response.text("NumberReturned"), 8);
+    const int total = number(response.text("TotalMatches"), 100);
+    const auto version = response.text("UpdateID");
+    if (returned < 0 || total < 0 || offset_ + returned > total || (returned == 0 && offset_ < total) ||
+        (offset_ > 0 && version != version_)) { fail(); return; }
+    version_ = version;
+    Xml didl(response.text("Result"));
+    if (returned && !didl.valid) { fail(); return; }
+    int entries = 0;
+    for (size_t i = 0; i < didl.nodes.size(); ++i) {
+      const auto &item = didl.nodes[i];
+      if (item.parent != 0 || (Xml::local(item.name) != "item" && Xml::local(item.name) != "container")) continue;
+      ++entries;
+      Favorite f; f.id = attribute(item, "id");
+      for (const auto &n : didl.nodes) if (n.parent == static_cast<int>(i)) {
+        auto name = Xml::local(n.name);
+        if (name == "title") f.title = n.text;
+        else if (name == "res") f.uri = n.text;
+        else if (name == "resMD") f.metadata = n.text;
+      }
+      // Discovery/pinned containers lack a playable resource. Do not create
+      // buttons that look playable but lead to a browse-only screen.
+      if (f.uri.empty() || f.metadata.empty() || f.title.empty() || f.id.empty()) continue;
+      Xml metadata(f.metadata);
+      auto cls = metadata.text("class");
+      if (!metadata.valid || cls.empty()) continue;
+      f.radio = cls.find("audioBroadcast") != std::string::npos;
+      if (!f.radio && cls.find("playlistContainer") == std::string::npos && cls.find("musicAlbum") == std::string::npos && cls.find("musicTrack") == std::string::npos) continue;
+      if (f.title.size() > 512 || f.uri.size() > 8192 || f.metadata.size() > 8192 || pending_.size() >= 100) { fail(); return; }
+      for (const auto &previous : pending_) if (previous.id == f.id) { fail(); return; }
+      bytes_ += f.title.size() + f.uri.size() + f.metadata.size();
+      if (bytes_ > 196608) { fail(); return; }
+      pending_.push_back(std::move(f));
+    }
+    if (entries != returned) { fail(); return; }
+    offset_ += returned;
+    if (offset_ == total) {
+      items.swap(pending_); pending_.clear(); known = true; active_ = false;
+    }
+  }
+
+ private:
+  bool active_ = false;
+  int offset_ = 0;
+  size_t bytes_ = 0;
+  std::string host_, version_;
+  std::vector<Favorite> pending_;
+  void fail() { active_ = false; failed = true; known = false; pending_.clear(); }
 };
 
 class State {
@@ -184,6 +280,8 @@ class State {
   bool can_volume() const {
     return current().known() && current().volume >= 0 && (!grouped() || rooms[1 - selected].volume >= 0);
   }
+  bool can_mute() const { return current().known() && current().mute >= 0 && (!grouped() || rooms[1-selected].mute >= 0); }
+  bool muted() const { return current().mute == 1 && (!grouped() || rooms[1-selected].mute == 1); }
   void switch_room() { if (!grouped()) { selected = 1 - selected; manual_ = true; } }
   std::string scope() const {
     const auto &r = current();
@@ -205,12 +303,33 @@ class State {
     const auto req = request();
     Xml xml(body);
     const bool ok = status == 200 && xml.valid && xml.has(req.action + "Response") && !xml.has("Fault");
-    if (commanding_) { if (!ok) command_failed = true; ++cursor_; return; }
+    if (commanding_) {
+      if (!ok) { command_failed = true; requests_.clear(); cursor_ = 0; return; }
+      if (req.action == "AddURIToQueue") {
+        const int first = number(xml.text("FirstTrackNumberEnqueued"));
+        const int added = number(xml.text("NumTracksAdded"));
+        if (first <= 0 || added <= 0) { command_failed = true; requests_.clear(); cursor_ = 0; return; }
+        favorite_track_ = first;
+        const auto &r = rooms[target_room_];
+        const auto uri = "x-rincon-queue:" + r.coordinator + "#0";
+        favorite_uri_ = uri;
+        requests_.push_back({req.host, "AVTransport", "SetAVTransportURI", "<InstanceID>0</InstanceID><CurrentURI>" + xml_escape(uri) + "</CurrentURI><CurrentURIMetaData></CurrentURIMetaData>", target_room_});
+        requests_.push_back({req.host, "AVTransport", "Seek", "<InstanceID>0</InstanceID><Unit>TRACK_NR</Unit><Target>" + std::to_string(first) + "</Target>", target_room_});
+        requests_.push_back({req.host, "AVTransport", "Play", "<InstanceID>0</InstanceID><Speed>1</Speed>", target_room_});
+      }
+      ++cursor_; return;
+    }
     if (ok && req.action == "GetZoneGroupState" && !topology_ok_) {
       topology_ok_ = parse_topology(xml.text("ZoneGroupState"));
     } else if (ok && req.room >= 0 && req.action != "GetZoneGroupState") {
       Room &r = pending_[req.room];
-      if (req.action == "GetVolume") {
+      if (req.action == "GetMute") {
+        r.mute = number(xml.text("CurrentMute"), 1);
+      } else if (req.action == "GetCurrentTransportActions") {
+        const auto actions = "," + xml.text("Actions") + ",";
+        r.next = actions.find(",Next,") != std::string::npos;
+        r.previous = actions.find(",Previous,") != std::string::npos;
+      } else if (req.action == "GetVolume") {
         const auto value = xml.text("CurrentVolume");
         if (!value.empty() && value.size() <= 3 && std::all_of(value.begin(), value.end(), [](char c) { return c >= '0' && c <= '9'; })) {
           int v = std::atoi(value.c_str()); if (v <= 100) r.volume = v;
@@ -224,6 +343,7 @@ class State {
         r.tv = r.uri.rfind("x-sonos-htastream:", 0) == 0;
       } else if (req.action == "GetPositionInfo") {
         r.position = xml.has("TrackMetaData");
+        r.track_uri = xml.text("TrackURI"); r.track = number(xml.text("Track"));
         Xml meta(xml.text("TrackMetaData"));
         r.title = meta.text("title"); r.artist = meta.text("creator");
         // Radio services often put artist/title in streamContent instead.
@@ -243,17 +363,18 @@ class State {
       for (int i = 0; i < 2; ++i) if (pending_[i].topology) {
         auto &r = pending_[i];
         if (i == 0 || r.coordinator != pending_[0].coordinator) {
-          for (const auto &action : {"GetTransportInfo", "GetMediaInfo", "GetPositionInfo"})
+          for (const auto &action : {"GetTransportInfo", "GetMediaInfo", "GetPositionInfo", "GetCurrentTransportActions"})
             requests_.push_back({r.coordinator_host, "AVTransport", action, "<InstanceID>0</InstanceID>", i});
         }
         requests_.push_back({r.host, "RenderingControl", "GetVolume", "<InstanceID>0</InstanceID><Channel>Master</Channel>", i});
+        requests_.push_back({r.host, "RenderingControl", "GetMute", "<InstanceID>0</InstanceID><Channel>Master</Channel>", i});
       }
     }
   }
   void finish() {
     if (pending_[0].topology && pending_[1].topology && pending_[0].coordinator == pending_[1].coordinator) {
       auto identity = pending_[1]; pending_[1] = pending_[0];
-      pending_[1].uuid = identity.uuid; pending_[1].host = identity.host; pending_[1].volume = identity.volume;
+      pending_[1].uuid = identity.uuid; pending_[1].host = identity.host; pending_[1].volume = identity.volume; pending_[1].mute = identity.mute;
     }
     for (auto &r : pending_) {
       if (!r.known() || !r.playing || r.tv) { r.title.clear(); r.artist.clear(); r.cover.clear(); }
@@ -273,16 +394,41 @@ class State {
   bool prepare_command(int action) {
     selected = captured_room_;
     command_failed = false; requests_.clear(); cursor_ = 0; commanding_ = true;
-    if (action < 0 || action > 2 || captured_scope_.empty() || captured_scope_ != scope() || !current().known() ||
-        (action == 0 ? current().tv : !can_volume())) return false;
+    if (action < 0 || action > 5 || captured_scope_.empty() || captured_scope_ != scope() || !current().known()) return false;
+    if ((action == 0 && current().tv) || ((action == 1 || action == 2) && !can_volume()) ||
+        (action == 3 && (current().tv || !current().previous)) || (action == 4 && (current().tv || !current().next)) ||
+        (action == 5 && !can_mute())) return false;
     target_action_ = action; target_scope_ = scope(); target_room_ = selected;
     target_playing_ = !current().playing; target_volumes_ = {{-1, -1}};
+    target_mute_ = !muted(); target_track_uri_ = current().track_uri;
     if (action == 0) requests_.push_back({current().coordinator_host, "AVTransport", target_playing_ ? "Play" : "Pause",
       std::string("<InstanceID>0</InstanceID>") + (target_playing_ ? "<Speed>1</Speed>" : ""), selected});
-    else for (int i = 0; i < 2; ++i) if (i == selected || grouped()) {
+    else if (action == 3 || action == 4) requests_.push_back({current().coordinator_host, "AVTransport", action == 3 ? "Previous" : "Next", "<InstanceID>0</InstanceID>", selected});
+    else if (action == 5) {
+      for (int i = 0; i < 2; ++i) if (i == selected || grouped())
+        requests_.push_back({rooms[i].host, "RenderingControl", "SetMute", "<InstanceID>0</InstanceID><Channel>Master</Channel><DesiredMute>" + std::to_string(target_mute_) + "</DesiredMute>", i});
+    } else for (int i = 0; i < 2; ++i) if (i == selected || grouped()) {
       target_volumes_[i] = std::max(0, std::min(100, rooms[i].volume + (action == 1 ? -2 : 2)));
       requests_.push_back({rooms[i].host, "RenderingControl", "SetVolume", "<InstanceID>0</InstanceID><Channel>Master</Channel><DesiredVolume>" +
         std::to_string(target_volumes_[i]) + "</DesiredVolume>", i});
+    }
+    return true;
+  }
+  bool prepare_favorite(const Favorite &favorite) {
+    selected = captured_room_;
+    command_failed = false; requests_.clear(); cursor_ = 0; commanding_ = true;
+    if (captured_scope_.empty() || captured_scope_ != scope() || !current().known() || favorite.uri.empty() || favorite.metadata.empty()) return false;
+    target_action_ = 6; target_scope_ = scope(); target_room_ = selected;
+    favorite_uri_ = favorite.uri; favorite_track_ = -1;
+    if (favorite.radio) {
+      requests_.push_back({current().coordinator_host, "AVTransport", "SetAVTransportURI", "<InstanceID>0</InstanceID><CurrentURI>" + xml_escape(favorite.uri) +
+        "</CurrentURI><CurrentURIMetaData>" + xml_escape(favorite.metadata) + "</CurrentURIMetaData>", selected});
+      requests_.push_back({current().coordinator_host, "AVTransport", "Play", "<InstanceID>0</InstanceID><Speed>1</Speed>", selected});
+    } else {
+      // Append; never clear/replace a user-curated queue. Only a successful
+      // enqueue response may schedule queue selection, seek and playback.
+      requests_.push_back({current().coordinator_host, "AVTransport", "AddURIToQueue", "<InstanceID>0</InstanceID><EnqueuedURI>" + xml_escape(favorite.uri) +
+        "</EnqueuedURI><EnqueuedURIMetaData>" + xml_escape(favorite.metadata) + "</EnqueuedURIMetaData><DesiredFirstTrackNumberEnqueued>0</DesiredFirstTrackNumberEnqueued><EnqueueAsNext>0</EnqueueAsNext>", selected});
     }
     return true;
   }
@@ -290,6 +436,9 @@ class State {
     const auto &r = rooms[target_room_];
     if (!r.known() || target_scope_ != r.uuid + "|" + r.coordinator + "|" + r.members) return false;
     if (target_action_ == 0) return r.playing == target_playing_;
+    if (target_action_ == 3 || target_action_ == 4) return !r.track_uri.empty() && r.track_uri != target_track_uri_;
+    if (target_action_ == 5) return r.mute == target_mute_ && (!grouped() || rooms[1-target_room_].mute == target_mute_);
+    if (target_action_ == 6) return r.playing && r.uri == favorite_uri_ && (favorite_track_ < 0 || r.track == favorite_track_);
     for (int i = 0; i < 2; ++i) if (target_volumes_[i] >= 0 && rooms[i].volume != target_volumes_[i]) return false;
     return true;
   }
@@ -301,6 +450,8 @@ class State {
   bool topology_ok_ = false, manual_ = false, commanding_ = false, target_playing_ = false;
   int captured_room_ = 0, target_room_ = 0, target_action_ = 0;
   std::string captured_scope_, target_scope_;
+  std::string target_track_uri_, favorite_uri_;
+  int target_mute_ = 0, favorite_track_ = -1;
   std::array<int, 2> target_volumes_{{-1, -1}};
   bool parse_topology(const std::string &body) {
     Xml xml(body); if (!xml.valid) return false;

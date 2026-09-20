@@ -20,8 +20,17 @@ try {
       throw new Error('Both pages must share the live energy header');
   }
   const page = fs.readFileSync(path.join(__dirname, '../esphome/packages/sonos-page.yaml'), 'utf8');
-  if (!/id: music_back\s+x: 14\s+y: 154/.test(page))
+  const back = page.split('id: music_back\n')[1].split('  - label:')[0];
+  if (!back.includes('x: 14') || !back.includes('y: 154'))
     throw new Error('Sonos must start at the top of the energy tabs');
+  const cover = page.split('id: music_cover_frame\n')[1].split('  - label:')[0];
+  if (!cover.includes('width: 272') || !cover.includes('height: 272'))
+    throw new Error('The detail cover must have the larger square footprint');
+  for (const id of ['music_previous', 'music_play', 'music_next', 'music_minus', 'music_plus', 'music_mute']) {
+    const widget = page.split(`id: ${id}\n`)[1].split('  - ')[0];
+    const x = Number(widget.match(/\bx: (\d+)/)[1]);
+    if (x < 310) throw new Error(`${id} must sit to the right of the cover`);
+  }
   const dashboard = fs.readFileSync(path.join(__dirname, '../esphome/packages/dashboard.yaml'), 'utf8');
   const tab = dashboard.split('id: music_tab\n')[1].split('        - button:')[0];
   if (!tab.includes('id(detail_tab) = 1') || !tab.includes('script.execute: select_detail_tab') || tab.includes('open_music_page'))

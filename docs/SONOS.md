@@ -3,23 +3,25 @@
 The dashboard's right-hand **Sonos** button shows the compact player in the
 Gas/Climate card position, with the active tab highlighted green. Its **Detail**
 button, replacing the former Radio button, opens the
-full-screen player. **Dashboard** returns to the compact Sonos card. Playback
+full-screen player. The **back arrow** returns to the compact Sonos card. Playback
 changes never navigate between pages. Opening either view or changing the
 displayed room never starts music or a Homey Flow.
 
 Both players share room selection, current title/artist, volume, waiting/error
 state and playback controls. The compact cover scales the same decoded image to
-62×62 pixels without another network request; the full page keeps its 160px cover.
+62×62 pixels without another network request; the full page uses a 272px cover.
 
 The compact live energy header stays at the top on both pages. Sonos starts at
 y=154, the top edge of the dashboard's Today/Tomorrow tabs. The same header widgets
 are moved between pages, so clock, price and gauges retain their normal updates.
 
-The page has a 160×160 cover, ellipsized title/artist, room selector, playback,
+The page has a 272×272 cover, ellipsized title/artist, room selector, playback,
 skip, volume and mute controls, plus a scrollable two-column favorites grid.
-The cover fills a rounded square with an aspect-preserving center crop. Compact
-transport icons sit above a separate volume row and its percentages. Unavailable
-controls use a muted dark treatment. A combined group is a read-only heading;
+The cover fills a rounded square with an aspect-preserving center crop. Playback
+and volume controls sit in a slim column to its right, with only Play/Pause filled.
+Title and artist sit below the cover. The back arrow and Sonos heading form a
+single navigation row, with the group name underneath as borderless text. Unavailable
+controls use muted icons rather than grey rectangles. A combined group is a read-only heading;
 separate room names retain their selection arrow. Favorites show a small type
 icon and up to two title lines, with six tiles visible before scrolling. Missing
 font glyphs are omitted from display only; playback metadata remains untouched.
@@ -115,7 +117,7 @@ to private IPv4 addresses on port 1400. Artwork must be a relative path on the
 coordinator or an absolute URL with that same origin; external artwork URLs are
 not fetched. Redirects remain disabled.
 
-JPEG covers are 160×160 pixels, beside one-line ellipsized title and artist.
+JPEG covers are decoded at up to 272×272 pixels, above ellipsized title and artist.
 New cover downloads only start while either Sonos view is selected.
 Cover changes include URL, title, artist and a one-minute refresh bucket. Failed
 downloads retry on the next poll; late results cannot reveal the wrong cover

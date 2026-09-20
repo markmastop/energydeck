@@ -70,7 +70,7 @@ image:
     url: "${sonos_living_address}/unavailable"
     format: JPEG
     type: RGB565
-    resize: 160x160
+    resize: 272x272
     buffer_size: 8192
     update_interval: never
     # No credentials: artwork comes from the local Sonos coordinator.
@@ -87,10 +87,11 @@ image:
             // Fill the rounded square without stretching or a letterbox strip.
             const int w = id(music_cover).get_width(), h = id(music_cover).get_height();
             if (w > 0 && h > 0) {
-              const int scale = (160 * 256 + std::min(w, h) - 1) / std::min(w, h);
+              const int scale = (272 * 256 + std::min(w, h) - 1) / std::min(w, h);
               lv_image_set_pivot(id(music_cover_widget), 0, 0);
               lv_image_set_scale(id(music_cover_widget), scale);
-              lv_obj_set_pos(id(music_cover_widget), (160 - w * scale / 256) / 2, (160 - h * scale / 256) / 2);
+              lv_obj_set_pos(id(music_cover_widget), (272 - w * scale / 256) / 2, (272 - h * scale / 256) / 2);
+              lv_image_set_scale(id(small_music_cover_widget), std::max(1, 62 * 256 / std::max(w, h)));
             }
             for (auto *cover : {id(music_cover_widget), id(small_music_cover_widget)}) {
               if (!id(music_cover_key).empty() && id(music_cover_key) == id(music_cover_requested))
@@ -290,6 +291,15 @@ script:
           // A single combined group offers no second selectable playback target.
           if (waiting || s.grouped()) lv_obj_add_state(id(music_room_select), LV_STATE_DISABLED);
           else lv_obj_clear_state(id(music_room_select), LV_STATE_DISABLED);
+          // Group names are typography, never a disabled grey button slab.
+          for (auto state : {LV_STATE_DEFAULT, LV_STATE_DISABLED, LV_STATE_FOCUSED, LV_STATE_PRESSED}) {
+            lv_obj_set_style_bg_opa(id(music_room_select), LV_OPA_TRANSP, state);
+            lv_obj_set_style_border_width(id(music_room_select), 0, state);
+            lv_obj_set_style_text_color(lv_obj_get_child(id(music_room_select), 0), lv_color_hex(0xA9B8AE), state);
+          }
+          lv_obj_align(lv_obj_get_child(id(music_room_select), 0), LV_ALIGN_LEFT_MID, 0, 0);
+          lv_obj_set_style_bg_opa(id(music_room_select), LV_OPA_TRANSP, lv_obj_get_state(id(music_room_select)));
+          lv_obj_set_style_border_width(id(music_room_select), 0, lv_obj_get_state(id(music_room_select)));
           lv_label_set_text(id(music_title), !known ? "${music_offline}" :
             playing && room.tv ? "${music_tv}" :
             playing && !room.title.empty() ? room.title.c_str() :
@@ -347,6 +357,23 @@ script:
           // Retain clear word labels in the compact card's existing layout.
           lv_label_set_text(lv_obj_get_child(id(small_music_play), 0),
             waiting ? "${music_button_wait}" : room.tv ? "${music_tv}" : playing ? "${music_pause}" : "${music_resume}");
+          if (s.grouped()) lv_label_set_text_fmt(id(music_volume), "${music_volume_side_format}", a, b);
+          // Explicit combined-state styling prevents the LVGL disabled theme
+          // from reintroducing filled rectangles around secondary controls.
+          const lv_state_t plain_states[] = {LV_STATE_DEFAULT, LV_STATE_DISABLED, LV_STATE_FOCUSED, LV_STATE_PRESSED,
+            static_cast<lv_state_t>(LV_STATE_DISABLED | LV_STATE_FOCUSED)};
+          for (auto *button : {id(music_back), id(music_previous), id(music_next), id(music_minus), id(music_plus), id(music_mute)}) {
+            const bool disabled = lv_obj_has_state(button, LV_STATE_DISABLED);
+            for (auto state : plain_states) {
+              lv_obj_set_style_bg_opa(button, LV_OPA_TRANSP, state);
+              lv_obj_set_style_border_width(button, 0, state);
+              lv_obj_set_style_shadow_width(button, 0, state);
+            }
+            lv_obj_set_style_bg_opa(button, LV_OPA_TRANSP, lv_obj_get_state(button));
+            lv_obj_set_style_border_width(button, 0, lv_obj_get_state(button));
+            lv_obj_set_style_text_color(lv_obj_get_child(button, 0), lv_color_hex(disabled ? 0x67756D :
+              button == id(music_mute) && s.muted() ? 0xE8B94C : 0xEEF6F0), 0);
+          }
 
   - id: sonos_favorite_requests
     mode: single

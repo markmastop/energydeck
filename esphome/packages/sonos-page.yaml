@@ -6,45 +6,47 @@ scrollable: false
 widgets:
   - button:
       id: music_back
+      bg_opa: TRANSP
       x: 14
       y: 154
-      width: 148
-      height: 42
+      width: 44
+      height: 44
       radius: 8
       pad_all: 0
       bg_color: 0x18231E
       border_color: 0x34463C
-      border_width: 1
-      text: "${music_back}"
-      text_font: montserrat_14
+      border_width: 0
+      text: "\uf060"
+      text_font: montserrat_20
       on_click:
         - script.execute: close_music_page
   - label:
-      x: 340
-      y: 166
+      x: 68
+      y: 156
       text: "Sonos"
-      text_font: montserrat_18
+      text_font: montserrat_20
   - button:
       id: music_room_select
-      x: 14
-      y: 206
-      width: 452
-      height: 32
+      bg_opa: TRANSP
+      x: 68
+      y: 183
+      width: 398
+      height: 26
       radius: 8
       pad_all: 0
       bg_color: 0x0F1712
       border_color: 0x34463C
-      border_width: 1
+      border_width: 0
       text: "${music_rooms}"
-      text_font: montserrat_14
+      text_font: montserrat_12
       on_click:
         - script.execute: switch_music_room
   - obj:
       id: music_cover_frame
       x: 14
-      y: 246
-      width: 160
-      height: 160
+      y: 216
+      width: 272
+      height: 272
       radius: 10
       bg_color: 0x18231E
       border_color: 0x34463C
@@ -66,9 +68,9 @@ widgets:
             hidden: true
   - label:
       id: music_title
-      x: 190
-      y: 256
-      width: 276
+      x: 14
+      y: 500
+      width: 452
       height: 28
       text: "${music_ready}"
       text_font: montserrat_20
@@ -76,9 +78,9 @@ widgets:
       long_mode: DOT
   - label:
       id: music_artist
-      x: 190
-      y: 294
-      width: 276
+      x: 14
+      y: 534
+      width: 330
       height: 20
       text: ""
       text_font: montserrat_16
@@ -87,25 +89,26 @@ widgets:
       long_mode: DOT
   - label:
       id: music_status
-      x: 190
-      y: 334
-      width: 276
+      x: 350
+      y: 536
+      width: 116
       height: 18
       text: "${music_loading}"
       text_font: montserrat_12
       text_color: 0x7FE0A2
-      text_align: LEFT
+      text_align: RIGHT
   - button:
       id: music_previous
-      x: 136
-      y: 418
-      width: 56
-      height: 46
+      bg_opa: TRANSP
+      x: 310
+      y: 294
+      width: 64
+      height: 48
       radius: 8
       pad_all: 0
       bg_color: 0x18231E
       border_color: 0x34463C
-      border_width: 1
+      border_width: 0
       text: "\uf048"
       text_font: montserrat_20
       on_click:
@@ -114,32 +117,33 @@ widgets:
             action: 3
   - button:
       id: music_play
-      x: 208
-      y: 418
+      x: 356
+      y: 220
       width: 64
-      height: 46
-      radius: 8
+      height: 64
+      radius: 32
       pad_all: 0
       bg_color: 0x24583B
       border_color: 0x45BD70
       border_width: 1
       text: "\uf04b"
-      text_font: montserrat_20
+      text_font: montserrat_24
       on_click:
         - script.execute:
             id: music_control
             action: 0
   - button:
       id: music_next
-      x: 288
-      y: 418
-      width: 56
-      height: 46
+      bg_opa: TRANSP
+      x: 402
+      y: 294
+      width: 64
+      height: 48
       radius: 8
       pad_all: 0
       bg_color: 0x18231E
       border_color: 0x34463C
-      border_width: 1
+      border_width: 0
       text: "\uf051"
       text_font: montserrat_20
       on_click:
@@ -148,15 +152,16 @@ widgets:
             action: 4
   - button:
       id: music_minus
-      x: 14
-      y: 500
+      bg_opa: TRANSP
+      x: 310
+      y: 398
       width: 64
       height: 44
       radius: 8
       pad_all: 0
       bg_color: 0x18231E
       border_color: 0x34463C
-      border_width: 1
+      border_width: 0
       text: "-"
       text_font: montserrat_24
       on_click:
@@ -165,15 +170,16 @@ widgets:
             action: 1
   - button:
       id: music_mute
-      x: 90
-      y: 500
-      width: 300
-      height: 44
+      bg_opa: TRANSP
+      x: 310
+      y: 448
+      width: 156
+      height: 40
       radius: 8
       pad_all: 0
       bg_color: 0x18231E
       border_color: 0x34463C
-      border_width: 1
+      border_width: 0
       text: "${music_mute}"
       text_font: montserrat_14
       on_click:
@@ -182,15 +188,16 @@ widgets:
             action: 5
   - button:
       id: music_plus
+      bg_opa: TRANSP
       x: 402
-      y: 500
+      y: 398
       width: 64
       height: 44
       radius: 8
       pad_all: 0
       bg_color: 0x18231E
       border_color: 0x34463C
-      border_width: 1
+      border_width: 0
       text: "+"
       text_font: montserrat_24
       on_click:
@@ -199,10 +206,10 @@ widgets:
             action: 2
   - label:
       id: music_volume
-      x: 24
-      y: 476
-      width: 432
-      height: 20
+      x: 310
+      y: 350
+      width: 156
+      height: 42
       text: "${music_volume_unknown}"
       text_font: montserrat_12
       text_color: 0xA9B8AE

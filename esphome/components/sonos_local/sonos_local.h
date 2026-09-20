@@ -149,6 +149,11 @@ inline std::string origin(const std::string &url) {
 // Artwork may come from the coordinator or Sonos' HTTPS radio image proxies.
 // Never attach Homey credentials or accept arbitrary metadata-provided hosts.
 inline std::string artwork_url(const std::string &path, const std::string &host) {
+  // Skip this unreliable TuneIn cover, including encoded proxy URLs.
+  // Station playback and other artwork remain unaffected.
+  if (path.find("/s106736/") != std::string::npos ||
+      path.find("%2Fs106736%2F") != std::string::npos ||
+      path.find("%2fs106736%2f") != std::string::npos) return {};
   if (path.find_first_of("\r\n\\") != std::string::npos) return {};
   if (path.rfind("/", 0) == 0 && path.rfind("//", 0) != 0 && path.find("..") == std::string::npos)
     return host + path;

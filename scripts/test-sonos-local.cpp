@@ -69,6 +69,8 @@ void test_xml() {
   playback.live[1] = false; poll(follow, playback);
   assert(follow.follow_compact_tab(2) == 2); // Stopping does not replace Climate.
   assert(artwork_url("https://sali.sonos.superhi.fi/image?x=1", living) == "https://sali.sonos.superhi.fi/image?x=1");
+  assert(artwork_url("https://sali.sonos.superhi.fi/image?image=https%3A%2F%2Fcdn-profiles.tunein.com%2Fs106736%2Fimages%2Flogog.jpg", living).empty());
+  assert(artwork_url("https://sali.sonos.radio/image?image=https://cdn-profiles.tunein.com/s106736/images/logod.jpg", living).empty());
   for (auto url : {"https://sali.sonos.superhi.fi.evil/image", "https://sali.sonos.radio@evil/image", "http://sali.sonos.radio/image", "//evil/image"}) assert(artwork_url(url, living).empty());
   State radio; Fixture fixture; fixture.radio = true; poll(radio, fixture);
   assert(radio.current().artist == "Qmusic" && radio.current().title == "Song - Artist");

@@ -134,6 +134,10 @@ alone may follow exactly one HTTPS redirect from either Sonos proxy to
 HTTP downgrades and further redirects are rejected; Homey credentials are never
 sent with the redirected request.
 
+RADIONL TuneIn station `s106736` artwork is deliberately skipped in both player
+views and favorites because it is unreliable on the physical display. The music
+icon remains visible; station playback is unaffected. Other covers are unchanged.
+
 JPEG and PNG covers are decoded at up to 272×272 pixels, above ellipsized title
 and artist. Track artwork takes precedence over the station artwork from
 `CurrentURIMetaData`. Radio stream titles use the station name as their subtitle,

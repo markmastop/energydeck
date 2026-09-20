@@ -1,5 +1,6 @@
 #include "online_image.h"
 #include "cover_redirect.h"
+#include "fallback_jpeg_decoder.h"
 #include "esphome/components/runtime_image/image_decoder.h"
 #include "esphome/components/runtime_image/png_decoder.h"
 #include "esphome/core/log.h"
@@ -169,6 +170,11 @@ void OnlineImage::update() {
     // RuntimeImage fixes its configured format; choose a streaming PNG decoder
     // explicitly for proxy responses while retaining JPEG buffering below.
     this->decoder_ = make_unique<CompletedPngDecoder>(this);
+    this->total_size_ = total_size;
+    this->decoded_bytes_ = 0;
+    decoder_ready = this->decoder_->prepare(total_size) >= 0;
+  } else if (this->get_format() == runtime_image::JPEG) {
+    this->decoder_ = make_unique<FallbackJpegDecoder>(this);
     this->total_size_ = total_size;
     this->decoded_bytes_ = 0;
     decoder_ready = this->decoder_->prepare(total_size) >= 0;

@@ -37,4 +37,20 @@ try {
   }
   if (!music.includes('if (!id(music_page_open) && id(detail_tab) != 1) return;'))
     throw new Error('Artwork must refresh for both Sonos views');
+  if (!/id: shared_energy_header[\s\S]*?text_color: 0xEEF6F0/.test(dashboard))
+    throw new Error('The shared energy header needs an explicit readable text color');
+  if (!/id: homey_status_label\s+x: 284\s+y: 14\s+width: 182/.test(dashboard))
+    throw new Error('Homey status must stay inside the right edge');
+  if (!page.includes('id: music_cover_frame') || !dashboard.includes('lv_obj_set_style_clip_corner(id(music_cover_frame), true, 0)'))
+    throw new Error('Artwork must clip to the rounded cover frame');
+  if (!music.includes('LV_SYMBOL_PAUSE : LV_SYMBOL_PLAY') || !music.includes('glyph.is_placeholder'))
+    throw new Error('Use transport icons and filter unsupported favorite glyphs');
+  for (const language of ['nl', 'en']) {
+    const translations = fs.readFileSync(path.join(__dirname, `../esphome/translations/${language}.yaml`), 'utf8');
+    for (const key of ['energy_ytd', 'power_peak', 'solar_today']) {
+      const line = translations.split('\n').find(l => l.startsWith(`${key}:`));
+      if (!line?.startsWith(`${key}: "`) || !line.includes('\\n'))
+        throw new Error(`${language}/${key} must decode a real newline for LVGL initial text`);
+    }
+  }
 } finally { fs.rmSync(temp, {recursive: true, force: true}); }

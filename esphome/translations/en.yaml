@@ -56,14 +56,14 @@ sunrise_format: "Sunrise %s  |"
 sunset: "Sunset --:--"
 sunset_format: "Sunset %s"
 energy_today_value: "0.0"
-energy_ytd: '0 kWh\nYTD'
+energy_ytd: "0 kWh\nYTD"
 energy_ytd_format: '%.0f kWh\nYTD'
 energy_today: "Energy\ntoday"
 tap_for_ytd: "tap for YTD"
 today_short: "Today"
-power_peak: '0.0 kW\nmax'
+power_peak: "0.0 kW\nmax"
 power_peak_format: '%.1f kW\nmax'
-solar_today: '0.0 kWh\ntoday'
+solar_today: "0.0 kWh\ntoday"
 solar_today_format: '%.1f kWh\ntoday'
 solar_unavailable: "--"
 today: "Today"

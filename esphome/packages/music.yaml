@@ -12,6 +12,8 @@ substitutions:
   sonos_kitchen_address: "http://192.168.0.191:1400"
 
 globals:
+  - id: favorite_artwork
+    type: esphome::online_image::FavoriteArtwork
   - id: sonos
     type: energydeck_sonos::State
   - id: sonos_favorites
@@ -47,6 +49,9 @@ globals:
     initial_value: "false"
 
 interval:
+  - interval: 1s
+    then:
+      - script.execute: load_visible_favorite_cover
   - interval: 10s
     startup_delay: 8s
     then:
@@ -64,6 +69,28 @@ interval:
             - script.execute: refresh_music_favorites
 
 image:
+  - platform: online_image
+    id: favorite_cover_download
+    http_request_id: homey_http
+    url: "${sonos_living_address}/unavailable"
+    format: JPEG
+    type: RGB565
+    resize: 32x32
+    buffer_size: 8192
+    update_interval: never
+    on_download_finished:
+      then:
+        - lambda: |-
+            auto *source = id(favorite_cover_download).get_lv_image_dsc();
+            source->header.w = id(favorite_cover_download).get_width();
+            source->header.h = id(favorite_cover_download).get_height();
+            source->header.stride = id(favorite_cover_download).get_width_stride();
+            id(favorite_artwork).store(source);
+            id(favorite_artwork).busy = false;
+        - script.execute: show_favorite_covers
+    on_error:
+      then:
+        - lambda: id(favorite_artwork).busy = false;
   - platform: online_image
     id: music_cover
     http_request_id: homey_http
@@ -136,6 +163,38 @@ image:
             lv_obj_add_flag(id(small_music_cover_widget), LV_OBJ_FLAG_HIDDEN);
 
 script:
+  - id: show_favorite_covers
+    then:
+      - lambda: |-
+          const auto &items = id(sonos_favorites).items;
+          const auto count = std::min(items.size(), size_t(lv_obj_get_child_count(id(music_favorites_grid))));
+          for (size_t i = 0; i < count; ++i) {
+            const auto *cover = id(favorite_artwork).get(items[i].cover);
+            if (!cover) continue;
+            auto *button = lv_obj_get_child(id(music_favorites_grid), i);
+            auto *image = lv_obj_get_child(button, 2);
+            lv_image_set_src(image, cover);
+            lv_obj_clear_flag(image, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_add_flag(lv_obj_get_child(button, 0), LV_OBJ_FLAG_HIDDEN);
+          }
+
+  - id: load_visible_favorite_cover
+    then:
+      - lambda: |-
+          if (!id(music_page_open) || id(favorite_artwork).busy || id(music_cover_downloading) ||
+              id(music_busy) || id(music_favorites_loading) || !id(sonos_favorites).known) return;
+          const auto &items = id(sonos_favorites).items;
+          const int scroll = lv_obj_get_scroll_y(id(music_favorites_grid));
+          const int height = lv_obj_get_height(id(music_favorites_grid));
+          for (size_t i = 0; i < items.size(); ++i) {
+            const int y = int(i / 3) * 48 - scroll;
+            if (y + 44 <= 0 || y >= height || items[i].cover.empty() || id(favorite_artwork).attempted(items[i].cover)) continue;
+            id(favorite_artwork).begin(items[i].cover);
+            id(favorite_cover_download).set_url(items[i].cover);
+            id(favorite_cover_download).update();
+            break;  // One request at a time; failed covers keep their icon.
+          }
+
   - id: open_music_page
     then:
       - lambda: |-
@@ -310,6 +369,7 @@ script:
             return;
           }
           if (!path.empty()) {
+            if (id(favorite_artwork).busy) return;
             // Detach both consumers before the decoder mutates its shared buffer.
             lv_image_set_src(id(music_cover_widget), static_cast<const void *>(nullptr));
             lv_image_set_src(id(small_music_cover_widget), static_cast<const void *>(nullptr));
@@ -496,6 +556,7 @@ script:
       - lambda: |-
           auto &f = id(sonos_favorites);
           lv_obj_clean(id(music_favorites_grid));
+          id(favorite_artwork).clear();
           lv_obj_scroll_to_y(id(music_favorites_grid), 0, LV_ANIM_OFF);
           lv_label_set_text(id(music_favorites_status), !f.known ? "${music_favorites_error}" :
             f.items.empty() ? "${music_favorites_empty}" : "");
@@ -504,25 +565,25 @@ script:
           for (size_t i = 0; i < f.items.size(); ++i) {
             auto *button = lv_button_create(id(music_favorites_grid));
             lv_obj_remove_style_all(button);
-            lv_obj_set_pos(button, (i % 2) * 228, (i / 2) * 64);
-            lv_obj_set_size(button, 220, 56);
-            lv_obj_set_style_radius(button, 8, 0);
+            lv_obj_set_pos(button, (i % 3) * 150, (i / 3) * 48);
+            lv_obj_set_size(button, 146, 44);
+            lv_obj_set_style_radius(button, 6, 0);
             lv_obj_set_style_bg_opa(button, LV_OPA_COVER, 0);
             lv_obj_set_style_bg_color(button, lv_color_hex(0x18231E), 0);
-            lv_obj_set_style_border_width(button, 1, 0);
+            lv_obj_set_style_border_width(button, 0, 0);
             lv_obj_set_style_border_color(button, lv_color_hex(0x34463C), 0);
             lv_obj_set_style_bg_color(button, lv_color_hex(0x24583B), LV_STATE_PRESSED);
             lv_obj_set_style_opa(button, LV_OPA_50, LV_STATE_DISABLED);
             auto *kind = lv_label_create(button);
-            lv_obj_set_pos(kind, 12, 20);
+            lv_obj_set_pos(kind, 14, 14);
             lv_obj_set_style_text_font(kind, &lv_font_montserrat_14, 0);
             lv_obj_set_style_text_color(kind, lv_color_hex(0x7FE0A2), 0);
             lv_label_set_text(kind, f.items[i].radio ? LV_SYMBOL_AUDIO : LV_SYMBOL_LIST);
             auto *title = lv_label_create(button);
-            lv_obj_set_pos(title, 38, 10);
-            lv_obj_set_size(title, 170, 36);
+            lv_obj_set_pos(title, 42, 7);
+            lv_obj_set_size(title, 98, 30);
             lv_label_set_long_mode(title, LV_LABEL_LONG_DOT);
-            lv_obj_set_style_text_font(title, &lv_font_montserrat_14, 0);
+            lv_obj_set_style_text_font(title, &lv_font_montserrat_12, 0);
             lv_obj_set_style_text_color(title, lv_color_hex(0xEEF6F0), 0);
             // Hide unsupported display glyphs (e.g. emoji), preserving the
             // original favorite title and playback metadata in the model.
@@ -547,6 +608,11 @@ script:
             }
             if (display.find_first_not_of(' ') == std::string::npos) display = "${music_favorite_playlist}";
             lv_label_set_text(title, display.c_str());
+            auto *cover = lv_image_create(button);
+            lv_obj_set_pos(cover, 6, 6);
+            lv_obj_set_size(cover, 32, 32);
+            lv_obj_add_flag(cover, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_clear_flag(cover, LV_OBJ_FLAG_CLICKABLE);
             lv_obj_add_event_cb(button, [](lv_event_t *event) {
               const int index = static_cast<int>(reinterpret_cast<uintptr_t>(lv_event_get_user_data(event)));
               id(play_music_favorite).execute(index);

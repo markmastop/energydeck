@@ -26,7 +26,7 @@ battery data shows dashes. Returning restores the original daily-energy gauge;
 solar stays on the right on both pages. This is display-only, with no extra polling.
 
 The page has a 272×272 cover, ellipsized title/artist, room selector, playback,
-skip, volume and mute controls, plus a scrollable two-column favorites grid.
+skip, volume and mute controls, plus a scrollable three-column favorites grid.
 The cover fills a rounded square with an aspect-preserving center crop. Playback
 and volume controls sit in a slim column to its right, with only Play/Pause filled.
 Title and artist sit below the cover. The back arrow and Sonos heading form a
@@ -126,7 +126,8 @@ must be allowed to reach the speakers on TCP port 1400 (no client isolation).
 No Sonos request carries the Homey bearer token. Topology endpoints are restricted
 to private IPv4 addresses on port 1400. Artwork must be a relative path on the
 coordinator, an absolute URL with that same origin, or HTTPS on the Sonos radio
-image proxies `sali.sonos.superhi.fi` and `sali.sonos.radio`. Other external hosts
+image proxies `sali.sonos.superhi.fi` and `sali.sonos.radio`, or the explicitly
+listed Spotify artwork hosts below. Other external hosts
 are rejected. Automatic redirects remain disabled on the shared client. Artwork
 alone may follow exactly one HTTPS redirect from either Sonos proxy to
 `cdn-profiles.tunein.com`, without forwarding any request headers. Other hosts,
@@ -152,6 +153,16 @@ The vendored online_image component still handles complete chunked JPEG download
 on ESP-IDF with bounded size/time; see its README.
 
 ## Validation
+
+Favorites use three columns of 146×44 px tiles (4 px gaps), a 32×32 cover and
+two-line ellipsized 12 px text. Borderless tiles retain a full touch target.
+Artwork is read from the favorite or embedded metadata. Visible tiles load one
+cover at a time; failures retain an icon until the next list refresh. Independent
+native-size thumbnails are cached for that list (up to 100 entries / 200 KiB
+pixels) and cleared after deleting the old widgets. Only the Sonos radio proxies
+and the observed Spotify hosts `i.scdn.co`, `image-cdn-ak.spotifycdn.com`,
+`image-cdn-fa.spotifycdn.com`, `seed-mix-image.spotifycdn.com` are permitted.
+No music service login or Homey authorization is sent with these requests.
 
 Run `node scripts/test-music-controls.cjs` for the actual C++ model's offline
 tests: XML/entity handling, malformed replies, URL restrictions, coordinator

@@ -153,7 +153,9 @@ inline std::string artwork_url(const std::string &path, const std::string &host)
   if (path.rfind("/", 0) == 0 && path.rfind("//", 0) != 0 && path.find("..") == std::string::npos)
     return host + path;
   if (!host.empty() && origin(path) == host) return path;
-  for (const auto *proxy : {"https://sali.sonos.superhi.fi/", "https://sali.sonos.radio/"})
+  for (const auto *proxy : {"https://sali.sonos.superhi.fi/", "https://sali.sonos.radio/",
+      "https://i.scdn.co/", "https://image-cdn-ak.spotifycdn.com/",
+      "https://image-cdn-fa.spotifycdn.com/", "https://seed-mix-image.spotifycdn.com/"})
     if (path.rfind(proxy, 0) == 0) return path;
   return {};
 }
@@ -208,6 +210,7 @@ inline int number(const std::string &s, int maximum = 100000) {
 struct Favorite {
   std::string id, title, uri, metadata;
   bool radio = false;
+  std::string cover;
 };
 
 class Favorites {
@@ -246,18 +249,20 @@ class Favorites {
         if (name == "title") f.title = n.text;
         else if (name == "res") f.uri = n.text;
         else if (name == "resMD") f.metadata = n.text;
+        else if (name == "albumArtURI") f.cover = artwork_url(n.text, host_);
       }
       // Discovery/pinned containers lack a playable resource. Do not create
       // buttons that look playable but lead to a browse-only screen.
       if (f.uri.empty() || f.metadata.empty() || f.title.empty() || f.id.empty()) continue;
       Xml metadata(f.metadata);
+      if (f.cover.empty()) f.cover = artwork_url(metadata.text("albumArtURI"), host_);
       auto cls = metadata.text("class");
       if (!metadata.valid || cls.empty()) continue;
       f.radio = cls.find("audioBroadcast") != std::string::npos;
       if (!f.radio && cls.find("playlistContainer") == std::string::npos && cls.find("musicAlbum") == std::string::npos && cls.find("musicTrack") == std::string::npos) continue;
-      if (f.title.size() > 512 || f.uri.size() > 8192 || f.metadata.size() > 8192 || pending_.size() >= 100) { fail(); return; }
+      if (f.title.size() > 512 || f.uri.size() > 8192 || f.metadata.size() > 8192 || f.cover.size() > 8192 || pending_.size() >= 100) { fail(); return; }
       for (const auto &previous : pending_) if (previous.id == f.id) { fail(); return; }
-      bytes_ += f.title.size() + f.uri.size() + f.metadata.size();
+      bytes_ += f.title.size() + f.uri.size() + f.metadata.size() + f.cover.size();
       if (bytes_ > 196608) { fail(); return; }
       pending_.push_back(std::move(f));
     }

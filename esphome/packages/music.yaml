@@ -282,7 +282,7 @@ script:
           const bool waiting = id(music_busy) || id(music_favorite_pending);
           const char *status = waiting ? "${music_button_wait}" :
             id(music_command_failed) ? "${music_control_failed}" :
-            !known ? "${music_offline}" : playing ? "${music_playing}" : "${music_paused}";
+            !known ? "${music_offline}" : playing ? "" : "${music_paused}";
           lv_label_set_text(id(music_status), status);
           lv_obj_set_style_text_color(id(music_status),
             lv_color_hex(id(music_command_failed) || !known ? 0xEA665F : 0x7FE0A2), 0);

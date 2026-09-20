@@ -1,4 +1,5 @@
 #include "online_image.h"
+#include "cover_redirect.h"
 #include "esphome/components/runtime_image/image_decoder.h"
 #include "esphome/components/runtime_image/png_decoder.h"
 #include "esphome/core/log.h"
@@ -107,7 +108,7 @@ void OnlineImage::update() {
     headers.push_back(http_request::Header{header.first, header.second.value()});
   }
 
-  this->downloader_ = this->parent_->get(this->url_, headers, {ETAG_HEADER_NAME, LAST_MODIFIED_HEADER_NAME, "content-type"});
+  this->downloader_ = this->parent_->get(this->url_, headers, {ETAG_HEADER_NAME, LAST_MODIFIED_HEADER_NAME, "content-type", "location"});
 
   if (this->downloader_ == nullptr) {
     ESP_LOGE(TAG, "Download failed.");
@@ -117,6 +118,20 @@ void OnlineImage::update() {
   }
 
   int http_code = this->downloader_->status_code;
+  if (http_code == 301 || http_code == 302 || http_code == 303 || http_code == 307 || http_code == 308) {
+    const auto target = this->downloader_->get_response_header("location");
+    if (allowed_cover_redirect(this->url_, target)) {
+      this->downloader_->end();
+      // Exactly one hop, with no forwarded headers (especially Authorization).
+      this->downloader_ = this->parent_->get(target, std::vector<http_request::Header>{}, {ETAG_HEADER_NAME, LAST_MODIFIED_HEADER_NAME, "content-type"});
+      if (!this->downloader_) {
+        this->end_connection_();
+        this->download_error_callback_.call();
+        return;
+      }
+      http_code = this->downloader_->status_code;
+    }
+  }
   if (http_code == HTTP_CODE_NOT_MODIFIED) {
     // Image hasn't changed on server. Skip download.
     ESP_LOGI(TAG, "Server returned HTTP 304 (Not Modified). Download skipped.");

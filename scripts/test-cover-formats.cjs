@@ -12,6 +12,7 @@ const source = `
 #include <cassert>
 #include <memory>
 #include <cstddef>
+#include "${path.join(root, 'esphome/components/online_image/cover_redirect.h')}"
 using std::make_unique;
 struct pngle_t { void *user; void (*done)(pngle_t*) = nullptr; };
 void pngle_set_done_callback(pngle_t *p, void (*cb)(pngle_t*)) { p->done = cb; }
@@ -40,6 +41,17 @@ ${cpp.slice(start, end)}
   }
 };
 int main() {
+  using esphome::online_image::allowed_cover_redirect;
+  const std::string proxy = "https://sali.sonos.superhi.fi/image?w=60";
+  const std::string logo = "https://cdn-profiles.tunein.com/s87683/images/logog.png?t=1";
+  assert(allowed_cover_redirect(proxy, logo));
+  assert(allowed_cover_redirect("https://sali.sonos.radio/image", logo));
+  for (auto target : {"http://cdn-profiles.tunein.com/logo", "https://cdn-profiles.tunein.com.evil/logo",
+    "https://cdn-profiles.tunein.com@evil/logo", "https://192.168.0.1/logo", "/logo", "//evil/logo"})
+    assert(!allowed_cover_redirect(proxy, target));
+  assert(!allowed_cover_redirect("http://homey.local/", logo));
+  assert(!allowed_cover_redirect(logo, logo)); // No redirect chain.
+  assert(!allowed_cover_redirect("https://sali.sonos.radio.evil/image", logo));
   Image png; png.png_response_ = true;
   assert(png.select(52698));
   assert(png.decoder_ && png.total_size_ == 52698 && png.decoded_bytes_ == 0 && png.jpeg_calls == 0);
@@ -59,6 +71,7 @@ try {
   execFileSync('c++', ['-std=c++17', '-Wall', '-Wextra', '-Werror', path.join(dir, 'test.cpp'), '-o', path.join(dir, 'test')]);
   execFileSync(path.join(dir, 'test'));
   const yaml = fs.readFileSync(path.join(root, 'esphome/packages/music.yaml'), 'utf8');
+  if (!cpp.includes('this->parent_->get(target, std::vector<http_request::Header>{},')) throw new Error('Redirect must not forward request headers');
   for (const fragment of ['descriptor->header.stride =', 'lv_image_cache_drop(descriptor)',
     'lv_image_set_src(id(music_cover_widget), static_cast<const void *>(nullptr))',
     'lv_image_set_src(id(small_music_cover_widget), static_cast<const void *>(nullptr))',

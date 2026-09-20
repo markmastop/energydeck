@@ -1,5 +1,6 @@
 #include "online_image.h"
 #include "esphome/components/runtime_image/image_decoder.h"
+#include "esphome/components/runtime_image/png_decoder.h"
 #include "esphome/core/log.h"
 #include <algorithm>
 
@@ -10,6 +11,23 @@ static const char *const LAST_MODIFIED_HEADER_NAME = "last-modified";
 static const char *const IF_MODIFIED_SINCE_HEADER_NAME = "if-modified-since";
 
 namespace esphome::online_image {
+
+// Upstream PNG completion depends on Content-Length, which HTTPS proxies may
+// omit. PNGLE's IEND callback also prevents publishing a truncated image.
+class CompletedPngDecoder : public runtime_image::PngDecoder {
+ public:
+  using PngDecoder::PngDecoder;
+  int prepare(size_t size) override {
+    const int result = PngDecoder::prepare(size);
+    if (result >= 0) pngle_set_done_callback(this->pngle_, [](pngle_t *png) {
+      static_cast<CompletedPngDecoder *>(pngle_get_user_data(png))->finished_ = true;
+    });
+    return result;
+  }
+  bool is_finished() const override { return finished_; }
+ private:
+  bool finished_{false};
+};
 
 OnlineImage::OnlineImage(const std::string &url, int width, int height, runtime_image::ImageFormat format,
                          image::ImageType type, image::Transparency transparency, image::Image *placeholder,
@@ -89,7 +107,7 @@ void OnlineImage::update() {
     headers.push_back(http_request::Header{header.first, header.second.value()});
   }
 
-  this->downloader_ = this->parent_->get(this->url_, headers, {ETAG_HEADER_NAME, LAST_MODIFIED_HEADER_NAME});
+  this->downloader_ = this->parent_->get(this->url_, headers, {ETAG_HEADER_NAME, LAST_MODIFIED_HEADER_NAME, "content-type"});
 
   if (this->downloader_ == nullptr) {
     ESP_LOGE(TAG, "Download failed.");
@@ -114,6 +132,7 @@ void OnlineImage::update() {
   }
 
   ESP_LOGD(TAG, "Starting download");
+  this->png_response_ = this->downloader_->get_response_header("content-type").find("image/png") == 0;
   size_t total_size = this->downloader_->content_length;
 
   // Homey serves chunked JPEGs on ESP-IDF (content_length == 0). JPEGDEC
@@ -130,7 +149,18 @@ void OnlineImage::update() {
   }
 
   // Initialize decoder with the known format
-  if (!this->begin_decode(total_size)) {
+  bool decoder_ready;
+  if (this->png_response_) {
+    // RuntimeImage fixes its configured format; choose a streaming PNG decoder
+    // explicitly for proxy responses while retaining JPEG buffering below.
+    this->decoder_ = make_unique<CompletedPngDecoder>(this);
+    this->total_size_ = total_size;
+    this->decoded_bytes_ = 0;
+    decoder_ready = this->decoder_->prepare(total_size) >= 0;
+  } else {
+    decoder_ready = this->begin_decode(total_size);
+  }
+  if (!decoder_ready) {
     ESP_LOGE(TAG, "Failed to initialize decoder for format %d", this->get_format());
     this->end_connection_();
     this->download_error_callback_.call();
@@ -163,7 +193,7 @@ void OnlineImage::loop() {
 
   // Check if download is complete — use decoder's format-specific completion check
   // to handle both known content-length and chunked transfer encoding
-  if (this->is_decode_finished() || (this->downloader_->content_length > 0 &&
+  if (this->is_decode_finished() || (!this->png_response_ && this->downloader_->content_length > 0 &&
                                      this->downloader_->get_bytes_read() >= this->downloader_->content_length &&
                                      this->download_buffer_.unread() == 0)) {
     // Finalize decoding
@@ -178,6 +208,14 @@ void OnlineImage::loop() {
 
     this->download_finished_callback_.call(false);
     this->end_connection_();
+    return;
+  }
+
+  if (this->png_response_ && (millis() - this->start_time_ > 15000 ||
+      this->downloader_->get_bytes_read() > 512 * 1024)) {
+    ESP_LOGE(TAG, "PNG exceeds size or time limit");
+    this->end_connection_();
+    this->download_error_callback_.call();
     return;
   }
 

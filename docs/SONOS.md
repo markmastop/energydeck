@@ -121,10 +121,16 @@ must be allowed to reach the speakers on TCP port 1400 (no client isolation).
 
 No Sonos request carries the Homey bearer token. Topology endpoints are restricted
 to private IPv4 addresses on port 1400. Artwork must be a relative path on the
-coordinator or an absolute URL with that same origin; external artwork URLs are
-not fetched. Redirects remain disabled.
+coordinator, an absolute URL with that same origin, or HTTPS on the Sonos radio
+image proxies `sali.sonos.superhi.fi` and `sali.sonos.radio`. Other external hosts
+are rejected. Redirects remain disabled; no Homey credentials accompany artwork.
 
-JPEG covers are decoded at up to 272×272 pixels, above ellipsized title and artist.
+JPEG and PNG covers are decoded at up to 272×272 pixels, above ellipsized title
+and artist. Track artwork takes precedence over the station artwork from
+`CurrentURIMetaData`. Radio stream titles use the station name as their subtitle,
+never the technical stream URL. The compact grouped-room label is transparent.
+Both cover widgets detach before decoding, and the LVGL image cache and descriptor
+dimensions are refreshed before displaying a newly decoded buffer.
 New cover downloads only start while either Sonos view is selected.
 Cover changes include URL, title, artist and a one-minute refresh bucket. Failed
 downloads retry on the next poll; late results cannot reveal the wrong cover
@@ -144,6 +150,8 @@ tests cover pagination, invalid/stale pages, filtering, radio, queue append/seek
 failure aborts, mute, skip and read-back confirmation.
 
 Run `node scripts/test-chunked-cover.cjs` for the JPEG download regression tests.
+Run `node scripts/test-cover-formats.cjs` for PNG/JPEG selection, PNG completion,
+decoder initialization failures and shared-widget lifecycle safeguards.
 
 The C++ test's `--probe` mode emits only Get* requests for a read-only live
 comparison; `--favorites-probe` emits only Browse requests. Automated/live diagnostic

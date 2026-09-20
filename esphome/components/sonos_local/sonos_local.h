@@ -146,9 +146,21 @@ inline std::string origin(const std::string &url) {
   return "http://" + host;
 }
 
+// Artwork may come from the coordinator or Sonos' HTTPS radio image proxies.
+// Never attach Homey credentials or accept arbitrary metadata-provided hosts.
+inline std::string artwork_url(const std::string &path, const std::string &host) {
+  if (path.find_first_of("\r\n\\") != std::string::npos) return {};
+  if (path.rfind("/", 0) == 0 && path.rfind("//", 0) != 0 && path.find("..") == std::string::npos)
+    return host + path;
+  if (!host.empty() && origin(path) == host) return path;
+  for (const auto *proxy : {"https://sali.sonos.superhi.fi/", "https://sali.sonos.radio/"})
+    if (path.rfind(proxy, 0) == 0) return path;
+  return {};
+}
+
 struct Room {
   std::string uuid, host, coordinator, coordinator_host, members;
-  std::string title, artist, cover, uri, track_uri;
+  std::string title, artist, cover, uri, track_uri, station, station_cover;
   int volume = -1, mute = -1, track = -1;
   bool next = false, previous = false;
   bool topology = false, transport = false, media = false, position = false;
@@ -341,6 +353,9 @@ class State {
       } else if (req.action == "GetMediaInfo") {
         r.media = xml.has("CurrentURI"); r.uri = xml.text("CurrentURI");
         r.tv = r.uri.rfind("x-sonos-htastream:", 0) == 0;
+        Xml media(xml.text("CurrentURIMetaData"));
+        r.station = media.text("title");
+        r.station_cover = artwork_url(media.text("albumArtURI"), r.coordinator_host);
       } else if (req.action == "GetPositionInfo") {
         r.position = xml.has("TrackMetaData");
         r.track_uri = xml.text("TrackURI"); r.track = number(xml.text("Track"));
@@ -348,11 +363,9 @@ class State {
         r.title = meta.text("title"); r.artist = meta.text("creator");
         // Radio services often put artist/title in streamContent instead.
         auto stream = meta.text("streamContent");
-        if (!stream.empty()) { r.artist = r.title; r.title = stream; }
-        auto path = meta.text("albumArtURI");
-        if (path.rfind("/", 0) == 0 && path.rfind("//", 0) != 0 && path.find("..") == std::string::npos)
-          r.cover = r.coordinator_host + path;
-        else if (origin(path) == r.coordinator_host) r.cover = path;
+        if (!stream.empty()) { r.artist = r.station; r.title = stream; }
+        r.cover = artwork_url(meta.text("albumArtURI"), r.coordinator_host);
+        if (r.cover.empty()) r.cover = r.station_cover;
       }
     }
     ++cursor_;

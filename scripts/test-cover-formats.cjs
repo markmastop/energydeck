@@ -37,6 +37,10 @@ void test_favorite_cache() {
   cache.store(&source); auto *first = cache.get("one");
   assert(first && first->header.w == 32 && first->header.stride == 64 && first->data_size == 2048);
   pixels.fill(99); assert(first->data[0] == 17);
+  cache.busy = false;
+  cache.retain({"one"}); assert(cache.get("one") == first);
+  cache.begin("failed"); cache.busy = false;
+  cache.retry_failed(); assert(!cache.attempted("failed") && cache.attempted("one"));
   for (int i = 2; i <= 100; ++i) { cache.begin(std::to_string(i)); cache.store(&source); }
   assert(cache.get("one") == first && first->data[0] == 17);
   cache.begin("over-limit"); cache.store(&source); assert(!cache.get("over-limit"));
@@ -95,6 +99,11 @@ int main() {
   test_favorite_cache();
   test_thumbnail(272,272); test_thumbnail(272,136); test_thumbnail(136,272); test_thumbnail(1,1);
   using esphome::online_image::allowed_cover_redirect;
+  using esphome::online_image::compatible_cover_url;
+  assert(compatible_cover_url("https://cdn-profiles.tunein.com/s106736/images/logog.jpg?t=151324") ==
+    "https://cdn-profiles.tunein.com/s106736/images/logod.jpg");
+  assert(compatible_cover_url("https://cdn-profiles.tunein.com/s87683/images/logog.png?t=1") ==
+    "https://cdn-profiles.tunein.com/s87683/images/logog.png?t=1");
   const std::string proxy = "https://sali.sonos.superhi.fi/image?w=60";
   const std::string logo = "https://cdn-profiles.tunein.com/s87683/images/logog.png?t=1";
   assert(allowed_cover_redirect(proxy, logo));
@@ -132,7 +141,9 @@ try {
   const schema = fs.readFileSync(path.join(root, 'esphome/components/online_image/image.py'), 'utf8');
   if (!schema.includes('lv_defines.add_define("LV_DRAW_SW_SUPPORT_RGB565A8", "1")'))
     throw new Error('Opaque RGB565 cover scaling requires RGB565A8 renderer support');
-  if (!cpp.includes('this->parent_->get(target, std::vector<http_request::Header>{},')) throw new Error('Redirect must not forward request headers');
+  if (!cpp.includes('this->parent_->get(compatible_cover_url(target), std::vector<http_request::Header>{},')) throw new Error('Redirect must not forward request headers');
+  if (!yaml.includes('signature == previous_signature') || !yaml.includes('lv_obj_scroll_to_y(id(music_favorites_grid), scroll, LV_ANIM_OFF)') || yaml.includes('id(favorite_artwork).clear();'))
+    throw new Error('Favorites must preserve unchanged widgets, cached covers and scroll position');
   for (const fragment of ['descriptor->header.stride =', 'lv_image_cache_drop(descriptor)',
     'lv_image_set_src(id(music_cover_widget), static_cast<const void *>(nullptr))',
     'lv_image_set_src(id(small_music_cover_widget), static_cast<const void *>(nullptr))',

@@ -163,10 +163,18 @@ two-line ellipsized 12 px text. Borderless tiles retain a full touch target.
 Artwork is read from the favorite or embedded metadata. Visible tiles load one
 cover at a time; failures retain an icon until the next list refresh. Independent
 native-size thumbnails are cached for that list (up to 100 entries / 200 KiB
-pixels) and cleared after deleting the old widgets. Only the Sonos radio proxies
+pixels). Unchanged polls retain widgets, covers and scroll position. Changed lists
+reuse cached covers and restore the scroll position; failed refreshes retain the
+last display with unavailable controls. Failed images retry on the next list
+refresh. One-line names are centered vertically and fallback icons occupy the
+same 32×32 footprint as covers. Only the Sonos radio proxies
 and the observed Spotify hosts `i.scdn.co`, `image-cdn-ak.spotifycdn.com`,
 `image-cdn-fa.spotifycdn.com`, `seed-mix-image.spotifycdn.com` are permitted.
 No music service login or Homey authorization is sent with these requests.
+
+RADIONL's TuneIn redirect uses the verified 300×300 `logod.jpg` variant instead
+of `logog.jpg`, whose cached response can be progressive JPEG. The baseline
+variant works with the embedded decoder and applies to both player and favorites.
 
 Run `node scripts/test-music-controls.cjs` for the actual C++ model's offline
 tests: XML/entity handling, malformed replies, URL restrictions, coordinator

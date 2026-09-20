@@ -216,6 +216,15 @@ struct Favorite {
 class Favorites {
  public:
   std::vector<Favorite> items;
+  std::string display_signature() const {
+    std::string result;
+    for (const auto &item : items) {
+      for (const auto *value : {&item.id, &item.title, &item.cover})
+        result += std::to_string(value->size()) + ":" + *value;
+      result += item.radio ? 'R' : 'M';
+    }
+    return result;
+  }
   bool known = false, failed = false;
   void begin(const std::string &host) {
     host_ = origin(host); offset_ = 0; bytes_ = 0; pending_.clear(); version_.clear();

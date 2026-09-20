@@ -556,12 +556,21 @@ script:
     then:
       - lambda: |-
           auto &f = id(sonos_favorites);
-          lv_obj_clean(id(music_favorites_grid));
-          id(favorite_artwork).clear();
-          lv_obj_scroll_to_y(id(music_favorites_grid), 0, LV_ANIM_OFF);
           lv_label_set_text(id(music_favorites_status), !f.known ? "${music_favorites_error}" :
             f.items.empty() ? "${music_favorites_empty}" : "");
           if (!f.known) return;
+          static std::string previous_signature;
+          const auto signature = f.display_signature();
+          if (signature == previous_signature) {
+            id(favorite_artwork).retry_failed();
+            return; // No rebuild, cover flash or scroll reset on an unchanged poll.
+          }
+          previous_signature = signature;
+          const int scroll = lv_obj_get_scroll_y(id(music_favorites_grid));
+          lv_obj_clean(id(music_favorites_grid));
+          std::vector<std::string> covers;
+          for (const auto &item : f.items) covers.push_back(item.cover);
+          id(favorite_artwork).retain(covers);
           ESP_LOGI("sonos_local", "Loaded %u playable Sonos favorites", unsigned(f.items.size()));
           for (size_t i = 0; i < f.items.size(); ++i) {
             auto *button = lv_button_create(id(music_favorites_grid));
@@ -576,7 +585,13 @@ script:
             lv_obj_set_style_bg_color(button, lv_color_hex(0x24583B), LV_STATE_PRESSED);
             lv_obj_set_style_opa(button, LV_OPA_50, LV_STATE_DISABLED);
             auto *kind = lv_label_create(button);
-            lv_obj_set_pos(kind, 14, 14);
+            lv_obj_set_pos(kind, 6, 6);
+            lv_obj_set_size(kind, 32, 32);
+            lv_obj_set_style_bg_opa(kind, LV_OPA_COVER, 0);
+            lv_obj_set_style_bg_color(kind, lv_color_hex(0x244434), 0);
+            lv_obj_set_style_radius(kind, 4, 0);
+            lv_obj_set_style_text_align(kind, LV_TEXT_ALIGN_CENTER, 0);
+            lv_obj_set_style_pad_top(kind, 8, 0);
             lv_obj_set_style_text_font(kind, &lv_font_montserrat_14, 0);
             lv_obj_set_style_text_color(kind, lv_color_hex(0x7FE0A2), 0);
             lv_label_set_text(kind, f.items[i].radio ? LV_SYMBOL_AUDIO : LV_SYMBOL_LIST);
@@ -609,6 +624,12 @@ script:
             }
             if (display.find_first_not_of(' ') == std::string::npos) display = "${music_favorite_playlist}";
             lv_label_set_text(title, display.c_str());
+            lv_point_t measured;
+            lv_text_get_size(&measured, display.c_str(), &lv_font_montserrat_12, 0, 0, 98, LV_TEXT_FLAG_NONE);
+            if (measured.y <= lv_font_montserrat_12.line_height) {
+              lv_obj_set_height(title, lv_font_montserrat_12.line_height);
+              lv_obj_set_y(title, (44 - lv_font_montserrat_12.line_height) / 2);
+            }
             auto *cover = lv_image_create(button);
             lv_obj_set_pos(cover, 6, 6);
             lv_obj_set_size(cover, 32, 32);
@@ -619,6 +640,9 @@ script:
               id(play_music_favorite).execute(index);
             }, LV_EVENT_CLICKED, reinterpret_cast<void *>(static_cast<uintptr_t>(i)));
           }
+          lv_obj_update_layout(id(music_favorites_grid));
+          lv_obj_scroll_to_y(id(music_favorites_grid), scroll, LV_ANIM_OFF);
+      - script.execute: show_favorite_covers
 
   - id: play_music_favorite
     mode: single

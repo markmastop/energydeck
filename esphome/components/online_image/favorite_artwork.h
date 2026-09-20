@@ -5,6 +5,7 @@
 #include <map>
 #include <set>
 #include <string>
+#include <vector>
 #include "esphome/components/image/image.h"
 #include "src/misc/cache/instance/lv_image_cache.h"
 
@@ -26,6 +27,23 @@ class FavoriteArtwork {
     // Caller deletes widgets first. An in-flight result owns no widget pointers.
     for (auto &item : entries_) lv_image_cache_drop(&item.second.descriptor);
     entries_.clear(); attempted_.clear();
+    if (busy) attempted_.insert(requested);
+  }
+  void retain(const std::vector<std::string> &urls) {
+    // Widgets have been deleted before pruning; surviving images keep their
+    // stable addresses. Retry failed downloads once per list refresh.
+    std::set<std::string> keep(urls.begin(), urls.end());
+    for (auto it = entries_.begin(); it != entries_.end();) {
+      if (!keep.count(it->first)) {
+        lv_image_cache_drop(&it->second.descriptor);
+        it = entries_.erase(it);
+      } else ++it;
+    }
+    retry_failed();
+  }
+  void retry_failed() {
+    attempted_.clear();
+    for (const auto &item : entries_) attempted_.insert(item.first);
     if (busy) attempted_.insert(requested);
   }
   void store(const lv_image_dsc_t *source) {

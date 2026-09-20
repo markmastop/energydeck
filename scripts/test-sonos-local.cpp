@@ -165,6 +165,9 @@ void test_favorites() {
     Favorites covers; auto item = favorite(); item.cover = "https://i.scdn.co/image/abc";
     covers.begin(kitchen); covers.accept(200, favorite_page({item}, 1));
     assert(covers.items[0].cover == item.cover);
+    const auto signature = covers.display_signature();
+    covers.items[0].metadata += " "; assert(covers.display_signature() == signature);
+    covers.items[0].title += " changed"; assert(covers.display_signature() != signature);
     item.cover = "https://i.scdn.co.evil/image/abc";
     covers.begin(kitchen); covers.accept(200, favorite_page({item}, 1));
     assert(covers.items[0].cover.empty());

@@ -123,7 +123,7 @@ void OnlineImage::update() {
     if (allowed_cover_redirect(this->url_, target)) {
       this->downloader_->end();
       // Exactly one hop, with no forwarded headers (especially Authorization).
-      this->downloader_ = this->parent_->get(target, std::vector<http_request::Header>{}, {ETAG_HEADER_NAME, LAST_MODIFIED_HEADER_NAME, "content-type"});
+      this->downloader_ = this->parent_->get(compatible_cover_url(target), std::vector<http_request::Header>{}, {ETAG_HEADER_NAME, LAST_MODIFIED_HEADER_NAME, "content-type"});
       if (!this->downloader_) {
         this->end_connection_();
         this->download_error_callback_.call();

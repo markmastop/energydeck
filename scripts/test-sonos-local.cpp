@@ -55,15 +55,20 @@ void test_xml() {
   poll(follow, playback);
   assert(follow.follow_compact_tab(0) == 1); // Also when already playing at boot.
   assert(follow.follow_compact_tab(2) == 2); // Preserve manual Climate selection.
+  assert(!follow.playback_stopped());
   playback.all_fail = true; poll(follow, playback);
   assert(follow.follow_compact_tab(1) == 1); // Offline is not stopped.
+  assert(!follow.playback_stopped());
   playback.all_fail = false; poll(follow, playback);
   assert(follow.follow_compact_tab(0) == 0); // Recovery is not a new start.
   playback.live[0] = playback.live[1] = false; poll(follow, playback);
   follow.rooms[0].transitioning = true;
+  assert(!follow.playback_stopped());
   assert(follow.follow_compact_tab(1) == 1);
   follow.rooms[0].transitioning = false;
+  assert(follow.playback_stopped());
   assert(follow.follow_compact_tab(1) == 0);
+  assert(!follow.playback_stopped()); // Do not close a manually reopened idle page.
   playback.grouped = false; playback.live[1] = true; poll(follow, playback);
   assert(follow.follow_compact_tab(0) == 1); // Kitchen alone starts music.
   playback.live[1] = false; poll(follow, playback);

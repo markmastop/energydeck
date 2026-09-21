@@ -289,8 +289,13 @@ script:
       - script.wait: sonos_requests
       - lambda: |-
           id(sonos).finish();
-          // Follow playback only in the compact dashboard card, never pages.
+          // Only a confirmed stop edge closes detail; offline and track changes do not.
+          const bool close_detail = id(music_page_open) && id(sonos).playback_stopped();
           id(detail_tab) = id(sonos).follow_compact_tab(id(detail_tab));
+          if (close_detail) {
+            id(detail_tab) = 0;
+            id(close_music_page).execute();
+          }
           if (id(music_favorite_pending) && id(sonos).command_confirmed()) {
             id(music_favorite_pending) = false;
             id(music_command_failed) = false;

@@ -1,10 +1,15 @@
 # Sonos: dedicated local player and favorites
 
+When playback changes to a confirmed stopped/paused state in both rooms, an open
+Sonos detail page returns to the dashboard with Gas selected. Unknown/offline or
+transitioning states do not navigate. Opening detail while already idle remains
+possible; only a new playback-stop edge triggers automatic return.
+
 The dashboard's right-hand **Sonos** button shows the compact player in the
 Gas/Climate card position, with the active tab highlighted green. Its **Detail**
 button, replacing the former Radio button, opens the
-full-screen player. The **back arrow** returns to the compact Sonos card. Playback
-changes never navigate between pages. The compact dashboard card switches to
+full-screen player. The **back arrow** returns to the compact Sonos card. Starting
+playback never opens detail automatically. The compact dashboard card switches to
 Sonos when playback starts (including playback detected at boot), and back to
 Gas when playback stops or pauses while that card is selected. Manual Gas/Climate
 selections remain usable until the next playback start. Unknown or transitioning
@@ -70,8 +75,8 @@ Sonos updates.
 - TV is detected from the coordinator's `x-sonos-htastream:` source. Show **TV**
   and clear old song/artist/artwork. TV volume remains available; Pause/Play is
   disabled because the TV controls its source.
-- Starting/stopping playback does not change the current page. Dashboard Gas and
-  Climate remain available regardless of playback.
+- Starting playback does not change the current page. A confirmed stop closes
+  detail as described above. Dashboard Gas and Climate remain manually available.
 
 Pause/Play goes directly to the selected room's coordinator. Minus/plus adjust
 the displayed room by two percentage points, clamped to 0–100. For the combined

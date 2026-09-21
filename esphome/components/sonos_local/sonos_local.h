@@ -320,6 +320,8 @@ class State {
     }
     return tab;
   }
+  // Evaluate before follow_compact_tab consumes the playback edge.
+  bool playback_stopped() const { return compact_playing_ && all_stopped(); }
   bool radio_confirmed() const { return grouped() && rooms[0].known() && rooms[1].known() && rooms[0].playing && rooms[1].playing && !rooms[0].tv; }
   bool has_request() const { return cursor_ < requests_.size(); }
   const Request &request() const { return requests_[cursor_]; }

@@ -15,6 +15,8 @@ try {
   if (music.includes('advancedflow/') || music.includes('Authorization:')) throw new Error('The Sonos page must not depend on Homey');
   const poll = music.split('  - id: refresh_music\n')[1].split('  - id: switch_music_room')[0];
   if (poll.includes('lvgl.page.show') || poll.includes('open_music_page')) throw new Error('Polling must not navigate pages');
+  if (!poll.includes('id(music_page_open) && id(sonos).playback_stopped()') ||
+      !poll.includes('id(close_music_page).execute()')) throw new Error('A confirmed stop must close Sonos detail');
   if (!poll.includes('follow_compact_tab(id(detail_tab))') || !poll.includes('script.execute: select_detail_tab'))
     throw new Error('Polling must follow playback in the compact card');
   for (const page of ['sonos_page', 'energydeck_main_page']) {

@@ -42,7 +42,9 @@ icon and up to two title lines, with six tiles visible before scrolling. Missing
 font glyphs are omitted from display only; playback metadata remains untouched.
 Favorites come directly from Sonos; no Homey Flow is involved. When the dashboard
 Sonos card is selected and neither room is playing, it shows the same favorites
-in a scrollable two-column grid (four visible tiles), with Detail still available.
+in a scrollable five-column icon grid (ten visible tiles), with Detail still available.
+Compact tiles keep a 44×44 px touch target around the 32×32 artwork or fallback
+icon, with 10 px horizontal and 4 px vertical gaps. Names remain visible in Detail.
 Starting a favorite checks both configured speakers using fresh individual
 volume/mute replies, groups reachable Woonkamer and Keuken if needed, sets each
 to absolute volume **7/100**, and unmutes them before playback. If only one is

@@ -40,9 +40,17 @@ controls use muted icons rather than grey rectangles. A combined group is a read
 separate room names retain their selection arrow. Favorites show a small type
 icon and up to two title lines, with six tiles visible before scrolling. Missing
 font glyphs are omitted from display only; playback metadata remains untouched.
-Favorites come directly from Sonos; no Homey Flow is involved. This also means
-starting a favorite does not switch power outlets, regroup speakers or set a
-starting volume. It uses the selected room's current group and volume.
+Favorites come directly from Sonos; no Homey Flow is involved. When the dashboard
+Sonos card is selected and neither room is playing, it shows the same favorites
+in a scrollable two-column grid (four visible tiles), with Detail still available.
+Starting a favorite checks both configured speakers using fresh individual
+volume/mute replies, groups reachable Woonkamer and Keuken if needed, sets each
+to absolute volume **7/100**, and unmutes them before playback. If only one is
+reachable, it is used alone; a reachable follower detaches from an unavailable
+coordinator first. An existing healthy Woonkamer/Keuken coordinator is retained.
+The setup is read back before any favorite URI or queue command is sent. A failed
+setup stops the sequence and reports an error; it never retries queue insertion.
+No power outlets are switched. This applies to favorites in both views.
 
 ## Why not read playback metadata from Homey?
 
@@ -87,21 +95,23 @@ separate. Previous/Next are enabled only when Sonos reports the action available
 Playback controls and favorite selection inherently affect the coordinator's
 actual group, so avoid adding unrelated rooms if they should remain unaffected.
 
-Commands are only created after a user click. The displayed target is captured,
+Commands are only created after a user click. For ordinary playback controls, the displayed target is captured,
 fresh topology/volume is read, and a changed group scope cancels the command.
 Controls are disabled during requests and unavailable data; read-back verifies
 the result. There is no automatic command retry.
 
 ## Sonos favorites
 
-ContentDirectory `Browse` reads `FV:2` in pages of eight when the page opens
-and every five minutes while open. There is no section heading or manual refresh
+ContentDirectory `Browse` reads `FV:2` in pages of eight when the page opens,
+when the compact Sonos card first needs the list, and every five minutes while
+either Sonos view is selected. There is no section heading or manual refresh
 button; the favorite tiles follow the player directly. A complete, consistent
 UpdateID is required; unavailable or malformed data disables favorites rather
 than silently using an outdated list. Collection and payload sizes are bounded.
 Entries without playable URI/metadata (such as pinned discovery shortcuts) are
 omitted. Tiles show title and a radio/music icon, not remote thumbnail downloads.
 
+- First verify grouping, volume 7 and unmuted state as described above.
 - Radio: set the favorite URI with its original metadata, then Play.
 - Playlist/album/track: append to the existing queue, select that queue, seek to
   the first newly added track, then Play. The old queue is never cleared.
@@ -197,7 +207,9 @@ tests: XML/entity handling, malformed replies, URL restrictions, coordinator
 changes, separate/grouped rooms, TV/music priority, manual selection, missing
 speakers, command scope changes, volume bounds and command confirmation. Favorites
 tests cover pagination, invalid/stale pages, filtering, radio, queue append/seek,
-failure aborts, mute, skip and read-back confirmation.
+failure aborts, mute, skip and read-back confirmation. Setup tests cover both
+speakers, either speaker offline, both offline, stale groups with an offline
+coordinator, grouping failures, and volume/group read-back before playback.
 
 Run `node scripts/test-chunked-cover.cjs` for the JPEG download regression tests.
 Run `node scripts/test-cover-formats.cjs` for PNG/JPEG selection, PNG completion,

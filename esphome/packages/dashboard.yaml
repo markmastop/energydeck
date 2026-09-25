@@ -1798,6 +1798,7 @@ lvgl:
                   on_click:
                     - script.execute: open_music_page
               - obj:
+                  id: small_music_cover_frame
                   x: 16
                   y: 34
                   width: 62

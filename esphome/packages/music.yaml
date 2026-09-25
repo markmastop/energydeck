@@ -187,7 +187,7 @@ script:
           const int scroll = lv_obj_get_scroll_y(id(music_favorites_grid));
           const int height = lv_obj_get_height(id(music_favorites_grid));
           for (size_t i = 0; i < items.size(); ++i) {
-            const int columns = id(music_page_open) ? 3 : 2;
+            const int columns = id(music_page_open) ? 3 : 5;
             const int y = int(i / columns) * 48 - scroll;
             if (y + 44 <= 0 || y >= height || items[i].cover.empty() || id(favorite_artwork).attempted(items[i].cover)) continue;
             id(favorite_artwork).begin(items[i].cover);
@@ -494,10 +494,14 @@ script:
           }
           for (uint32_t i = 0; i < lv_obj_get_child_count(id(music_favorites_grid)); ++i) {
             auto *tile = lv_obj_get_child(id(music_favorites_grid), i);
-            const int columns = compact_favorites ? 2 : 3;
-            lv_obj_set_pos(tile, (i % columns) * (compact_favorites ? 138 : 150), (i / columns) * 48);
-            lv_obj_set_width(tile, compact_favorites ? 134 : 146);
-            lv_obj_set_width(lv_obj_get_child(tile, 1), compact_favorites ? 86 : 98);
+            // Keep a 44 px touch target around the 32 px artwork. Five columns
+            // expose ten favorites without shrinking the icons or row spacing.
+            const int columns = compact_favorites ? 5 : 3;
+            lv_obj_set_pos(tile, (i % columns) * (compact_favorites ? 54 : 150), (i / columns) * 48);
+            lv_obj_set_width(tile, compact_favorites ? 44 : 146);
+            auto *title = lv_obj_get_child(tile, 1);
+            if (compact_favorites) lv_obj_add_flag(title, LV_OBJ_FLAG_HIDDEN);
+            else lv_obj_clear_flag(title, LV_OBJ_FLAG_HIDDEN);
           }
           for (auto *widget : {id(small_music_title), id(small_music_artist), id(small_music_volume),
               id(small_music_cover_frame), id(small_music_minus), id(small_music_plus), id(small_music_play)}) {

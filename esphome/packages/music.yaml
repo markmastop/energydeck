@@ -64,7 +64,7 @@ interval:
     then:
       - if:
           condition:
-            lambda: return id(music_page_open) && !id(music_busy) && !id(music_favorite_pending);
+            lambda: return (id(music_page_open) || id(detail_tab) == 1) && !id(music_busy) && !id(music_favorite_pending);
           then:
             - script.execute: refresh_music_favorites
 
@@ -181,13 +181,14 @@ script:
   - id: load_visible_favorite_cover
     then:
       - lambda: |-
-          if (!id(music_page_open) || id(favorite_artwork).busy || id(music_cover_downloading) ||
+          if ((!id(music_page_open) && (id(detail_tab) != 1 || id(sonos).any_playing())) || id(favorite_artwork).busy || id(music_cover_downloading) ||
               id(refresh_climate).is_running() || id(music_busy) || id(music_favorites_loading) || !id(sonos_favorites).known) return;
           const auto &items = id(sonos_favorites).items;
           const int scroll = lv_obj_get_scroll_y(id(music_favorites_grid));
           const int height = lv_obj_get_height(id(music_favorites_grid));
           for (size_t i = 0; i < items.size(); ++i) {
-            const int y = int(i / 3) * 48 - scroll;
+            const int columns = id(music_page_open) ? 3 : 2;
+            const int y = int(i / columns) * 48 - scroll;
             if (y + 44 <= 0 || y >= height || items[i].cover.empty() || id(favorite_artwork).attempted(items[i].cover)) continue;
             id(favorite_artwork).begin(items[i].cover);
             id(favorite_cover_download).set_url(items[i].cover);
@@ -406,6 +407,11 @@ script:
           }
       - script.execute: render_music
       - script.execute: refresh_music_cover
+      - if:
+          condition:
+            lambda: return id(detail_tab) == 1 && !id(sonos_favorites).known && !id(music_favorites_loading);
+          then:
+            - script.execute: refresh_music_favorites
 
   - id: render_music
     then:
@@ -463,12 +469,46 @@ script:
             if (waiting || unavailable) lv_obj_add_state(button, LV_STATE_DISABLED);
             else lv_obj_clear_state(button, LV_STATE_DISABLED);
           }
-          const bool block_favorites = waiting || id(music_favorites_loading) || !known || !id(sonos_favorites).known;
+          const bool block_favorites = waiting || id(music_favorites_loading) || (!s.favorite_reachable(0) && !s.favorite_reachable(1)) || !id(sonos_favorites).known;
           for (uint32_t i = 0; i < lv_obj_get_child_count(id(music_favorites_grid)); ++i) {
             auto *button = lv_obj_get_child(id(music_favorites_grid), i);
             if (block_favorites) lv_obj_add_state(button, LV_STATE_DISABLED);
             else lv_obj_clear_state(button, LV_STATE_DISABLED);
           }
+          // Reuse the same favorite widgets in both views, retaining covers and
+          // click handlers without a second list or additional image buffers.
+          const bool compact_favorites = !id(music_page_open) && !s.any_playing();
+          auto *parent = compact_favorites ? id(music_card) : id(sonos_page)->obj;
+          if (lv_obj_get_parent(id(music_favorites_grid)) != parent) {
+            lv_obj_set_parent(id(music_favorites_grid), parent);
+            lv_obj_set_parent(id(music_favorites_status), parent);
+            lv_obj_scroll_to_y(id(music_favorites_grid), 0, LV_ANIM_OFF);
+          }
+          lv_obj_set_pos(id(music_favorites_grid), compact_favorites ? 10 : 14, compact_favorites ? 34 : 570);
+          lv_obj_set_size(id(music_favorites_grid), compact_favorites ? 274 : 452, compact_favorites ? 98 : 216);
+          lv_obj_set_pos(id(music_favorites_status), compact_favorites ? 10 : 24, compact_favorites ? 62 : 668);
+          lv_obj_set_width(id(music_favorites_status), compact_favorites ? 274 : 432);
+          if (compact_favorites) {
+            lv_label_set_text(id(music_favorites_status), id(music_favorites_loading) ? "${music_favorites_loading}" :
+              !id(sonos_favorites).known ? "${music_favorites_error}" : id(sonos_favorites).items.empty() ? "${music_favorites_empty}" : "");
+          }
+          for (uint32_t i = 0; i < lv_obj_get_child_count(id(music_favorites_grid)); ++i) {
+            auto *tile = lv_obj_get_child(id(music_favorites_grid), i);
+            const int columns = compact_favorites ? 2 : 3;
+            lv_obj_set_pos(tile, (i % columns) * (compact_favorites ? 138 : 150), (i / columns) * 48);
+            lv_obj_set_width(tile, compact_favorites ? 134 : 146);
+            lv_obj_set_width(lv_obj_get_child(tile, 1), compact_favorites ? 86 : 98);
+          }
+          for (auto *widget : {id(small_music_title), id(small_music_artist), id(small_music_volume),
+              id(small_music_cover_frame), id(small_music_minus), id(small_music_plus), id(small_music_play)}) {
+            if (compact_favorites) lv_obj_add_flag(widget, LV_OBJ_FLAG_HIDDEN);
+            else lv_obj_clear_flag(widget, LV_OBJ_FLAG_HIDDEN);
+          }
+          if (compact_favorites) lv_obj_add_flag(id(small_music_cover_widget), LV_OBJ_FLAG_HIDDEN);
+          lv_obj_set_pos(id(music_page_button), 190, compact_favorites ? 3 : 103);
+          lv_obj_set_width(id(small_music_room_select), compact_favorites ? 174 : 184);
+          if (compact_favorites) lv_obj_add_flag(id(small_music_status), LV_OBJ_FLAG_HIDDEN);
+          else lv_obj_clear_flag(id(small_music_status), LV_OBJ_FLAG_HIDDEN);
           // Compact and full players share the same snapshot and command state.
           const std::pair<lv_obj_t *, lv_obj_t *> labels[] = {
             {id(small_music_title), id(music_title)}, {id(small_music_artist), id(music_artist)},
@@ -487,6 +527,8 @@ script:
             if (lv_obj_has_state(pair.second, LV_STATE_DISABLED)) lv_obj_add_state(pair.first, LV_STATE_DISABLED);
             else lv_obj_clear_state(pair.first, LV_STATE_DISABLED);
           }
+          if (compact_favorites && (waiting || id(music_command_failed)))
+            lv_label_set_text(lv_obj_get_child(id(small_music_room_select), 0), status);
           // Retain clear word labels in the compact card's existing layout.
           lv_label_set_text(lv_obj_get_child(id(small_music_play), 0),
             waiting ? "${music_button_wait}" : room.tv ? "${music_tv}" : playing ? "${music_pause}" : "${music_resume}");
@@ -541,8 +583,8 @@ script:
             - lambda: |-
                 id(music_favorites_loading) = true;
                 lv_label_set_text(id(music_favorites_status), "${music_favorites_loading}");
-                id(sonos_favorites).begin(id(sonos).current().coordinator_host.empty() ?
-                  "${sonos_kitchen_address}" : id(sonos).current().coordinator_host);
+                id(sonos_favorites).begin(id(sonos).current().host.empty() ?
+                  "${sonos_kitchen_address}" : id(sonos).current().host);
             - script.execute: render_music
             - script.execute: sonos_favorite_requests
             - script.wait: sonos_favorite_requests
@@ -550,7 +592,8 @@ script:
                 condition:
                   lambda: return id(sonos_favorites).failed;
                 then:
-                  - lambda: id(sonos_favorites).begin("${sonos_living_address}");
+                  - lambda: |-
+                      id(sonos_favorites).begin(id(sonos).current().host == "${sonos_living_address}" ? "${sonos_kitchen_address}" : "${sonos_living_address}");
                   - script.execute: sonos_favorite_requests
                   - script.wait: sonos_favorite_requests
             - lambda: id(music_favorites_loading) = false;
@@ -671,7 +714,19 @@ script:
             - script.wait: refresh_music
             - if:
                 condition:
-                  lambda: return id(sonos).prepare_favorite(id(music_favorite_copy));
+                  lambda: return id(sonos).prepare_favorite_setup();
+                then:
+                  - script.execute: sonos_requests
+                  - script.wait: sonos_requests
+                  - lambda: id(music_command_failed) = id(sonos).command_failed;
+                  - delay: 1s
+                  - script.execute: refresh_music
+                  - script.wait: refresh_music
+                else:
+                  - lambda: id(music_command_failed) = true;
+            - if:
+                condition:
+                  lambda: return !id(music_command_failed) && id(sonos).favorite_setup_confirmed() && id(sonos).prepare_favorite(id(music_favorite_copy));
                 then:
                   - script.execute: sonos_requests
                   - script.wait: sonos_requests

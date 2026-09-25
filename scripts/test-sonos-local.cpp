@@ -234,7 +234,46 @@ void test_favorites() {
   s.capture(); poll(s,fixture); assert(s.prepare_command(4)); assert(s.request().action == "Next");
   s.accept(200,response("Next","")); assert(!s.command_confirmed()); s.rooms[s.selected].track_uri = "new-track"; assert(s.command_confirmed());
 }
+void test_favorite_setup() {
+  for (bool grouped : {false, true}) for (int offline : {-1, 0, 1, 2}) {
+    State s; Fixture f; f.grouped = grouped; f.volume[0] = f.volume[1] = 5;
+    f.fail[0] = offline == 0 || offline == 2;
+    f.fail[1] = offline == 1 || offline == 2;
+    poll(s, f);
+    assert(s.prepare_favorite_setup() == (offline != 2));
+    int volumes = 0, joins = 0, detach = 0;
+    while (s.has_request()) {
+      auto q = s.request();
+      assert(!f.fail[q.host == living ? 0 : 1]);
+      assert(q.action != "Play" && q.action != "AddURIToQueue");
+      if (q.action == "SetVolume") {
+        ++volumes;
+        assert(q.arguments.find("<DesiredVolume>7</DesiredVolume>") != std::string::npos);
+      }
+      if (q.action == "SetAVTransportURI") {
+        ++joins; assert(q.arguments.find("x-rincon:" + lid) != std::string::npos);
+      }
+      if (q.action == "BecomeCoordinatorOfStandaloneGroup") ++detach;
+      s.accept(200, response(q.action, ""));
+    }
+    assert(volumes == (offline == 2 ? 0 : offline == -1 ? 2 : 1));
+    assert(joins == (!grouped && offline == -1 ? 1 : 0));
+    assert(detach == (grouped && offline == 1 ? 1 : 0));
+    if (offline == 2) continue;
+    assert(!s.favorite_setup_confirmed()); // Old volume/group is insufficient.
+    f.grouped = offline == -1; f.living_leader = !grouped;
+    f.volume[0] = f.volume[1] = 7;
+    poll(s, f);
+    assert(s.favorite_setup_confirmed());
+    assert(s.prepare_favorite(favorite(true, "FV:2/test")));
+  }
+  State s; Fixture f; f.grouped = false; poll(s, f);
+  assert(s.prepare_favorite_setup());
+  s.accept(500, "<Fault/>");
+  assert(s.command_failed && !s.has_request()); // Failed join cannot start music.
+}
 int main(int argc, char **argv) {
+  test_favorite_setup();
   if(argc > 1 && std::string(argv[1]) == "--favorites-probe") {
     Favorites f; f.begin(kitchen);
     while(f.has_request()) {

@@ -51,9 +51,6 @@ try {
   const tab = dashboard.split('id: music_tab\n')[1].split('        - button:')[0];
   if (!tab.includes('id(detail_tab) = 1') || !tab.includes('script.execute: select_detail_tab') || tab.includes('open_music_page'))
     throw new Error('Right Sonos tab must select the compact card, not navigate');
-  const openPage = dashboard.split('id: music_page_button\n')[1].split('              - obj:')[0];
-  if (!openPage.includes('${music_open_page}') || !openPage.includes('script.execute: open_music_page') || openPage.includes('start_radio'))
-    throw new Error('Compact Page button must only open the full player');
   if (!music.includes('{id(gas_card), id(music_card), id(extra_card)}') || music.includes('if (id(detail_tab) == 1) id(detail_tab) = 0'))
     throw new Error('Returning from the full page must preserve the compact Sonos tab');
   for (const widget of ['title', 'artist', 'volume', 'status', 'play', 'minus', 'plus', 'room_select']) {

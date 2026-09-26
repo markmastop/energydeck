@@ -2,13 +2,12 @@
 
 When playback changes to a confirmed stopped/paused state in both rooms, an open
 Sonos detail page returns to the dashboard with Gas selected. Unknown/offline or
-transitioning states do not navigate. Opening detail while already idle remains
-possible; only a new playback-stop edge triggers automatic return.
+transitioning states do not navigate. Only a new playback-stop edge triggers automatic return.
 
 The dashboard's right-hand **Sonos** button shows the compact player in the
-Gas/Climate card position, with the active tab highlighted green. Its **Detail**
-button, replacing the former Radio button, opens the
-full-screen player. The **back arrow** returns to the compact Sonos card. Starting
+Gas/Climate card position, with the active tab highlighted green. The compact
+card has no Detail button; the full-screen player remains implemented but has no
+dashboard entry point. Its **back arrow** returns to the compact Sonos card. Starting
 playback never opens detail automatically. The compact dashboard card switches to
 Sonos when playback starts (including playback detected at boot), and back to
 Gas when playback stops or pauses while that card is selected. Manual Gas/Climate
@@ -42,7 +41,8 @@ icon and up to two title lines, with six tiles visible before scrolling. Missing
 font glyphs are omitted from display only; playback metadata remains untouched.
 Favorites come directly from Sonos; no Homey Flow is involved. When the dashboard
 Sonos card is selected and neither room is playing, it shows the same favorites
-in a scrollable five-column icon grid (ten visible tiles), with Detail still available.
+in a scrollable five-column icon grid (ten visible tiles). The room label uses the
+full card width while favorites are shown.
 Compact tiles keep a 44×44 px touch target around the 32×32 artwork or fallback
 icon, with 10 px horizontal and 4 px vertical gaps. Names remain visible in Detail.
 Starting a favorite checks both configured speakers using fresh individual

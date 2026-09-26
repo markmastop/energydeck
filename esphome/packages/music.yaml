@@ -509,8 +509,7 @@ script:
             else lv_obj_clear_flag(widget, LV_OBJ_FLAG_HIDDEN);
           }
           if (compact_favorites) lv_obj_add_flag(id(small_music_cover_widget), LV_OBJ_FLAG_HIDDEN);
-          lv_obj_set_pos(id(music_page_button), 190, compact_favorites ? 3 : 103);
-          lv_obj_set_width(id(small_music_room_select), compact_favorites ? 174 : 184);
+          lv_obj_set_width(id(small_music_room_select), compact_favorites ? 274 : 184);
           if (compact_favorites) lv_obj_add_flag(id(small_music_status), LV_OBJ_FLAG_HIDDEN);
           else lv_obj_clear_flag(id(small_music_status), LV_OBJ_FLAG_HIDDEN);
           // Compact and full players share the same snapshot and command state.

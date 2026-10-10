@@ -14,6 +14,7 @@ interval:
             id(small_music_plus), id(small_music_play),
             id(music_previous), id(music_next), id(music_mute),
             id(music_minus), id(music_plus), id(music_play), id(music_room_select),
+            id(music_favorites_tab), id(music_systems_tab),
             id(gas_tab), id(music_tab), id(extra_tab),
             id(today_prices_button), id(tomorrow_prices_button)};
           for (auto *button : buttons) {

@@ -26,6 +26,9 @@ globals:
   - id: music_page_open
     type: bool
     initial_value: "false"
+  - id: music_content_tab
+    type: int
+    initial_value: "0"
   - id: music_busy
     type: bool
     initial_value: "false"
@@ -182,6 +185,7 @@ script:
     then:
       - lambda: |-
           if ((!id(music_page_open) && (id(detail_tab) != 1 || id(sonos).any_playing())) || id(favorite_artwork).busy || id(music_cover_downloading) ||
+              (id(music_page_open) && id(music_content_tab) != 0) ||
               id(refresh_climate).is_running() || id(music_busy) || id(music_favorites_loading) || !id(sonos_favorites).known) return;
           const auto &items = id(sonos_favorites).items;
           const int scroll = lv_obj_get_scroll_y(id(music_favorites_grid));
@@ -482,10 +486,25 @@ script:
             lv_obj_set_parent(id(music_favorites_status), parent);
             lv_obj_scroll_to_y(id(music_favorites_grid), 0, LV_ANIM_OFF);
           }
-          lv_obj_set_pos(id(music_favorites_grid), compact_favorites ? 10 : 14, compact_favorites ? 34 : 570);
-          lv_obj_set_size(id(music_favorites_grid), compact_favorites ? 274 : 452, compact_favorites ? 98 : 216);
+          lv_obj_set_pos(id(music_favorites_grid), compact_favorites ? 10 : 14, compact_favorites ? 34 : 606);
+          lv_obj_set_size(id(music_favorites_grid), compact_favorites ? 274 : 452, compact_favorites ? 98 : 180);
           lv_obj_set_pos(id(music_favorites_status), compact_favorites ? 10 : 24, compact_favorites ? 62 : 668);
           lv_obj_set_width(id(music_favorites_status), compact_favorites ? 274 : 432);
+          // The dashboard keeps its idle favorites regardless of the detail tab.
+          const bool favorites_visible = compact_favorites || id(music_content_tab) == 0;
+          for (auto *widget : {id(music_favorites_grid), id(music_favorites_status)}) {
+            if (favorites_visible) lv_obj_clear_flag(widget, LV_OBJ_FLAG_HIDDEN);
+            else lv_obj_add_flag(widget, LV_OBJ_FLAG_HIDDEN);
+          }
+          if (id(music_content_tab) == 1) lv_obj_clear_flag(id(music_systems_list), LV_OBJ_FLAG_HIDDEN);
+          else lv_obj_add_flag(id(music_systems_list), LV_OBJ_FLAG_HIDDEN);
+          lv_obj_t *content_tabs[] = {id(music_favorites_tab), id(music_systems_tab)};
+          for (int i = 0; i < 2; ++i) {
+            const bool active = i == id(music_content_tab);
+            lv_obj_set_style_bg_color(content_tabs[i], lv_color_hex(active ? 0x24583B : 0x18231E), 0);
+            lv_obj_set_style_border_color(content_tabs[i], lv_color_hex(active ? 0x45BD70 : 0x34463C), 0);
+            lv_obj_set_style_border_width(content_tabs[i], active ? 2 : 1, 0);
+          }
           if (compact_favorites) {
             lv_label_set_text(id(music_favorites_status), id(music_favorites_loading) ? "${music_favorites_loading}" :
               !id(sonos_favorites).known ? "${music_favorites_error}" : id(sonos_favorites).items.empty() ? "${music_favorites_empty}" : "");
@@ -551,6 +570,71 @@ script:
             lv_obj_set_style_text_color(lv_obj_get_child(button, 0), lv_color_hex(disabled ? 0x67756D :
               button == id(music_mute) && s.muted() ? 0xE8B94C : 0xEEF6F0), 0);
           }
+      - script.execute: render_music_systems
+
+  - id: render_music_systems
+    then:
+      - lambda: |-
+          if (!id(music_page_open) || id(music_content_tab) != 1) return;
+          const auto &s = id(sonos);
+          // Rebuild only changed rows so a normal status poll keeps scroll position.
+          std::vector<std::array<std::string, 3>> rows;
+          std::string signature = s.systems_known ? "known" : "unknown";
+          for (const auto &system : s.systems) {
+            std::string group;
+            int members = 0;
+            for (const auto &other : s.systems) if (other.coordinator == system.coordinator) {
+              if (members++) group += " + ";
+              group += other.name;
+            }
+            group = members > 1 ? std::string("${music_system_group}") + group : "${music_system_solo}";
+            const char *status = "${music_system_detected}";
+            for (const auto &room : s.rooms) if (room.topology && room.coordinator == system.coordinator) {
+              status = !room.known() ? "${music_offline}" : room.transitioning ? "${music_waiting}" :
+                room.playing ? (room.tv ? "${music_tv}" : "${music_playing}") : "${music_paused}";
+              break;
+            }
+            rows.push_back({system.name, group, status});
+            for (const auto &value : rows.back()) signature += std::to_string(value.size()) + ":" + value;
+          }
+          static std::string previous_signature;
+          if (signature == previous_signature) return;
+          previous_signature = signature;
+          const int scroll = lv_obj_get_scroll_y(id(music_systems_list));
+          lv_obj_clean(id(music_systems_list));
+          if (rows.empty()) {
+            auto *label = lv_label_create(id(music_systems_list));
+            lv_obj_set_width(label, 432);
+            lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_CENTER, 0);
+            lv_obj_set_style_text_color(label, lv_color_hex(0xA9B8AE), 0);
+            lv_label_set_text(label, s.systems_known ? "${music_systems_empty}" : "${music_systems_unavailable}");
+            lv_obj_align(label, LV_ALIGN_TOP_MID, 0, 60);
+          }
+          for (size_t i = 0; i < rows.size(); ++i) {
+            auto *row = lv_obj_create(id(music_systems_list));
+            lv_obj_remove_style_all(row);
+            lv_obj_set_pos(row, 0, i * 56);
+            lv_obj_set_size(row, 452, 50);
+            lv_obj_set_style_radius(row, 6, 0);
+            lv_obj_set_style_bg_opa(row, LV_OPA_COVER, 0);
+            lv_obj_set_style_bg_color(row, lv_color_hex(0x18231E), 0);
+            lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
+            // Read-only rows still accept touch gestures so swipes can scroll
+            // their parent list; there is no click action on a system row.
+            lv_obj_add_flag(row, LV_OBJ_FLAG_CLICKABLE);
+            for (int field = 0; field < 3; ++field) {
+              auto *label = lv_label_create(row);
+              lv_obj_set_pos(label, field == 2 ? 312 : 10, field == 1 ? 28 : 6);
+              lv_obj_set_size(label, field == 0 ? 294 : field == 1 ? 432 : 130, field == 0 ? 18 : 16);
+              lv_label_set_long_mode(label, LV_LABEL_LONG_DOT);
+              lv_obj_set_style_text_font(label, field == 0 ? &lv_font_montserrat_14 : &lv_font_montserrat_12, 0);
+              lv_obj_set_style_text_color(label, lv_color_hex(field == 0 ? 0xEEF6F0 : field == 2 ? 0x7FE0A2 : 0xA9B8AE), 0);
+              if (field == 2) lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_RIGHT, 0);
+              lv_label_set_text(label, rows[i][field].c_str());
+            }
+          }
+          lv_obj_update_layout(id(music_systems_list));
+          lv_obj_scroll_to_y(id(music_systems_list), scroll, LV_ANIM_OFF);
 
   - id: sonos_favorite_requests
     mode: single

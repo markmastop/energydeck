@@ -12,8 +12,8 @@ std::string escape(std::string s) {
 std::string response(const std::string &action, const std::string &body) {
   return "<s:Envelope><s:Body><u:" + action + "Response>" + body + "</u:" + action + "Response></s:Body></s:Envelope>";
 }
-std::string member(const std::string &id, const std::string &host) {
-  return "<ZoneGroupMember UUID=\"" + id + "\" Location=\"" + host + "/xml/device_description.xml\"/>";
+std::string member(const std::string &id, const std::string &host, const std::string &name = "") {
+  return "<ZoneGroupMember UUID=\"" + id + "\" ZoneName=\"" + xml_escape(name) + "\" Location=\"" + host + "/xml/device_description.xml\"/>";
 }
 std::string topology(bool grouped, bool living_leader = false, bool missing_living = false) {
   auto l = missing_living ? "" : member(lid, living), k = member(kid, kitchen);
@@ -189,6 +189,42 @@ void test_read_recovery() {
   assert(write.command_failed && !write.has_request()); // Lost writes never repeat.
 }
 
+void test_system_inventory() {
+  State s; s.begin(living, kitchen);
+  const auto extra = "RINCON_OTHER";
+  const auto zones = "<ZoneGroups><ZoneGroup Coordinator=\"" + lid + "\">" +
+    member(lid, living, "Living & kitchen") + member(kid, kitchen, "Kitchen") +
+    "<ZoneGroupMember UUID=\"hidden\" Invisible=\"1\" ZoneName=\"Kitchen\" Location=\"" + kitchen + "/xml/device_description.xml\"/>" +
+    "</ZoneGroup><ZoneGroup Coordinator=\"" + extra + "\">" +
+    member(extra, "http://192.168.1.52:1400", "Office") +
+    member(extra, "http://192.168.1.52:1400", "Office") +
+    member("invalid", "http://example.org:1400", "Unsafe") + "</ZoneGroup></ZoneGroups>";
+  s.accept(200, response("GetZoneGroupState", "<ZoneGroupState>" + escape(zones) + "</ZoneGroupState>"));
+  while (s.has_request()) {
+    // Listing additional zones must not introduce reads or writes to those hosts.
+    assert(s.request().host == living || s.request().host == kitchen);
+    s.accept(404, "");
+  }
+  s.finish();
+  assert(s.systems_known && s.systems.size() == 3);
+  assert(s.systems[0].name == "Kitchen" && s.systems[0].coordinator == lid);
+  assert(s.systems[1].name == "Living & kitchen");
+  assert(s.systems[2].name == "Office" && s.systems[2].coordinator == extra);
+  Fixture offline; offline.all_fail = true; poll(s, offline);
+  assert(!s.systems_known && s.systems.empty()); // Never list stale topology as current.
+  Fixture recovered; poll(s, recovered);
+  assert(s.systems_known && s.systems.size() == 2);
+  assert(s.systems[0].name == s.systems[0].uuid); // Missing zone names have a safe fallback.
+  std::string large = "<ZoneGroups><ZoneGroup Coordinator=\"" + lid + "\">" + member(lid, living) + member(kid, kitchen);
+  for (int i = 0; i < 40; ++i) large += member("extra" + std::to_string(i), living, "Extra " + std::to_string(i));
+  large += "</ZoneGroup></ZoneGroups>";
+  s.begin(living, kitchen);
+  s.accept(200, response("GetZoneGroupState", "<ZoneGroupState>" + escape(large) + "</ZoneGroupState>"));
+  while (s.has_request()) s.accept(404, "");
+  s.finish();
+  assert(s.systems_known && s.systems.size() == 32); // Bound list memory for large households.
+}
+
 Favorite favorite(bool radio = false, std::string id = "FV:2/1") {
   const std::string cls = radio ? "object.item.audioItem.audioBroadcast" : "object.container.playlistContainer";
   return {id, "Rock & Soul", radio ? "x-sonosapi-stream:radio?sid=1&flags=2" : "x-rincon-cpcontainer:playlist?sid=9&flags=2",
@@ -335,7 +371,7 @@ int main(int argc, char **argv) {
     for(const auto &r:s.rooms) std::cout << "ROOM known=" << r.known() << " playing=" << r.playing << " tv=" << r.tv << " volume=" << r.volume << " title=" << r.title << " artist=" << r.artist << " cover=" << r.cover << std::endl;
     return 0;
   }
-  test_xml(); test_states(); test_controls(); test_read_recovery(); test_favorites();
+  test_xml(); test_states(); test_controls(); test_read_recovery(); test_system_inventory(); test_favorites();
   std::cout << "PASS: paged favorites, filtering, XML escaping, direct radio, queue append/seek, failed-command abort, mute and skip" << std::endl;
-  std::cout << "PASS: Sonos XML, topology/coordinator, solo/group, music/TV priority, selection, offline, artwork and scoped controls" << std::endl;
+  std::cout << "PASS: Sonos XML, topology/coordinator, visible system inventory, solo/group, music/TV priority, selection, offline, artwork and scoped controls" << std::endl;
 }

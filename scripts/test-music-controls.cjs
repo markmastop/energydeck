@@ -41,10 +41,10 @@ try {
     if (x < 310) throw new Error(`${id} must sit to the right of the cover`);
   }
   const dashboard = fs.readFileSync(path.join(__dirname, '../esphome/packages/dashboard.yaml'), 'utf8');
-  const detail = dashboard.split('id: music_page_button\n')[1]?.split('              - obj:')[0];
-  if (!detail?.includes('script.execute: open_music_page') || detail.includes('hidden: true') ||
-      !music.includes('lv_obj_set_pos(id(music_page_button), 190, compact_favorites ? 3 : 103)'))
-    throw new Error('Compact playback and idle favorites must always offer Detail');
+  const detail = dashboard.split('id: small_music_detail_target\n')[1]?.split('              - button:')[0];
+  if (!detail?.includes('script.execute: open_music_page') || !detail.includes('clickable: true') ||
+      dashboard.includes('music_page_button'))
+    throw new Error('The cover/title must open detail without a separate Detail button');
   const close = music.split('  - id: close_music_page\n')[1].split('  - id: render_sonos_energy_header')[0];
   if (!close.includes('id(detail_tab) = 1')) throw new Error('Back must return to the compact Sonos card');
   const header = music.split('  - id: render_sonos_energy_header\n')[1].split('  # Read-only polls')[0];
@@ -54,8 +54,8 @@ try {
       !header.includes('lv_obj_get_style_text_color(id(battery_status_label), LV_PART_MAIN)'))
     throw new Error('Sonos header must keep solar right, battery middle and reuse battery values/colors');
   const tab = dashboard.split('id: music_tab\n')[1].split('        - button:')[0];
-  if (!tab.includes('id(detail_tab) = 1') || !tab.includes('script.execute: select_detail_tab') || tab.includes('open_music_page'))
-    throw new Error('Right Sonos tab must select the compact card, not navigate');
+  if (!tab.includes('script.execute: open_music_page'))
+    throw new Error('Right Sonos button must open detail directly in every playback state');
   if (!music.includes('{id(gas_card), id(music_card), id(extra_card)}') || music.includes('if (id(detail_tab) == 1) id(detail_tab) = 0'))
     throw new Error('Returning from the full page must preserve the compact Sonos tab');
   for (const widget of ['title', 'artist', 'volume', 'status', 'play', 'minus', 'plus', 'room_select']) {

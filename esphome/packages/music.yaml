@@ -317,9 +317,84 @@ script:
           condition:
             lambda: return !id(music_busy) && !id(music_favorite_pending);
           then:
-            - lambda: id(sonos).switch_room();
+            - lambda: id(music_content_tab) = 1;
+            - if:
+                condition:
+                  lambda: return id(music_page_open);
+                then:
+                  - script.execute: render_music
+                else:
+                  - script.execute: open_music_page
+
+  - id: select_music_system
+    mode: single
+    parameters:
+      uuid: string
+    then:
+      - if:
+          condition:
+            lambda: return !id(music_busy) && !id(music_favorite_pending);
+          then:
+            - lambda: |-
+                id(music_busy) = true;
+                id(music_command_failed) = false;
+            - script.execute: render_music
+            # Finish an in-flight poll before changing its selected-room slot.
+            - script.wait: refresh_music
+            - if:
+                condition:
+                  lambda: return id(sonos).select_system(uuid);
+                then:
+                  - script.execute: refresh_music
+                  - script.wait: refresh_music
+            - lambda: |-
+                id(music_busy) = false;
+                id(sonos).reset_group_edit();
             - script.execute: render_music
             - script.execute: refresh_music_cover
+
+  - id: apply_music_group
+    mode: single
+    then:
+      - if:
+          condition:
+            lambda: return !id(music_busy) && !id(music_favorite_pending) && id(sonos).group_dirty() && id(sonos).group_edit_valid();
+          then:
+            - lambda: |-
+                id(music_busy) = true;
+                id(music_command_failed) = false;
+            - script.execute: render_music
+            # Re-read topology before writing; an external regroup cancels the draft.
+            - script.execute: refresh_music
+            - script.wait: refresh_music
+            - if:
+                condition:
+                  lambda: return id(sonos).prepare_group();
+                then:
+                  - script.execute: sonos_requests
+                  - script.wait: sonos_requests
+                  - lambda: id(music_command_failed) = id(sonos).command_failed;
+                  - repeat:
+                      count: 3
+                      then:
+                        - if:
+                            condition:
+                              lambda: return !id(music_command_failed) && !id(sonos).group_confirmed();
+                            then:
+                              - delay: 1s
+                              - script.execute: refresh_music
+                              - script.wait: refresh_music
+                  - lambda: |-
+                      if (!id(sonos).group_confirmed()) id(music_command_failed) = true;
+                else:
+                  - lambda: id(music_command_failed) = true;
+            # Always read back after partial failure; never retry grouping writes.
+            - script.execute: refresh_music
+            - script.wait: refresh_music
+            - lambda: |-
+                id(music_busy) = false;
+                id(sonos).reset_group_edit();
+            - script.execute: render_music
 
   - id: music_control
     mode: single
@@ -425,14 +500,15 @@ script:
           const bool waiting = id(music_busy) || id(music_favorite_pending);
           const char *status = waiting ? "${music_button_wait}" :
             id(music_command_failed) ? "${music_control_failed}" :
+            s.group_dirty() && !s.group_edit_valid() ? "${music_group_changed}" :
             !known ? "${music_offline}" : playing ? "" : "${music_paused}";
           lv_label_set_text(id(music_status), status);
           lv_obj_set_style_text_color(id(music_status),
             lv_color_hex(id(music_command_failed) || !known ? 0xEA665F : 0x7FE0A2), 0);
-          lv_label_set_text(lv_obj_get_child(id(music_room_select), 0), s.grouped() ? "${music_rooms}" :
-            s.selected == 0 ? "${music_living_select}" : "${music_kitchen_select}");
-          // A single combined group offers no second selectable playback target.
-          if (waiting || s.grouped()) lv_obj_add_state(id(music_room_select), LV_STATE_DISABLED);
+          const std::string room_heading = s.explicitly_selected() ? s.current_name() + " >" :
+            s.grouped() ? "${music_rooms}" : s.selected == 0 ? "${music_living_select}" : "${music_kitchen_select}";
+          lv_label_set_text(lv_obj_get_child(id(music_room_select), 0), room_heading.c_str());
+          if (waiting) lv_obj_add_state(id(music_room_select), LV_STATE_DISABLED);
           else lv_obj_clear_state(id(music_room_select), LV_STATE_DISABLED);
           // Group names are typography, never a disabled grey button slab.
           for (auto state : {LV_STATE_DEFAULT, LV_STATE_DISABLED, LV_STATE_FOCUSED, LV_STATE_PRESSED}) {
@@ -455,8 +531,9 @@ script:
             if (s.rooms[i].known() && s.rooms[i].volume >= 0) snprintf(v, 12, "%d%%", s.rooms[i].volume);
             else snprintf(v, 12, "--");
           }
-          if (s.grouped()) lv_label_set_text_fmt(id(music_volume), "${music_volume_format}", a, b);
-          else lv_label_set_text_fmt(id(music_volume), "${music_single_volume_format}", s.selected == 0 ? a : b);
+          const std::string selected_volume = known && room.volume >= 0 ? std::to_string(room.volume) + "%" : "--";
+          if (s.uses_pair_controls()) lv_label_set_text_fmt(id(music_volume), "${music_volume_format}", a, b);
+          else lv_label_set_text_fmt(id(music_volume), "${music_single_volume_format}", selected_volume.c_str());
           lv_label_set_text(lv_obj_get_child(id(music_play), 0),
             waiting ? LV_SYMBOL_REFRESH : room.tv ? "${music_tv}" : playing ? LV_SYMBOL_PAUSE : LV_SYMBOL_PLAY);
           lv_label_set_text(lv_obj_get_child(id(music_mute), 0), s.muted() ? "${music_unmute}" : "${music_mute}");
@@ -471,7 +548,7 @@ script:
             if (waiting || unavailable) lv_obj_add_state(button, LV_STATE_DISABLED);
             else lv_obj_clear_state(button, LV_STATE_DISABLED);
           }
-          const bool block_favorites = waiting || id(music_favorites_loading) || (!s.favorite_reachable(0) && !s.favorite_reachable(1)) || !id(sonos_favorites).known;
+          const bool block_favorites = waiting || id(music_favorites_loading) || !s.can_favorite() || !id(sonos_favorites).known;
           for (uint32_t i = 0; i < lv_obj_get_child_count(id(music_favorites_grid)); ++i) {
             auto *button = lv_obj_get_child(id(music_favorites_grid), i);
             if (block_favorites) lv_obj_add_state(button, LV_STATE_DISABLED);
@@ -498,6 +575,10 @@ script:
           }
           if (id(music_content_tab) == 1) lv_obj_clear_flag(id(music_systems_list), LV_OBJ_FLAG_HIDDEN);
           else lv_obj_add_flag(id(music_systems_list), LV_OBJ_FLAG_HIDDEN);
+          for (auto *widget : {id(music_group_apply), id(music_group_reset)}) {
+            if (id(music_content_tab) == 1) lv_obj_clear_flag(widget, LV_OBJ_FLAG_HIDDEN);
+            else lv_obj_add_flag(widget, LV_OBJ_FLAG_HIDDEN);
+          }
           lv_obj_t *content_tabs[] = {id(music_favorites_tab), id(music_systems_tab)};
           for (int i = 0; i < 2; ++i) {
             const bool active = i == id(music_content_tab);
@@ -553,7 +634,7 @@ script:
           // Retain clear word labels in the compact card's existing layout.
           lv_label_set_text(lv_obj_get_child(id(small_music_play), 0),
             waiting ? "${music_button_wait}" : room.tv ? "${music_tv}" : playing ? "${music_pause}" : "${music_resume}");
-          if (s.grouped()) lv_label_set_text_fmt(id(music_volume), "${music_volume_side_format}", a, b);
+          if (s.uses_pair_controls()) lv_label_set_text_fmt(id(music_volume), "${music_volume_side_format}", a, b);
           // Explicit combined-state styling prevents the LVGL disabled theme
           // from reintroducing filled rectangles around secondary controls.
           const lv_state_t plain_states[] = {LV_STATE_DEFAULT, LV_STATE_DISABLED, LV_STATE_FOCUSED, LV_STATE_PRESSED,
@@ -576,10 +657,33 @@ script:
     then:
       - lambda: |-
           if (!id(music_page_open) || id(music_content_tab) != 1) return;
-          const auto &s = id(sonos);
-          // Rebuild only changed rows so a normal status poll keeps scroll position.
+          auto &s = id(sonos);
+          s.sync_group_edit();
+          const bool waiting = id(music_busy) || id(music_favorite_pending);
+          const bool valid = s.group_edit_valid();
+          if (waiting || !s.group_dirty() || !valid) lv_obj_add_state(id(music_group_apply), LV_STATE_DISABLED);
+          else lv_obj_clear_state(id(music_group_apply), LV_STATE_DISABLED);
+          if (waiting || !s.group_dirty()) lv_obj_add_state(id(music_group_reset), LV_STATE_DISABLED);
+          else lv_obj_clear_state(id(music_group_reset), LV_STATE_DISABLED);
+          for (auto *button : {id(music_group_apply), id(music_group_reset)}) {
+            const bool disabled = lv_obj_has_state(button, LV_STATE_DISABLED);
+            // The theme applies a grey recolor overlay to disabled buttons.
+            // Remove it as well as overriding combined focused/disabled styles.
+            for (auto state : {static_cast<lv_state_t>(LV_STATE_DEFAULT),
+                static_cast<lv_state_t>(LV_STATE_DISABLED), lv_obj_get_state(button)}) {
+              lv_obj_set_style_bg_color(button, lv_color_hex(disabled ? 0x151E19 : button == id(music_group_apply) ? 0x24583B : 0x18231E), state);
+              lv_obj_set_style_border_color(button, lv_color_hex(disabled ? 0x26362D : button == id(music_group_apply) ? 0x45BD70 : 0x34463C), state);
+              lv_obj_set_style_bg_opa(button, LV_OPA_COVER, state);
+              lv_obj_set_style_recolor_opa(button, LV_OPA_TRANSP, state);
+              lv_obj_set_style_text_color(lv_obj_get_child(button, 0), lv_color_hex(disabled ? 0x77857C : 0xEEF6F0), state);
+            }
+          }
+          // Include UUIDs and draft state; renamed/reordered zones must never
+          // leave a displayed button pointing at another speaker.
           std::vector<std::array<std::string, 3>> rows;
+          const energydeck_sonos::Room *polled[] = {&s.rooms[0], &s.rooms[1], &s.current()};
           std::string signature = s.systems_known ? "known" : "unknown";
+          signature += s.current().uuid + (waiting ? "busy" : "idle") + (valid ? "valid" : "stale");
           for (const auto &system : s.systems) {
             std::string group;
             int members = 0;
@@ -588,13 +692,21 @@ script:
               group += other.name;
             }
             group = members > 1 ? std::string("${music_system_group}") + group : "${music_system_solo}";
+            const bool checked = s.group_checked(system.uuid);
+            if (s.group_dirty()) {
+              if (checked && system.coordinator != s.current().coordinator)
+                group = std::string("${music_group_join}") + s.current_name();
+              else if (!checked && system.coordinator == s.current().coordinator)
+                group = "${music_group_leave}";
+            }
             const char *status = "${music_system_detected}";
-            for (const auto &room : s.rooms) if (room.topology && room.coordinator == system.coordinator) {
-              status = !room.known() ? "${music_offline}" : room.transitioning ? "${music_waiting}" :
-                room.playing ? (room.tv ? "${music_tv}" : "${music_playing}") : "${music_paused}";
+            for (const auto *room : polled) if (room->topology && room->coordinator == system.coordinator) {
+              status = !room->known() ? "${music_offline}" : room->transitioning ? "${music_waiting}" :
+                room->playing ? (room->tv ? "${music_tv}" : "${music_playing}") : "${music_paused}";
               break;
             }
             rows.push_back({system.name, group, status});
+            signature += std::to_string(system.uuid.size()) + ":" + system.uuid + (checked ? "checked" : "unchecked");
             for (const auto &value : rows.back()) signature += std::to_string(value.size()) + ":" + value;
           }
           static std::string previous_signature;
@@ -611,27 +723,60 @@ script:
             lv_obj_align(label, LV_ALIGN_TOP_MID, 0, 60);
           }
           for (size_t i = 0; i < rows.size(); ++i) {
-            auto *row = lv_obj_create(id(music_systems_list));
-            lv_obj_remove_style_all(row);
-            lv_obj_set_pos(row, 0, i * 56);
-            lv_obj_set_size(row, 452, 50);
-            lv_obj_set_style_radius(row, 6, 0);
-            lv_obj_set_style_bg_opa(row, LV_OPA_COVER, 0);
-            lv_obj_set_style_bg_color(row, lv_color_hex(0x18231E), 0);
-            lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
-            // Read-only rows still accept touch gestures so swipes can scroll
-            // their parent list; there is no click action on a system row.
-            lv_obj_add_flag(row, LV_OBJ_FLAG_CLICKABLE);
+            const auto &system = s.systems[i];
+            const bool selected = system.uuid == s.current().uuid;
+            const bool checked = s.group_checked(system.uuid);
+            auto *choose = lv_button_create(id(music_systems_list));
+            auto *membership = lv_button_create(id(music_systems_list));
+            for (auto *button : {choose, membership}) {
+              lv_obj_remove_style_all(button);
+              lv_obj_set_size(button, button == choose ? 370 : 74, 50);
+              lv_obj_set_pos(button, button == choose ? 0 : 378, i * 56);
+              lv_obj_set_style_radius(button, 6, 0);
+              lv_obj_set_style_bg_opa(button, LV_OPA_COVER, 0);
+              lv_obj_set_style_bg_color(button, lv_color_hex(0x18231E), 0);
+              lv_obj_set_style_bg_color(button, lv_color_hex(0x24583B), LV_STATE_PRESSED);
+              lv_obj_clear_flag(button, LV_OBJ_FLAG_SCROLLABLE);
+              if (waiting || (button == membership && (!valid || selected))) lv_obj_add_state(button, LV_STATE_DISABLED);
+            }
+            lv_obj_set_style_border_width(choose, selected ? 2 : 0, 0);
+            lv_obj_set_style_border_color(choose, lv_color_hex(0x45BD70), 0);
             for (int field = 0; field < 3; ++field) {
-              auto *label = lv_label_create(row);
-              lv_obj_set_pos(label, field == 2 ? 312 : 10, field == 1 ? 28 : 6);
-              lv_obj_set_size(label, field == 0 ? 294 : field == 1 ? 432 : 130, field == 0 ? 18 : 16);
+              auto *label = lv_label_create(choose);
+              lv_obj_set_pos(label, field == 2 ? 252 : 10, field == 1 ? 28 : 6);
+              lv_obj_set_size(label, field == 0 ? 238 : field == 1 ? 350 : 108, field == 0 ? 18 : 16);
               lv_label_set_long_mode(label, LV_LABEL_LONG_DOT);
               lv_obj_set_style_text_font(label, field == 0 ? &lv_font_montserrat_14 : &lv_font_montserrat_12, 0);
-              lv_obj_set_style_text_color(label, lv_color_hex(field == 0 ? 0xEEF6F0 : field == 2 ? 0x7FE0A2 : 0xA9B8AE), 0);
+              lv_obj_set_style_text_color(label, lv_color_hex(waiting ? 0x77857C : field == 0 ? 0xEEF6F0 : field == 2 ? 0x7FE0A2 : 0xA9B8AE), 0);
               if (field == 2) lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_RIGHT, 0);
               lv_label_set_text(label, rows[i][field].c_str());
             }
+            lv_obj_set_style_bg_color(membership, lv_color_hex(checked ? 0x24583B : 0x18231E), 0);
+            lv_obj_set_style_border_width(membership, checked ? 2 : 1, 0);
+            lv_obj_set_style_border_color(membership, lv_color_hex(checked ? 0x45BD70 : 0x34463C), 0);
+            auto *mark = lv_label_create(membership);
+            lv_obj_set_style_text_font(mark, &lv_font_montserrat_12, 0);
+            lv_obj_set_style_text_color(mark, lv_color_hex(waiting || !valid ? 0x77857C : 0xEEF6F0), 0);
+            lv_label_set_text(mark, selected ? "${music_group_leader}" : checked ? LV_SYMBOL_OK : LV_SYMBOL_PLUS);
+            lv_obj_align(mark, LV_ALIGN_CENTER, 0, 0);
+            // Hidden labels own stable UUID copies for the lifetime of each
+            // button; callbacks copy them before a render can destroy the row.
+            for (auto *button : {choose, membership}) {
+              auto *uuid = lv_label_create(button);
+              lv_label_set_text(uuid, system.uuid.c_str());
+              lv_obj_add_flag(uuid, LV_OBJ_FLAG_HIDDEN);
+            }
+            lv_obj_add_event_cb(choose, [](lv_event_t *event) {
+              auto *button = static_cast<lv_obj_t *>(lv_event_get_target(event));
+              const std::string uuid = lv_label_get_text(lv_obj_get_child(button, 3));
+              id(select_music_system).execute(uuid);
+            }, LV_EVENT_CLICKED, nullptr);
+            lv_obj_add_event_cb(membership, [](lv_event_t *event) {
+              if (id(music_busy) || id(music_favorite_pending)) return;
+              auto *button = static_cast<lv_obj_t *>(lv_event_get_target(event));
+              const std::string uuid = lv_label_get_text(lv_obj_get_child(button, 1));
+              if (id(sonos).toggle_group(uuid)) id(render_music).execute();
+            }, LV_EVENT_CLICKED, nullptr);
           }
           lv_obj_update_layout(id(music_systems_list));
           lv_obj_scroll_to_y(id(music_systems_list), scroll, LV_ANIM_OFF);

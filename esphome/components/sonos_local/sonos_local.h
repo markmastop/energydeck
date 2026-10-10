@@ -296,10 +296,10 @@ class Favorites {
   void fail() { active_ = false; failed = true; known = false; pending_.clear(); }
 };
 
-// Visible Sonos zones are listed independently of the two configured control
-// targets. Bonded/hidden members must not appear as duplicate rooms in the UI.
+// Discovery includes every visible zone; bonded/hidden members are not separate
+// selection/grouping targets. Hosts are validated LAN origins from topology.
 struct System {
-  std::string uuid, name, coordinator;
+  std::string uuid, name, coordinator, host, coordinator_host, members;
 };
 
 class State {
@@ -307,12 +307,31 @@ class State {
   std::array<Room, 2> rooms;
   std::vector<System> systems;
   bool systems_known = false;
+  bool systems_complete = false;
   int selected = 0;
   bool command_failed = false;
-  const Room &current() const { return rooms[selected]; }
+  const Room &current() const { return selected < 2 ? rooms[selected] : extra_; }
+  bool explicitly_selected() const { return !explicit_uuid_.empty(); }
+  bool uses_pair_controls() const { return !explicitly_selected() && selected < 2 && grouped(); }
+  std::string current_name() const {
+    for (const auto &s : systems) if (s.uuid == current().uuid) return s.name;
+    return explicitly_selected() ? explicit_name_ : current().uuid;
+  }
+  bool select_system(const std::string &uuid) {
+    const auto *s = system(uuid);
+    if (!systems_known || !s) return false;
+    explicit_uuid_ = uuid;
+    explicit_name_ = s->name;
+    selected = uuid == rooms[0].uuid ? 0 : uuid == rooms[1].uuid ? 1 : 2;
+    if (selected == 2) {
+      extra_ = Room{}; extra_.uuid = uuid; extra_.host = s->host;
+    }
+    group_dirty_ = false;
+    return true;
+  }
   bool grouped() const { return rooms[0].topology && rooms[1].topology && rooms[0].coordinator == rooms[1].coordinator; }
-  bool any_playing() const { return (rooms[0].known() && rooms[0].playing) || (rooms[1].known() && rooms[1].playing); }
-  bool all_stopped() const { return rooms[0].known() && rooms[1].known() && !rooms[0].playing && !rooms[1].playing && !rooms[0].transitioning && !rooms[1].transitioning; }
+  bool any_playing() const { return (rooms[0].known() && rooms[0].playing) || (rooms[1].known() && rooms[1].playing) || (selected == 2 && extra_.known() && extra_.playing); }
+  bool all_stopped() const { return rooms[0].known() && rooms[1].known() && !rooms[0].playing && !rooms[1].playing && !rooms[0].transitioning && !rooms[1].transitioning && (selected != 2 || (extra_.known() && !extra_.playing && !extra_.transitioning)); }
   // Follow playback edges, not every poll: manual Gas/Climate selections remain
   // usable during playback. Unknown/transitioning replies never imply a stop.
   int follow_compact_tab(int tab) {
@@ -334,11 +353,11 @@ class State {
   bool has_request() const { return cursor_ < requests_.size(); }
   const Request &request() const { return requests_[cursor_]; }
   bool can_volume() const {
-    return current().known() && current().volume >= 0 && (!grouped() || rooms[1 - selected].volume >= 0);
+    return current().known() && current().volume >= 0 && (!uses_pair_controls() || rooms[1 - selected].volume >= 0);
   }
-  bool can_mute() const { return current().known() && current().mute >= 0 && (!grouped() || rooms[1-selected].mute >= 0); }
-  bool muted() const { return current().mute == 1 && (!grouped() || rooms[1-selected].mute == 1); }
-  void switch_room() { if (!grouped()) { selected = 1 - selected; manual_ = true; } }
+  bool can_mute() const { return current().known() && current().mute >= 0 && (!uses_pair_controls() || rooms[1-selected].mute >= 0); }
+  bool muted() const { return current().mute == 1 && (!uses_pair_controls() || rooms[1-selected].mute == 1); }
+  void switch_room() { if (selected < 2 && !grouped()) { selected = 1 - selected; manual_ = true; explicit_uuid_.clear(); } }
   std::string scope() const {
     const auto &r = current();
     return r.topology ? r.uuid + "|" + r.coordinator + "|" + r.members : "";
@@ -350,7 +369,14 @@ class State {
     }
     requests_.clear(); cursor_ = 0; topology_ok_ = false; commanding_ = false; read_retried_ = false;
     pending_systems_.clear();
-    for (int i = 0; i < 2; ++i) {
+    pending_complete_ = true;
+    pending_[2] = Room{};
+    if (selected == 2) { pending_[2].uuid = extra_.uuid; pending_[2].host = extra_.host; }
+    for (int i = 0; i < 3; ++i) {
+      if (i == 2) {
+        if (!pending_[2].host.empty()) requests_.push_back({pending_[2].host, "ZoneGroupTopology", "GetZoneGroupState", "", i});
+        continue;
+      }
       pending_[i] = Room{}; pending_[i].uuid = rooms[i].uuid; pending_[i].host = rooms[i].host;
       if (!pending_[i].host.empty()) requests_.push_back({pending_[i].host, "ZoneGroupTopology", "GetZoneGroupState", "", i});
     }
@@ -367,7 +393,7 @@ class State {
         const int added = number(xml.text("NumTracksAdded"));
         if (first <= 0 || added <= 0) { command_failed = true; requests_.clear(); cursor_ = 0; return; }
         favorite_track_ = first;
-        const auto &r = rooms[target_room_];
+        const auto &r = room(target_room_);
         const auto uri = "x-rincon-queue:" + r.coordinator + "#0";
         favorite_uri_ = uri;
         requests_.push_back({req.host, "AVTransport", "SetAVTransportURI", "<InstanceID>0</InstanceID><CurrentURI>" + xml_escape(uri) + "</CurrentURI><CurrentURIMetaData></CurrentURIMetaData>", target_room_});
@@ -434,13 +460,15 @@ class State {
       }
     }
     ++cursor_;
-    // Both seed devices are tried only if necessary. Topology supplies current
-    // coordinator addresses, including group leaders outside these two rooms.
+    // Discovery seeds are tried only until one succeeds. Topology supplies
+    // coordinator addresses, including leaders outside the default rooms.
     if (req.action == "GetZoneGroupState" && (topology_ok_ || cursor_ == requests_.size())) {
       requests_.resize(cursor_);
-      for (int i = 0; i < 2; ++i) if (pending_[i].topology) {
+      for (int i = 0; i < 3; ++i) if (pending_[i].topology) {
         auto &r = pending_[i];
-        if (i == 0 || r.coordinator != pending_[0].coordinator) {
+        if (std::none_of(pending_.begin(), pending_.begin() + i, [&](const Room &other) {
+              return other.topology && other.coordinator == r.coordinator;
+            })) {
           for (const auto &action : {"GetTransportInfo", "GetMediaInfo", "GetPositionInfo", "GetCurrentTransportActions"})
             requests_.push_back({r.coordinator_host, "AVTransport", action, "<InstanceID>0</InstanceID>", i});
         }
@@ -452,18 +480,23 @@ class State {
   void finish() {
     systems = pending_systems_;
     systems_known = topology_ok_;
-    if (pending_[0].topology && pending_[1].topology && pending_[0].coordinator == pending_[1].coordinator) {
-      auto identity = pending_[1]; pending_[1] = pending_[0];
-      pending_[1].uuid = identity.uuid; pending_[1].host = identity.host; pending_[1].volume = identity.volume; pending_[1].mute = identity.mute;
+    systems_complete = topology_ok_ && pending_complete_;
+    for (int i = 1; i < 3; ++i) if (pending_[i].topology) {
+      for (int j = 0; j < i; ++j) if (pending_[j].topology && pending_[j].coordinator == pending_[i].coordinator) {
+        auto identity = pending_[i]; pending_[i] = pending_[j];
+        pending_[i].uuid = identity.uuid; pending_[i].host = identity.host;
+        pending_[i].volume = identity.volume; pending_[i].mute = identity.mute;
+        break;
+      }
     }
     for (auto &r : pending_) {
       if (!r.known() || !r.playing || r.tv) { r.title.clear(); r.artist.clear(); r.cover.clear(); }
     }
     const auto old_scope = scope();
-    rooms = pending_;
+    rooms[0] = pending_[0]; rooms[1] = pending_[1]; extra_ = pending_[2];
     if (old_scope != scope()) manual_ = false;
     if (manual_ && !current().playing) manual_ = false;
-    if (!manual_) {
+    if (!manual_ && !explicitly_selected()) {
       auto score = [](const Room &r) { return !r.known() ? -1 : r.playing ? (r.tv ? 1 : 2) : 0; };
       if (score(rooms[1 - selected]) > score(current())) selected = 1 - selected;
     }
@@ -479,17 +512,18 @@ class State {
         (action == 3 && (current().tv || !current().previous)) || (action == 4 && (current().tv || !current().next)) ||
         (action == 5 && !can_mute())) return false;
     target_action_ = action; target_scope_ = scope(); target_room_ = selected;
-    target_playing_ = !current().playing; target_volumes_ = {{-1, -1}};
+    target_playing_ = !current().playing; target_volumes_ = {{-1, -1, -1}};
+    target_pair_ = uses_pair_controls();
     target_mute_ = !muted(); target_track_uri_ = current().track_uri;
     if (action == 0) requests_.push_back({current().coordinator_host, "AVTransport", target_playing_ ? "Play" : "Pause",
       std::string("<InstanceID>0</InstanceID>") + (target_playing_ ? "<Speed>1</Speed>" : ""), selected});
     else if (action == 3 || action == 4) requests_.push_back({current().coordinator_host, "AVTransport", action == 3 ? "Previous" : "Next", "<InstanceID>0</InstanceID>", selected});
     else if (action == 5) {
-      for (int i = 0; i < 2; ++i) if (i == selected || grouped())
-        requests_.push_back({rooms[i].host, "RenderingControl", "SetMute", "<InstanceID>0</InstanceID><Channel>Master</Channel><DesiredMute>" + std::to_string(target_mute_) + "</DesiredMute>", i});
-    } else for (int i = 0; i < 2; ++i) if (i == selected || grouped()) {
-      target_volumes_[i] = std::max(0, std::min(100, rooms[i].volume + (action == 1 ? -2 : 2)));
-      requests_.push_back({rooms[i].host, "RenderingControl", "SetVolume", "<InstanceID>0</InstanceID><Channel>Master</Channel><DesiredVolume>" +
+      for (int i = 0; i < 3; ++i) if (i == selected || (i < 2 && target_pair_))
+        requests_.push_back({room(i).host, "RenderingControl", "SetMute", "<InstanceID>0</InstanceID><Channel>Master</Channel><DesiredMute>" + std::to_string(target_mute_) + "</DesiredMute>", i});
+    } else for (int i = 0; i < 3; ++i) if (i == selected || (i < 2 && target_pair_)) {
+      target_volumes_[i] = std::max(0, std::min(100, room(i).volume + (action == 1 ? -2 : 2)));
+      requests_.push_back({room(i).host, "RenderingControl", "SetVolume", "<InstanceID>0</InstanceID><Channel>Master</Channel><DesiredVolume>" +
         std::to_string(target_volumes_[i]) + "</DesiredVolume>", i});
     }
     return true;
@@ -499,8 +533,17 @@ class State {
   bool favorite_reachable(int i) const {
     return rooms[i].topology && rooms[i].volume >= 0 && rooms[i].mute >= 0;
   }
+  bool can_favorite() const {
+    return explicitly_selected() ? current().known() : favorite_reachable(0) || favorite_reachable(1);
+  }
   bool prepare_favorite_setup() {
     command_failed = false; requests_.clear(); cursor_ = 0; commanding_ = true;
+    favorite_custom_ = explicitly_selected();
+    if (favorite_custom_) {
+      selected = captured_room_; favorite_leader_ = selected;
+      // Explicit room choice keeps its current group, volume and mute state.
+      return current().known() && !captured_scope_.empty() && captured_scope_ == scope();
+    }
     favorite_targets_ = {{favorite_reachable(0), favorite_reachable(1)}};
     if (!favorite_targets_[0] && !favorite_targets_[1]) return false;
     selected = favorite_targets_[0] ? 0 : 1;
@@ -530,6 +573,7 @@ class State {
   bool favorite_setup_confirmed() {
     if (command_failed || has_request()) return false;
     selected = favorite_leader_;
+    if (favorite_custom_) return current().known() && captured_scope_ == scope();
     for (int i = 0; i < 2; ++i) if (favorite_targets_[i]) {
       const auto &r = rooms[i];
       if (!r.known() || r.coordinator != current().uuid || r.volume != 7 || r.mute != 0) return false;
@@ -555,35 +599,142 @@ class State {
     }
     return true;
   }
+  void sync_group_edit() {
+    if (group_dirty_) return;
+    group_anchor_ = current().uuid;
+    group_baseline_ = inventory_scope();
+    group_choices_.clear();
+    const auto *anchor = system(group_anchor_);
+    if (anchor) for (const auto &s : systems) if (s.coordinator == anchor->coordinator) group_choices_.push_back(s.uuid);
+  }
+  bool group_checked(const std::string &uuid) const {
+    return std::find(group_choices_.begin(), group_choices_.end(), uuid) != group_choices_.end();
+  }
+  bool group_dirty() const { return group_dirty_; }
+  bool group_edit_valid() const {
+    return systems_known && systems_complete && system(group_anchor_) && group_anchor_ == current().uuid &&
+      group_baseline_ == inventory_scope();
+  }
+  bool toggle_group(const std::string &uuid) {
+    if (!group_edit_valid() || uuid == group_anchor_ || !system(uuid)) return false;
+    // Editing around the displayed anchor is also an explicit room choice.
+    // Pin it before polls can auto-select a different playing default room.
+    const auto *anchor = system(group_anchor_);
+    explicit_uuid_ = anchor->uuid;
+    explicit_name_ = anchor->name;
+    auto it = std::find(group_choices_.begin(), group_choices_.end(), uuid);
+    if (it == group_choices_.end()) group_choices_.push_back(uuid);
+    else group_choices_.erase(it);
+    group_dirty_ = std::any_of(systems.begin(), systems.end(), [&](const System &s) {
+      return group_checked(s.uuid) != (s.coordinator == anchor->coordinator);
+    });
+    return true;
+  }
+  void reset_group_edit() { group_dirty_ = false; sync_group_edit(); }
+  bool prepare_group() {
+    requests_.clear(); cursor_ = 0; commanding_ = true; command_failed = false;
+    group_expected_.clear();
+    if (!group_dirty_ || !group_edit_valid() || !group_checked(group_anchor_)) return false;
+    const auto &anchor = *system(group_anchor_);
+    if (!current().topology || current().coordinator != anchor.coordinator) return false;
+    std::map<std::string, std::string> coordinators;
+    for (const auto &s : systems) coordinators[s.coordinator] = s.coordinator;
+    // Promote the selected room without clearing the source or detaching it
+    // first: standalone detachment can lose the currently playing queue/stream.
+    if (anchor.coordinator != anchor.uuid) delegate(anchor.coordinator_host, anchor.uuid);
+    coordinators[anchor.coordinator] = anchor.uuid;
+    for (const auto &entry : coordinators) if (entry.first != anchor.coordinator && group_checked(entry.first)) {
+      const System *remaining = nullptr;
+      for (const auto &s : systems) if (s.coordinator == entry.first && !group_checked(s.uuid)) { remaining = &s; break; }
+      if (remaining) {
+        // Leave unselected rooms playing together when their old leader joins
+        // the new group; only explicitly checked rooms move.
+        const auto *old_leader = system(entry.first);
+        if (!old_leader) { requests_.clear(); return false; }
+        delegate(old_leader->host, remaining->uuid);
+        coordinators[entry.first] = remaining->uuid;
+      }
+    }
+    for (const auto &s : systems) if (s.coordinator == anchor.coordinator && !group_checked(s.uuid)) {
+      requests_.push_back({s.host, "AVTransport", "BecomeCoordinatorOfStandaloneGroup", "<InstanceID>0</InstanceID>", -1});
+    }
+    // Move followers before old leaders, so whole existing groups cannot hitch
+    // a ride accidentally when a selected coordinator changes its transport URI.
+    for (bool leaders : {false, true}) for (const auto &s : systems) {
+      if (s.uuid != anchor.uuid && group_checked(s.uuid) && s.coordinator != anchor.coordinator &&
+          (s.uuid == s.coordinator) == leaders)
+        requests_.push_back({s.host, "AVTransport", "SetAVTransportURI", "<InstanceID>0</InstanceID><CurrentURI>x-rincon:" +
+          xml_escape(anchor.uuid) + "</CurrentURI><CurrentURIMetaData></CurrentURIMetaData>", -1});
+    }
+    for (const auto &s : systems) {
+      const auto expected = group_checked(s.uuid) ? anchor.uuid :
+        s.coordinator == anchor.coordinator ? s.uuid : coordinators[s.coordinator];
+      group_expected_.push_back({s.uuid, expected});
+    }
+    return !requests_.empty();
+  }
+  bool group_confirmed() const {
+    if (command_failed || has_request() || !systems_known || !systems_complete || group_expected_.empty() ||
+        systems.size() != group_expected_.size()) return false;
+    for (const auto &expected : group_expected_) {
+      const auto *s = system(expected.first);
+      if (!s || s->coordinator != expected.second) return false;
+    }
+    return true;
+  }
   bool command_confirmed() const {
-    const auto &r = rooms[target_room_];
+    const auto &r = room(target_room_);
     if (!r.known() || target_scope_ != r.uuid + "|" + r.coordinator + "|" + r.members) return false;
     if (target_action_ == 0) return !r.transitioning && r.playing == target_playing_;
     if (target_action_ == 3 || target_action_ == 4) return !r.track_uri.empty() && r.track_uri != target_track_uri_;
-    if (target_action_ == 5) return r.mute == target_mute_ && (!grouped() || rooms[1-target_room_].mute == target_mute_);
+    if (target_action_ == 5) return r.mute == target_mute_ && (!target_pair_ || rooms[1-target_room_].mute == target_mute_);
     if (target_action_ == 6) return r.playing && r.uri == favorite_uri_ && (favorite_track_ < 0 || r.track == favorite_track_);
-    for (int i = 0; i < 2; ++i) if (target_volumes_[i] >= 0 && rooms[i].volume != target_volumes_[i]) return false;
+    for (int i = 0; i < 3; ++i) if (target_volumes_[i] >= 0 && room(i).volume != target_volumes_[i]) return false;
     return true;
   }
 
  private:
-  std::array<Room, 2> pending_;
+  std::array<Room, 3> pending_;
+  Room extra_;
+  const Room &room(int i) const { return i < 2 ? rooms[i] : extra_; }
   std::vector<System> pending_systems_;
   std::vector<Request> requests_;
   size_t cursor_ = 0;
   bool topology_ok_ = false, manual_ = false, commanding_ = false, target_playing_ = false;
-  bool compact_playing_ = false, read_retried_ = false;
+  bool compact_playing_ = false, read_retried_ = false, target_pair_ = false, favorite_custom_ = false;
+  bool pending_complete_ = true;
+  std::string explicit_uuid_, explicit_name_;
+  bool group_dirty_ = false;
+  std::string group_anchor_, group_baseline_;
+  std::vector<std::string> group_choices_;
+  std::vector<std::pair<std::string, std::string>> group_expected_;
   std::array<bool, 2> favorite_targets_{{false, false}};
   int favorite_leader_ = 0;
   int captured_room_ = 0, target_room_ = 0, target_action_ = 0;
   std::string captured_scope_, target_scope_;
   std::string target_track_uri_, favorite_uri_;
   int target_mute_ = 0, favorite_track_ = -1;
-  std::array<int, 2> target_volumes_{{-1, -1}};
+  std::array<int, 3> target_volumes_{{-1, -1, -1}};
+  const System *system(const std::string &uuid) const {
+    for (const auto &s : systems) if (s.uuid == uuid) return &s;
+    return nullptr;
+  }
+  std::string inventory_scope() const {
+    std::string scope;
+    for (const auto &s : systems) for (const auto *value : {&s.uuid, &s.host, &s.coordinator, &s.coordinator_host, &s.members})
+      scope += std::to_string(value->size()) + ":" + *value;
+    return scope;
+  }
+  void delegate(const std::string &host, const std::string &uuid) {
+    // These four inputs match the speakers' AVTransport1.xml service contract.
+    requests_.push_back({host, "AVTransport", "DelegateGroupCoordinationTo", "<InstanceID>0</InstanceID><NewCoordinator>" +
+      xml_escape(uuid) + "</NewCoordinator><RejoinGroup>1</RejoinGroup><ClearSource>0</ClearSource>", -1});
+  }
   bool parse_topology(const std::string &body) {
     Xml xml(body); if (!xml.valid) return false;
-    std::array<Room, 2> result = pending_;
+    std::array<Room, 3> result = pending_;
     std::vector<System> systems;
+    bool complete = true;
     for (size_t gi = 0; gi < xml.nodes.size(); ++gi) {
       const auto &g = xml.nodes[gi]; if (Xml::local(g.name) != "ZoneGroup") continue;
       const auto coordinator = attribute(g, "Coordinator");
@@ -592,28 +743,33 @@ class State {
         auto uuid = attribute(n, "UUID"); members.push_back(uuid);
         if (uuid == coordinator) coordinator_host = origin(attribute(n, "Location"));
       }
-      if (coordinator.empty() || coordinator_host.empty()) continue;
+      if (coordinator.empty() || coordinator_host.empty()) { complete = false; continue; }
       std::sort(members.begin(), members.end()); std::string signature;
       for (const auto &uuid : members) signature += uuid + ";";
       for (const auto &n : xml.nodes) if (n.parent == static_cast<int>(gi) && Xml::local(n.name) == "ZoneGroupMember") {
         const auto uuid = attribute(n, "UUID");
         const auto host = origin(attribute(n, "Location"));
-        if (!uuid.empty() && !host.empty() && attribute(n, "Invisible") != "1" && systems.size() < 32) {
+        if (attribute(n, "Invisible") != "1" && (uuid.empty() || host.empty())) complete = false;
+        if (!uuid.empty() && !host.empty() && attribute(n, "Invisible") != "1") {
           const auto name = attribute(n, "ZoneName");
-          const bool duplicate = std::any_of(systems.begin(), systems.end(), [&](const System &s) { return s.uuid == uuid; });
-          if (!duplicate) systems.push_back({uuid, name.empty() ? uuid : name, coordinator});
+          const auto duplicate = std::find_if(systems.begin(), systems.end(), [&](const System &s) { return s.uuid == uuid; });
+          if (duplicate == systems.end()) {
+            if (systems.size() < 32) systems.push_back({uuid, name.empty() ? uuid : name, coordinator, host, coordinator_host, signature});
+            else complete = false;
+          } else if (duplicate->host != host || duplicate->coordinator != coordinator) complete = false;
         }
-        for (auto &r : result) if (attribute(n, "UUID") == r.uuid) {
+        for (auto &r : result) if (!r.uuid.empty() && uuid == r.uuid) {
           auto host = origin(attribute(n, "Location")); if (host.empty()) continue;
           r.host = host; r.coordinator = coordinator; r.coordinator_host = coordinator_host; r.members = signature; r.topology = true;
         }
       }
     }
-    if (!result[0].topology && !result[1].topology) return false;
+    if (!result[0].topology && !result[1].topology && !result[2].topology) return false;
     std::sort(systems.begin(), systems.end(), [](const System &a, const System &b) {
       return a.name == b.name ? a.uuid < b.uuid : a.name < b.name;
     });
     pending_systems_ = std::move(systems);
+    pending_complete_ = complete;
     pending_ = result; return true;
   }
 };

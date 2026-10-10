@@ -23,16 +23,17 @@ std::string topology(bool grouped, bool living_leader = false, bool missing_livi
 struct Fixture {
   bool radio = false;
   bool grouped = true, living_leader = false, missing_living = false, all_fail = false;
-  bool live[2] = {true,true}, tv[2] = {false,false}, fail[2] = {false,false};
-  int volume[2] = {5,7};
-  std::string title[2] = {"Living track","Kitchen track"};
+  bool live[3] = {true,true,true}, tv[3] = {false,false,false}, fail[3] = {false,false,false};
+  int volume[3] = {5,7,23};
+  std::string title[3] = {"Living track","Kitchen track","Other track"};
   std::string actions = "Play,Pause,Next,Previous";
+  std::string zones;
 };
 int poll(State &s, const Fixture &f, const std::string &failed_once = "", int failure_status = 0) {
   s.begin(living,kitchen); int requests = 0; bool injected = false;
   while(s.has_request()) {
-    assert(++requests < 30); // Includes one bounded retry per read.
-    const auto q = s.request(); int i = q.host == living ? 0 : 1;
+    assert(++requests < 40); // Three rooms, at most one bounded retry per read.
+    const auto q = s.request(); int i = q.host == living ? 0 : q.host == kitchen ? 1 : 2;
     assert(q.action.rfind("Get",0) == 0); // Polling must never control playback.
     if (!injected && q.action == failed_once) {
       injected = true;
@@ -41,7 +42,7 @@ int poll(State &s, const Fixture &f, const std::string &failed_once = "", int fa
     }
     if (f.all_fail || f.fail[i]) { s.accept(0,""); continue; }
     std::string body;
-    if(q.action == "GetZoneGroupState") body = "<ZoneGroupState>" + escape(topology(f.grouped,f.living_leader,f.missing_living)) + "</ZoneGroupState>";
+    if(q.action == "GetZoneGroupState") body = "<ZoneGroupState>" + escape(f.zones.empty() ? topology(f.grouped,f.living_leader,f.missing_living) : f.zones) + "</ZoneGroupState>";
     if(q.action == "GetTransportInfo") body = std::string("<CurrentTransportState>") + (f.live[i] ? "PLAYING" : "PAUSED_PLAYBACK") + "</CurrentTransportState>";
     if(q.action == "GetMediaInfo") body = std::string("<CurrentURI>") + (f.tv[i] ? "x-sonos-htastream:RINCON_foo:spdif" : "x-rincon-queue:foo#0") + "</CurrentURI>";
     if(q.action == "GetPositionInfo") body = "<TrackMetaData>" + escape("<DIDL-Lite><item><dc:title>" + escape(f.title[i]) +
@@ -207,6 +208,7 @@ void test_system_inventory() {
   }
   s.finish();
   assert(s.systems_known && s.systems.size() == 3);
+  assert(!s.systems_complete); // An unsafe omitted zone disables grouping.
   assert(s.systems[0].name == "Kitchen" && s.systems[0].coordinator == lid);
   assert(s.systems[1].name == "Living & kitchen");
   assert(s.systems[2].name == "Office" && s.systems[2].coordinator == extra);
@@ -222,7 +224,127 @@ void test_system_inventory() {
   s.accept(200, response("GetZoneGroupState", "<ZoneGroupState>" + escape(large) + "</ZoneGroupState>"));
   while (s.has_request()) s.accept(404, "");
   s.finish();
-  assert(s.systems_known && s.systems.size() == 32); // Bound list memory for large households.
+  assert(s.systems_known && s.systems.size() == 32 && !s.systems_complete); // Never group a truncated inventory.
+}
+
+const std::string oid = "RINCON_OFFICE", tid = "RINCON_STUDY";
+const std::string office = "http://192.168.0.192:1400", study = "http://192.168.0.193:1400";
+std::string zone_group(const std::string &leader, const std::vector<std::pair<std::string, std::string>> &members) {
+  std::string xml = "<ZoneGroup Coordinator=\"" + leader + "\">";
+  for (const auto &m : members) xml += member(m.first, m.second, m.first);
+  return xml + "</ZoneGroup>";
+}
+std::string groups(const std::vector<std::string> &groups) {
+  std::string xml = "<ZoneGroups>";
+  for (const auto &g : groups) xml += g;
+  return xml + "</ZoneGroups>";
+}
+std::vector<Request> complete_writes(State &s) {
+  std::vector<Request> writes;
+  while (s.has_request()) {
+    writes.push_back(s.request());
+    const auto &q = writes.back();
+    assert(q.action == "DelegateGroupCoordinationTo" || q.action == "BecomeCoordinatorOfStandaloneGroup" || q.action == "SetAVTransportURI");
+    assert(q.service == "AVTransport"); // Grouping never sets volume, mute or starts playback.
+    s.accept(200, response(q.action, ""));
+  }
+  return writes;
+}
+void test_room_selection() {
+  Fixture f; f.zones = groups({zone_group(kid, {{lid,living},{kid,kitchen}}), zone_group(tid, {{oid,office},{tid,study}})});
+  State s; poll(s,f);
+  assert(!s.select_system("unknown"));
+  assert(s.select_system(oid) && !s.has_request()); // Selecting is read-only.
+  assert(s.selected == 2 && s.explicitly_selected() && !s.current().known());
+  assert(poll(s,f) == 15); // Two coordinators, individual volume/mute for three rooms.
+  assert(s.current().known() && s.current().uuid == oid && s.current().coordinator == tid);
+  assert(s.current().host == office && s.current().coordinator_host == study);
+  assert(s.current().title == "Other track" && s.current().volume == 23 && !s.uses_pair_controls());
+  f.live[2] = false; poll(s,f);
+  assert(s.selected == 2 && s.current().known() && !s.current().playing && s.current().title.empty());
+  for (int action : {0,1,2,3,4,5}) {
+    s.capture(); poll(s,f); assert(s.prepare_command(action));
+    const auto q = s.request();
+    assert(q.host == (action == 1 || action == 2 || action == 5 ? office : study));
+    s.accept(200,response(q.action,"")); assert(!s.has_request());
+  }
+  s.capture(); poll(s,f); assert(s.prepare_command(2));
+  s.accept(200,response("SetVolume","")); f.volume[2] = 25; poll(s,f);
+  assert(s.command_confirmed() && s.rooms[0].volume == 5 && s.rooms[1].volume == 7);
+  s.capture(); assert(s.prepare_favorite_setup() && !s.has_request() && s.favorite_setup_confirmed());
+  // A selected speaker can supply discovery even if both default seeds fail.
+  f.fail[0] = f.fail[1] = true; poll(s,f);
+  assert(s.current().known() && s.can_favorite() && s.selected == 2);
+  f.fail[0] = f.fail[1] = false;
+  s.capture(); f.zones = groups({zone_group(kid, {{lid,living},{kid,kitchen}}), zone_group(oid, {{oid,office}}), zone_group(tid, {{tid,study}})});
+  poll(s,f); assert(!s.prepare_command(0) && !s.prepare_favorite_setup());
+  assert(!s.has_request()); // External regrouping cancels captured commands.
+  assert(s.select_system(kid)); poll(s,f);
+  assert(s.selected == 1 && !s.uses_pair_controls());
+  s.capture(); assert(s.prepare_command(5));
+  assert(s.request().host == kitchen); s.accept(200,response("SetMute","")); assert(!s.has_request());
+  f.all_fail = true; poll(s,f);
+  assert(s.selected == 1 && !s.can_favorite() && !s.current().known());
+}
+void test_group_editing() {
+  Fixture f;
+  f.zones = groups({zone_group(kid, {{lid,living},{kid,kitchen}}), zone_group(tid, {{oid,office},{tid,study}})});
+  State automatic; poll(automatic,f); automatic.sync_group_edit();
+  assert(!automatic.explicitly_selected() && automatic.toggle_group(oid));
+  assert(automatic.explicitly_selected());
+  f.live[0] = f.live[1] = false; poll(automatic,f);
+  assert(automatic.selected == 0 && automatic.group_edit_valid());
+  f.live[0] = f.live[1] = true;
+  State extra; poll(extra,f); assert(extra.select_system(oid)); poll(extra,f); extra.sync_group_edit();
+  assert(extra.toggle_group(kid) && extra.prepare_group());
+  auto promoted = complete_writes(extra);
+  assert(promoted.size() == 3 && promoted[0].host == study && promoted[0].action == "DelegateGroupCoordinationTo");
+  assert(promoted[0].arguments.find("<NewCoordinator>" + oid + "</NewCoordinator>") != std::string::npos);
+  assert(promoted[1].host == kitchen && promoted[1].action == "DelegateGroupCoordinationTo");
+  assert(promoted[2].host == kitchen && promoted[2].arguments.find("x-rincon:" + oid) != std::string::npos);
+  State s; poll(s,f); assert(s.select_system(lid)); poll(s,f); s.sync_group_edit();
+  assert(s.group_edit_valid() && !s.group_dirty() && s.group_checked(lid) && s.group_checked(kid));
+  assert(!s.toggle_group(lid) && !s.toggle_group("unknown"));
+  assert(s.toggle_group(oid) && s.group_dirty() && !s.has_request());
+  assert(s.toggle_group(oid) && !s.group_dirty() && !s.prepare_group());
+  assert(s.toggle_group(kid) && s.toggle_group(oid));
+  poll(s,f); assert(s.prepare_group());
+  const auto writes = complete_writes(s);
+  assert(writes.size() == 3);
+  assert(writes[0].action == "DelegateGroupCoordinationTo" && writes[0].host == kitchen);
+  assert(writes[0].arguments.find("<NewCoordinator>" + lid + "</NewCoordinator>") != std::string::npos);
+  assert(writes[0].arguments.find("<RejoinGroup>1</RejoinGroup><ClearSource>0</ClearSource>") != std::string::npos);
+  assert(writes[1].action == "BecomeCoordinatorOfStandaloneGroup" && writes[1].host == kitchen);
+  assert(writes[2].host == office && writes[2].arguments.find("x-rincon:" + lid) != std::string::npos);
+  assert(!s.group_confirmed()); // SOAP acknowledgements do not prove topology changed.
+  f.zones = groups({zone_group(lid, {{lid,living},{oid,office}}),zone_group(kid,{{kid,kitchen}}),zone_group(tid,{{tid,study}})});
+  poll(s,f); assert(s.group_confirmed()); s.reset_group_edit();
+  s.systems.push_back({"new", "New", lid, living, living, "new;"});
+  assert(!s.group_confirmed()); s.systems.pop_back();
+  assert(!s.group_dirty() && s.group_edit_valid() && s.group_checked(oid) && !s.group_checked(kid));
+  assert(s.toggle_group(kid));
+  f.zones = groups({zone_group(lid,{{lid,living}}),zone_group(kid,{{kid,kitchen},{oid,office}}),zone_group(tid,{{tid,study}})});
+  poll(s,f); assert(!s.group_edit_valid() && !s.toggle_group(tid) && !s.prepare_group() && !s.has_request());
+  s.reset_group_edit(); assert(s.group_edit_valid() && !s.group_dirty());
+  s.systems_complete = false; assert(!s.toggle_group(oid) && !s.prepare_group());
+  // Moving another group's leader must preserve its unselected followers.
+  f.zones = groups({zone_group(lid,{{lid,living}}),zone_group(kid,{{kid,kitchen}}),zone_group(tid,{{oid,office},{tid,study}})});
+  poll(s,f); s.reset_group_edit(); assert(s.toggle_group(tid) && s.prepare_group());
+  auto moved = complete_writes(s);
+  assert(moved.size() == 2 && moved[0].action == "DelegateGroupCoordinationTo" && moved[0].host == study);
+  assert(moved[0].arguments.find("<NewCoordinator>" + oid + "</NewCoordinator>") != std::string::npos);
+  assert(moved[1].host == study && moved[1].action == "SetAVTransportURI");
+  f.zones = groups({zone_group(lid,{{lid,living},{tid,study}}),zone_group(kid,{{kid,kitchen}}),zone_group(oid,{{oid,office}})});
+  poll(s,f); assert(s.group_confirmed());
+  // Moving the entire other group joins followers before the old leader.
+  f.zones = groups({zone_group(lid,{{lid,living}}),zone_group(kid,{{kid,kitchen}}),zone_group(tid,{{oid,office},{tid,study}})});
+  poll(s,f); s.reset_group_edit(); assert(s.toggle_group(oid) && s.toggle_group(tid) && s.prepare_group());
+  moved = complete_writes(s);
+  assert(moved.size() == 2 && moved[0].host == office && moved[1].host == study);
+  s.reset_group_edit(); assert(s.toggle_group(oid) && s.prepare_group());
+  s.accept(0, ""); assert(s.command_failed && !s.has_request());
+  f.zones = groups({zone_group(lid,{{lid,living},{oid,office}}),zone_group(kid,{{kid,kitchen}}),zone_group(tid,{{tid,study}})});
+  poll(s,f); assert(!s.group_confirmed()); // A lost write reply is never retried or called successful.
 }
 
 Favorite favorite(bool radio = false, std::string id = "FV:2/1") {
@@ -304,6 +426,29 @@ void test_favorites() {
   s.accept(200,response("SetMute","")); s.rooms[0].mute = s.rooms[1].mute = 1; assert(s.command_confirmed());
   s.capture(); poll(s,fixture); assert(s.prepare_command(4)); assert(s.request().action == "Next");
   s.accept(200,response("Next","")); assert(!s.command_confirmed()); s.rooms[s.selected].track_uri = "new-track"; assert(s.command_confirmed());
+
+  State chosen; Fixture household;
+  household.zones = groups({zone_group(lid,{{lid,living}}),zone_group(kid,{{kid,kitchen}}),zone_group(tid,{{oid,office},{tid,study}})});
+  poll(chosen,household); assert(chosen.select_system(oid)); poll(chosen,household);
+  for (const auto &item : {radio, music}) {
+    chosen.capture(); poll(chosen,household);
+    assert(chosen.prepare_favorite_setup() && !chosen.has_request());
+    assert(chosen.favorite_setup_confirmed() && chosen.prepare_favorite(item));
+    std::vector<std::string> actions;
+    while (chosen.has_request()) {
+      const auto q = chosen.request(); actions.push_back(q.action);
+      assert(q.host == study && q.room == 2 && q.service == "AVTransport");
+      if (q.action == "AddURIToQueue") chosen.accept(200,response(q.action,"<FirstTrackNumberEnqueued>17</FirstTrackNumberEnqueued><NumTracksAdded>20</NumTracksAdded>"));
+      else {
+        if (!item.radio && q.action == "SetAVTransportURI") assert(q.arguments.find("x-rincon-queue:" + tid + "#0") != std::string::npos);
+        chosen.accept(200,response(q.action,""));
+      }
+    }
+    assert(actions == (item.radio ? std::vector<std::string>{"SetAVTransportURI", "Play"} :
+      std::vector<std::string>{"AddURIToQueue", "SetAVTransportURI", "Seek", "Play"}));
+    assert(chosen.current().volume == 23 && chosen.current().mute == 0);
+    assert(chosen.rooms[0].volume == 5 && chosen.rooms[1].volume == 7);
+  }
 }
 void test_favorite_setup() {
   for (bool grouped : {false, true}) for (int offline : {-1, 0, 1, 2}) {
@@ -371,7 +516,7 @@ int main(int argc, char **argv) {
     for(const auto &r:s.rooms) std::cout << "ROOM known=" << r.known() << " playing=" << r.playing << " tv=" << r.tv << " volume=" << r.volume << " title=" << r.title << " artist=" << r.artist << " cover=" << r.cover << std::endl;
     return 0;
   }
-  test_xml(); test_states(); test_controls(); test_read_recovery(); test_system_inventory(); test_favorites();
+  test_xml(); test_states(); test_controls(); test_read_recovery(); test_system_inventory(); test_room_selection(); test_group_editing(); test_favorites();
   std::cout << "PASS: paged favorites, filtering, XML escaping, direct radio, queue append/seek, failed-command abort, mute and skip" << std::endl;
-  std::cout << "PASS: Sonos XML, topology/coordinator, visible system inventory, solo/group, music/TV priority, selection, offline, artwork and scoped controls" << std::endl;
+  std::cout << "PASS: Sonos XML, topology/coordinator, visible system inventory, explicit room selection and grouping, solo/group, music/TV priority, selection, offline, artwork and scoped controls" << std::endl;
 }

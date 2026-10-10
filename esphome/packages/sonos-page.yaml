@@ -240,7 +240,7 @@ widgets:
       id: music_favorites_tab
       x: 14
       y: 566
-      width: 222
+      width: 144
       height: 32
       radius: 6
       pad_all: 0
@@ -255,9 +255,9 @@ widgets:
         - script.execute: render_music
   - button:
       id: music_systems_tab
-      x: 244
+      x: 166
       y: 566
-      width: 222
+      width: 144
       height: 32
       radius: 6
       pad_all: 0
@@ -269,6 +269,42 @@ widgets:
       text_color: 0xEEF6F0
       on_click:
         - lambda: id(music_content_tab) = 1;
+        - script.execute: render_music
+  - button:
+      id: music_group_apply
+      hidden: true
+      x: 318
+      y: 566
+      width: 100
+      height: 32
+      radius: 6
+      pad_all: 0
+      bg_color: 0x24583B
+      border_color: 0x45BD70
+      border_width: 1
+      text: "${music_group_apply}"
+      text_font: montserrat_12
+      text_color: 0xEEF6F0
+      on_click:
+        - script.execute: apply_music_group
+  - button:
+      id: music_group_reset
+      hidden: true
+      x: 426
+      y: 566
+      width: 40
+      height: 32
+      radius: 6
+      pad_all: 0
+      bg_color: 0x18231E
+      border_color: 0x34463C
+      border_width: 1
+      text: "\uf00d"
+      text_font: montserrat_14
+      text_color: 0xEEF6F0
+      on_click:
+        - lambda: |-
+            if (!id(music_busy) && !id(music_favorite_pending)) id(sonos).reset_group_edit();
         - script.execute: render_music
   - obj:
       id: music_systems_list

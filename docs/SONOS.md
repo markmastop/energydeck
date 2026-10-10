@@ -40,17 +40,38 @@ to 32 visible Sonos zones from the existing topology response, with their actual
 zone names and group membership. Hidden bonded/stereo partners are omitted to
 avoid duplicate rooms. Playback status is shown when the zone belongs to a
 polled coordinator; other zones show Detected without claiming playback state.
-Unavailable topology replaces the list with an unavailable message. The list is
-read-only and adds no network requests or control targets: playback commands
-remain scoped to Woonkamer and Keuken. Dashboard idle favorites stay available
+Unavailable topology replaces the list with an unavailable message. The left
+part of each row selects that room for the shared player; its green outline
+marks the selection. Selection only reads status and persists when paused or
+offline. The right part edits membership of a group around that room: **Main**
+marks the anchor, a checkmark means included, and plus means excluded. The anchor
+cannot be unchecked. Draft subtitles describe joins and removals. **Apply** sends
+the grouping commands; the cross cancels the draft. Neither selection nor draft
+editing sends playback or grouping commands.
+
+Grouping re-reads topology before any write. External regrouping, a missing room,
+unsafe/incomplete discovery or the 32-zone cap disables Apply and cancels unsafe
+writes. A stale draft remains visible until cancelled. The selected room becomes
+the coordinator; checked rooms join its source and unchecked members of its old
+group detach. Coordinator promotion uses DelegateGroupCoordinationTo with
+RejoinGroup=1 and ClearSource=0 to preserve the source. When another selected
+coordinator has unchecked followers, leadership transfers to one of those
+followers first; those rooms retain their group. Other selected followers move
+before their old coordinator. Hidden bonded/stereo partners stay with their
+visible zone. Grouping does not change volume/mute, restart playback or edit
+queues. Each write is sent once; partial failure stops the sequence and reads
+back actual topology. Success requires the expected coordinators for every
+visible zone, with up to three read-only confirmation cycles.
+
+Dashboard idle favorites stay available
 regardless of the selected detail tab, and hidden detail favorites do not start
 new artwork downloads. Tab switching never sends playback or grouping commands.
 The cover fills a rounded square with an aspect-preserving center crop. Playback
 and volume controls sit in a slim column to its right, with only Play/Pause filled.
 Title and artist sit below the cover. The back arrow and Sonos heading form a
 single navigation row, with the group name underneath as borderless text. Unavailable
-controls use muted icons rather than grey rectangles. A combined group is a read-only heading;
-separate room names retain their selection arrow. Favorites show a small type
+controls use muted icons rather than grey rectangles. Tapping the room/group
+heading opens the Rooms tab in either player. Favorites show a small type
 icon and up to two title lines, with six tiles visible before scrolling. Missing
 font glyphs are omitted from display only; playback metadata remains untouched.
 Favorites come directly from Sonos; no Homey Flow is involved. When the dashboard
@@ -59,8 +80,12 @@ in a scrollable five-column icon grid (ten visible tiles). The room label uses t
 full card width while favorites are shown.
 Compact tiles keep a 44×44 px touch target around the 32×32 artwork or fallback
 icon, with 10 px horizontal and 4 px vertical gaps. Names remain visible in Detail.
-Starting a favorite checks both configured speakers using fresh individual
-volume/mute replies, groups reachable Woonkamer and Keuken if needed, sets each
+After an explicit room choice or group edit, favorites play on the selected
+room's current coordinator and group, preserving volume, mute and membership.
+Fresh topology must still match the displayed scope before playback.
+Before any explicit choice, starting a favorite checks both configured speakers
+using fresh individual volume/mute replies, groups reachable Woonkamer and Keuken
+if needed, sets each
 to absolute volume **7/100**, and unmutes them before playback. If only one is
 reachable, it is used alone; a reachable follower detaches from an unavailable
 coordinator first. An existing healthy Woonkamer/Keuken coordinator is retained.
@@ -77,7 +102,11 @@ Tonight. More frequent Homey reads cannot repair that stale source.
 
 EnergyDeck now polls Sonos locally every **10 seconds** (formerly Homey every
 30 seconds). It reads ZoneGroupTopology first, then transport state, media source
-and track metadata/actions from each distinct coordinator, and volume/mute from each room.
+and track metadata/actions from each distinct polled coordinator, and volume/mute
+from each polled room. The two default rooms remain polled; selecting another
+zone adds just that room and its coordinator, rather than polling the entire
+household. The selected zone also acts as a fallback discovery seed when the
+two defaults are unavailable.
 Requests are sequential with an 80 ms yield for the UI. A slow cycle is not
 overlapped. Each failed read gets at most one retry for a network error, HTTP
 408/429/500/502/503/504 or a malformed/truncated HTTP 200 reply, before publishing
@@ -98,9 +127,9 @@ Sonos updates.
   Metadata follows the actual coordinator, not a fixed preferred speaker.
 - Separate rooms: show the playing room; music takes priority over TV when both
   are playing. If both play music, retain the current room.
-- Tap the room heading (with **>**) to switch rooms manually. That choice remains
-  while the selected room is playing; stopping or regrouping restores automatic
-  selection.
+- Tap the room heading to open Rooms, then tap the desired room. An explicit
+  choice persists across pause, regrouping and offline recovery. Editing group
+  membership also pins the displayed anchor, even without first tapping its row.
 - TV is detected from the coordinator's `x-sonos-htastream:` source. Show **TV**
   and clear old song/artist/artwork. TV volume remains available; Pause/Play is
   disabled because the TV controls its source.
@@ -109,10 +138,11 @@ Sonos updates.
 
 Pause/Play goes directly to the selected room's coordinator. Minus/plus adjust
 the displayed room by two percentage points, clamped to 0–100. For the combined
-Woonkamer/Keuken group, both configured rooms are adjusted, preserving their
-volume offset except at the bounds. Other household rooms are not volume targets.
-Mute toggles both configured rooms when grouped, or just the selected room when
-separate. Previous/Next are enabled only when Sonos reports the action available.
+Woonkamer/Keuken group before an explicit room choice, both configured rooms are
+adjusted, preserving their volume offset except at the bounds. After selecting
+any room or editing a group, volume and mute target only that room. Transport
+and favorites follow its actual coordinator, so they affect its current group.
+Previous/Next are enabled only when Sonos reports the action available.
 Playback controls and favorite selection inherently affect the coordinator's
 actual group, so avoid adding unrelated rooms if they should remain unaffected.
 
@@ -235,7 +265,13 @@ speakers, either speaker offline, both offline, stale groups with an offline
 coordinator, grouping failures, and volume/group read-back before playback.
 System-list tests cover hidden/duplicate members, XML-decoded names, additional
 zones, unsafe origins, missing names, the 32-zone limit and offline recovery,
-while ensuring inventory discovery adds no requests to other speakers.
+while ensuring inventory discovery alone adds no requests to other speakers.
+Selection tests cover extra-room polling, coordinator routing, paused/offline
+selection persistence, default-seed failure, individual volume/mute, preserving
+favorite setup and scope cancellation. Group tests cover local drafts, anchor
+protection, stale/incomplete topology, promotion without clearing the source,
+unchecked followers of a moving coordinator, follower-before-leader ordering,
+topology confirmation and stopping after an unacknowledged write.
 
 Run `node scripts/test-chunked-cover.cjs` for the JPEG download regression tests.
 Run `node scripts/test-cover-formats.cjs` for PNG/JPEG selection, PNG completion,
@@ -259,6 +295,15 @@ The Favorites/Rooms tabs and switching back to favorite covers were also visuall
 verified. A read-only topology probe found six visible zones and three hidden
 stereo partners. Native swipe automation did not visibly scroll the SDL list;
 touch scrolling on the physical display remains unverified.
+
+2026-10-10 room-controls validation: Sonos model/navigation, cover-format and
+climate-priority regressions passed, as did the production simulator build.
+Visual checks confirmed selecting Aanbouw, its green selection outline and Main
+marker, drafting a Keuken join, enabling Apply/cancel, and cancelling back to the
+actual membership. Disabled group actions retain the dark palette. Group writes,
+coordinator promotion and favorite routing were tested only with synthetic SOAP
+replies. No live grouping, playback, volume, mute or queue commands and no
+firmware upload were performed. Physical grouping remains unverified.
 
 2026-09-20 dedicated-page validation: all regression scripts and the native
 simulator/ESP32 builds passed. A read-only live favorites probe decoded 13 playable

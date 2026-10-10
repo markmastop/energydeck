@@ -15,8 +15,7 @@ try {
   if (music.includes('advancedflow/') || music.includes('Authorization:')) throw new Error('The Sonos page must not depend on Homey');
   const poll = music.split('  - id: refresh_music\n')[1].split('  - id: switch_music_room')[0];
   if (poll.includes('lvgl.page.show') || poll.includes('open_music_page')) throw new Error('Polling must not navigate pages');
-  if (!poll.includes('id(music_page_open) && id(sonos).playback_stopped()') ||
-      !poll.includes('id(close_music_page).execute()')) throw new Error('A confirmed stop must close Sonos detail');
+  if (poll.includes('close_music_page')) throw new Error('Polling must keep explicitly opened detail available');
   if (!poll.includes('follow_compact_tab(id(detail_tab))') || !poll.includes('script.execute: select_detail_tab'))
     throw new Error('Polling must follow playback in the compact card');
   for (const page of ['sonos_page', 'energydeck_main_page']) {
@@ -42,6 +41,12 @@ try {
     if (x < 310) throw new Error(`${id} must sit to the right of the cover`);
   }
   const dashboard = fs.readFileSync(path.join(__dirname, '../esphome/packages/dashboard.yaml'), 'utf8');
+  const detail = dashboard.split('id: music_page_button\n')[1]?.split('              - obj:')[0];
+  if (!detail?.includes('script.execute: open_music_page') || detail.includes('hidden: true') ||
+      !music.includes('lv_obj_set_pos(id(music_page_button), 190, compact_favorites ? 3 : 103)'))
+    throw new Error('Compact playback and idle favorites must always offer Detail');
+  const close = music.split('  - id: close_music_page\n')[1].split('  - id: render_sonos_energy_header')[0];
+  if (!close.includes('id(detail_tab) = 1')) throw new Error('Back must return to the compact Sonos card');
   const header = music.split('  - id: render_sonos_energy_header\n')[1].split('  # Read-only polls')[0];
   if (header.includes('lv_obj_set_x(id(solar_') || !dashboard.includes('id: sonos_battery_gauge\n                  hidden: true\n                  x: 314') || !header.includes('id(electricity_today_unit_label)') ||
       !header.includes('lv_bar_get_value(id(battery_level_bar))') ||

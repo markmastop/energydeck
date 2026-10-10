@@ -216,6 +216,7 @@ script:
     then:
       - lambda: |-
           id(music_page_open) = false;
+          id(detail_tab) = 1;
           lv_obj_set_parent(id(shared_energy_header), id(energydeck_main_page)->obj);
           lv_obj_set_pos(id(shared_energy_header), 0, 0);
       - lvgl.page.show: energydeck_main_page
@@ -290,13 +291,9 @@ script:
       - script.wait: sonos_requests
       - lambda: |-
           id(sonos).finish();
-          // Only a confirmed stop edge closes detail; offline and track changes do not.
-          const bool close_detail = id(music_page_open) && id(sonos).playback_stopped();
+          // Follow playback on the dashboard; explicit detail navigation stays
+          // open so pause, idle favorites and network recovery remain usable.
           id(detail_tab) = id(sonos).follow_compact_tab(id(detail_tab));
-          if (close_detail) {
-            id(detail_tab) = 0;
-            id(close_music_page).execute();
-          }
           if (id(music_favorite_pending) && id(sonos).command_confirmed()) {
             id(music_favorite_pending) = false;
             id(music_command_failed) = false;
@@ -509,7 +506,9 @@ script:
             else lv_obj_clear_flag(widget, LV_OBJ_FLAG_HIDDEN);
           }
           if (compact_favorites) lv_obj_add_flag(id(small_music_cover_widget), LV_OBJ_FLAG_HIDDEN);
-          lv_obj_set_width(id(small_music_room_select), compact_favorites ? 274 : 184);
+          // Detail remains reachable in every state, including idle/offline.
+          lv_obj_set_pos(id(music_page_button), 190, compact_favorites ? 3 : 103);
+          lv_obj_set_width(id(small_music_room_select), compact_favorites ? 174 : 184);
           if (compact_favorites) lv_obj_add_flag(id(small_music_status), LV_OBJ_FLAG_HIDDEN);
           else lv_obj_clear_flag(id(small_music_status), LV_OBJ_FLAG_HIDDEN);
           // Compact and full players share the same snapshot and command state.

@@ -4,11 +4,13 @@ An explicitly opened Sonos detail page stays open when playback pauses/stops,
 transitions or becomes unavailable. The back arrow returns to the compact Sonos
 card, so favorites and extra controls remain accessible after pausing.
 
-The dashboard's right-hand **Sonos** button shows the compact player in the
-Gas/Climate card position, with the active tab highlighted green. The compact
-card always offers a **Detail** button, including while idle, offline or waiting
-for a command. It sits beside playback controls or above the idle favorites grid.
-Its **back arrow** returns to the compact Sonos card. Starting
+The dashboard's right-hand **Sonos** button opens the full player directly,
+including while idle, offline or waiting for a command. Tapping the compact
+player's cover or track text also opens detail through one shared touch target.
+Room selection and playback controls retain their own actions. The separate
+Detail button is removed; compact minus/plus controls now occupy 62 px each and
+Play/Pause occupies 122 px, with 8 px gaps. The **back arrow** returns to the
+compact Sonos card in the Gas/Climate card position, with Sonos highlighted green. Starting
 playback never opens detail automatically. The compact dashboard card switches to
 Sonos when playback starts (including playback detected at boot), and back to
 Gas when playback stops or pauses while that card is selected. Manual Gas/Climate
@@ -235,9 +237,9 @@ firmware separately; upload to the deck only when explicitly requested.
 climate-priority regression checks passed, as did the production simulator build.
 Three read-only local status cycles returned all 13 replies with HTTP 200 in
 0.25–0.39 seconds per cycle (excluding the UI yields); intermittent instability
-was not reproduced in this short probe. The simulator visibly showed the compact
-player's Detail button. Native click automation did not reliably activate SDL
-controls, so full visual navigation verification remains manual. No live
+was not reproduced in this short probe. After simplifying navigation, the
+simulator visually confirmed the wider compact controls, direct Sonos-button
+navigation, track-text navigation and Back returning to the compact card. No live
 playback, volume, grouping or queue changes and no firmware upload were performed.
 
 2026-09-20 dedicated-page validation: all regression scripts and the native

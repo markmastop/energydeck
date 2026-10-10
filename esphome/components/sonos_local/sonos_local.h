@@ -340,7 +340,7 @@ class State {
       rooms[0].uuid = "RINCON_542A1BE6F81C01400"; rooms[1].uuid = "RINCON_542A1BE6F89101400";
       rooms[0].host = origin(living); rooms[1].host = origin(kitchen);
     }
-    requests_.clear(); cursor_ = 0; topology_ok_ = false; commanding_ = false;
+    requests_.clear(); cursor_ = 0; topology_ok_ = false; commanding_ = false; read_retried_ = false;
     for (int i = 0; i < 2; ++i) {
       pending_[i] = Room{}; pending_[i].uuid = rooms[i].uuid; pending_[i].host = rooms[i].host;
       if (!pending_[i].host.empty()) requests_.push_back({pending_[i].host, "ZoneGroupTopology", "GetZoneGroupState", "", i});
@@ -367,6 +367,12 @@ class State {
       }
       ++cursor_; return;
     }
+    // Retry a transient read once before publishing a missing snapshot. Never
+    // repeat writes: a lost response may still have applied the command.
+    const bool transient = !xml.has("Fault") && (status == 0 || status == 408 || status == 429 ||
+      status == 500 || status == 502 || status == 503 || status == 504 || (status == 200 && !ok));
+    if (!ok && transient && !read_retried_) { read_retried_ = true; return; }
+    read_retried_ = false;
     if (ok && req.action == "GetZoneGroupState" && !topology_ok_) {
       topology_ok_ = parse_topology(xml.text("ZoneGroupState"));
     } else if (ok && req.room >= 0 && req.action != "GetZoneGroupState") {
@@ -541,7 +547,7 @@ class State {
   bool command_confirmed() const {
     const auto &r = rooms[target_room_];
     if (!r.known() || target_scope_ != r.uuid + "|" + r.coordinator + "|" + r.members) return false;
-    if (target_action_ == 0) return r.playing == target_playing_;
+    if (target_action_ == 0) return !r.transitioning && r.playing == target_playing_;
     if (target_action_ == 3 || target_action_ == 4) return !r.track_uri.empty() && r.track_uri != target_track_uri_;
     if (target_action_ == 5) return r.mute == target_mute_ && (!grouped() || rooms[1-target_room_].mute == target_mute_);
     if (target_action_ == 6) return r.playing && r.uri == favorite_uri_ && (favorite_track_ < 0 || r.track == favorite_track_);
@@ -554,7 +560,7 @@ class State {
   std::vector<Request> requests_;
   size_t cursor_ = 0;
   bool topology_ok_ = false, manual_ = false, commanding_ = false, target_playing_ = false;
-  bool compact_playing_ = false;
+  bool compact_playing_ = false, read_retried_ = false;
   std::array<bool, 2> favorite_targets_{{false, false}};
   int favorite_leader_ = 0;
   int captured_room_ = 0, target_room_ = 0, target_action_ = 0;

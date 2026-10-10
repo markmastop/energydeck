@@ -28,12 +28,17 @@ struct Fixture {
   std::string title[2] = {"Living track","Kitchen track"};
   std::string actions = "Play,Pause,Next,Previous";
 };
-int poll(State &s, const Fixture &f) {
-  s.begin(living,kitchen); int requests = 0;
+int poll(State &s, const Fixture &f, const std::string &failed_once = "", int failure_status = 0) {
+  s.begin(living,kitchen); int requests = 0; bool injected = false;
   while(s.has_request()) {
-    assert(++requests < 20);
+    assert(++requests < 30); // Includes one bounded retry per read.
     const auto q = s.request(); int i = q.host == living ? 0 : 1;
     assert(q.action.rfind("Get",0) == 0); // Polling must never control playback.
+    if (!injected && q.action == failed_once) {
+      injected = true;
+      s.accept(failure_status, failure_status == 200 ? "<s:Envelope><s:Body>" : "");
+      continue;
+    }
     if (f.all_fail || f.fail[i]) { s.accept(0,""); continue; }
     std::string body;
     if(q.action == "GetZoneGroupState") body = "<ZoneGroupState>" + escape(topology(f.grouped,f.living_leader,f.missing_living)) + "</ZoneGroupState>";
@@ -137,6 +142,9 @@ void test_controls() {
   assert(s.request().host == kitchen && s.request().action == "Pause");
   s.accept(200,response("Pause","")); assert(!s.has_request() && !s.command_failed);
   f.live[1] = false; poll(s,f); assert(s.command_confirmed());
+  s.rooms[1].transitioning = true;
+  assert(!s.command_confirmed()); // A transition is not a confirmed pause.
+  s.rooms[1].transitioning = false;
   f.live[1] = true; poll(s,f); s.capture(); poll(s,f); assert(s.prepare_command(2));
   assert(s.request().host == kitchen && s.request().arguments.find("<DesiredVolume>9</DesiredVolume>") != std::string::npos);
   s.accept(200,response("SetVolume","")); assert(!s.has_request());
@@ -152,6 +160,33 @@ void test_controls() {
     s.accept(200,response("SetVolume",""));
     assert(s.request().arguments.find("<DesiredVolume>" + std::to_string(std::max(0,std::min(100,100-v+step)))) != std::string::npos);
   }
+}
+
+void test_read_recovery() {
+  for (const auto &action : {"GetZoneGroupState", "GetTransportInfo", "GetMediaInfo",
+      "GetPositionInfo", "GetCurrentTransportActions", "GetVolume", "GetMute"}) {
+    for (int status : {0, 408, 429, 500, 502, 503, 504, 200}) {
+      State s; Fixture f;
+      assert(poll(s, f, action, status) == 10);
+      assert(s.current().known() && s.can_volume() && s.can_mute());
+      assert(s.current().title == "Kitchen track");
+      assert(s.follow_compact_tab(0) == 1);
+      assert(poll(s, f, action, status) == 10);
+      assert(s.follow_compact_tab(2) == 2); // Recovery preserves a manual tab.
+    }
+  }
+  State offline; Fixture f; f.all_fail = true;
+  assert(poll(offline, f) == 4); // Two seeds, at most one retry each.
+  assert(!offline.current().known() && !offline.can_volume());
+  for (int status : {400, 401, 403, 404, 500}) {
+    State rejected; rejected.begin(living, kitchen);
+    rejected.accept(status, status == 500 ? response("GetZoneGroupState", "<Fault/>") : "");
+    assert(rejected.request().host == kitchen); // Permanent failures skip retry.
+  }
+  State write; Fixture playing; poll(write, playing); write.capture();
+  assert(write.prepare_command(0));
+  write.accept(0, "");
+  assert(write.command_failed && !write.has_request()); // Lost writes never repeat.
 }
 
 Favorite favorite(bool radio = false, std::string id = "FV:2/1") {
@@ -300,7 +335,7 @@ int main(int argc, char **argv) {
     for(const auto &r:s.rooms) std::cout << "ROOM known=" << r.known() << " playing=" << r.playing << " tv=" << r.tv << " volume=" << r.volume << " title=" << r.title << " artist=" << r.artist << " cover=" << r.cover << std::endl;
     return 0;
   }
-  test_xml(); test_states(); test_controls(); test_favorites();
+  test_xml(); test_states(); test_controls(); test_read_recovery(); test_favorites();
   std::cout << "PASS: paged favorites, filtering, XML escaping, direct radio, queue append/seek, failed-command abort, mute and skip" << std::endl;
   std::cout << "PASS: Sonos XML, topology/coordinator, solo/group, music/TV priority, selection, offline, artwork and scoped controls" << std::endl;
 }

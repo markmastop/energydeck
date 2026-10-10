@@ -1,13 +1,14 @@
 # Sonos: dedicated local player and favorites
 
-When playback changes to a confirmed stopped/paused state in both rooms, an open
-Sonos detail page returns to the dashboard with Gas selected. Unknown/offline or
-transitioning states do not navigate. Only a new playback-stop edge triggers automatic return.
+An explicitly opened Sonos detail page stays open when playback pauses/stops,
+transitions or becomes unavailable. The back arrow returns to the compact Sonos
+card, so favorites and extra controls remain accessible after pausing.
 
 The dashboard's right-hand **Sonos** button shows the compact player in the
 Gas/Climate card position, with the active tab highlighted green. The compact
-card has no Detail button; the full-screen player remains implemented but has no
-dashboard entry point. Its **back arrow** returns to the compact Sonos card. Starting
+card always offers a **Detail** button, including while idle, offline or waiting
+for a command. It sits beside playback controls or above the idle favorites grid.
+Its **back arrow** returns to the compact Sonos card. Starting
 playback never opens detail automatically. The compact dashboard card switches to
 Sonos when playback starts (including playback detected at boot), and back to
 Gas when playback stops or pauses while that card is selected. Manual Gas/Climate
@@ -65,8 +66,13 @@ EnergyDeck now polls Sonos locally every **10 seconds** (formerly Homey every
 30 seconds). It reads ZoneGroupTopology first, then transport state, media source
 and track metadata/actions from each distinct coordinator, and volume/mute from each room.
 Requests are sequential with an 80 ms yield for the UI. A slow cycle is not
-overlapped. Failed/truncated replies show offline/missing data instead of silently
-falling back to stale Homey titles.
+overlapped. Each failed read gets at most one retry for a network error, HTTP
+408/429/500/502/503/504 or a malformed/truncated HTTP 200 reply, before publishing
+the new snapshot. SOAP faults and permanent HTTP errors are not retried. A retry
+uses the same UI yield and existing eight-second request timeout; persistently
+unreachable speakers can therefore extend a cycle. Exhausted retries still show
+offline/missing data rather than keeping stale titles. Writes are never retried
+because a missing response does not prove the speaker ignored the command.
 
 This uses the speakers' local UPnP/SOAP interface, not the Sonos cloud Control API
 or its OAuth credentials. It was checked against the service descriptions exposed
@@ -85,8 +91,8 @@ Sonos updates.
 - TV is detected from the coordinator's `x-sonos-htastream:` source. Show **TV**
   and clear old song/artist/artwork. TV volume remains available; Pause/Play is
   disabled because the TV controls its source.
-- Starting playback does not change the current page. A confirmed stop closes
-  detail as described above. Dashboard Gas and Climate remain manually available.
+- Starting or stopping playback does not change the current page. Dashboard Gas
+  and Climate remain manually available.
 
 Pause/Play goes directly to the selected room's coordinator. Minus/plus adjust
 the displayed room by two percentage points, clamped to 0–100. For the combined
@@ -207,7 +213,9 @@ cover-download recovery must be verified after uploading this configuration.
 Run `node scripts/test-music-controls.cjs` for the actual C++ model's offline
 tests: XML/entity handling, malformed replies, URL restrictions, coordinator
 changes, separate/grouped rooms, TV/music priority, manual selection, missing
-speakers, command scope changes, volume bounds and command confirmation. Favorites
+speakers, transient read recovery, bounded/permanent failures, no write retries,
+command scope changes, volume bounds and command confirmation. Transitioning
+transport does not confirm a pause. Favorites
 tests cover pagination, invalid/stale pages, filtering, radio, queue append/seek,
 failure aborts, mute, skip and read-back confirmation. Setup tests cover both
 speakers, either speaker offline, both offline, stale groups with an offline
@@ -222,6 +230,15 @@ comparison; `--favorites-probe` emits only Browse requests. Automated/live diagn
 checks must not start favorites, modify queues, change groups, pause music or
 change volume. Compile the simulator and physical
 firmware separately; upload to the deck only when explicitly requested.
+
+2026-10-10 validation: Sonos model/navigation, cover-format, chunked-cover and
+climate-priority regression checks passed, as did the production simulator build.
+Three read-only local status cycles returned all 13 replies with HTTP 200 in
+0.25–0.39 seconds per cycle (excluding the UI yields); intermittent instability
+was not reproduced in this short probe. The simulator visibly showed the compact
+player's Detail button. Native click automation did not reliably activate SDL
+controls, so full visual navigation verification remains manual. No live
+playback, volume, grouping or queue changes and no firmware upload were performed.
 
 2026-09-20 dedicated-page validation: all regression scripts and the native
 simulator/ESP32 builds passed. A read-only live favorites probe decoded 13 playable

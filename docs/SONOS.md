@@ -9,6 +9,7 @@ including while idle, offline or waiting for a command. Tapping the compact
 player's cover or track text also opens detail through one shared touch target.
 The compact player uses a larger 92px cover on the left, with the room selector,
 a two-line track title, artist/status and volume aligned in one column beside it.
+The cover's left edge aligns with the volume-down button below it.
 Long room/group names and titles are ellipsized within fixed two-line boxes;
 waiting, pause and error text replace the artist row. The room selector opens
 Rooms. Empty artist rows and unused title lines collapse; combined default-room

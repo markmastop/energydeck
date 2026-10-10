@@ -1772,7 +1772,7 @@ lvgl:
                   text_color: 0xA9B8AE
               - obj:
                   id: small_music_cover_frame
-                  x: 10
+                  x: 16
                   y: 7
                   width: ${music_compact_cover_size}
                   height: ${music_compact_cover_size}
@@ -1815,9 +1815,9 @@ lvgl:
               # target in z-order so its overlapping header opens Rooms instead.
               - obj:
                   id: small_music_detail_target
-                  x: 10
+                  x: 16
                   y: 7
-                  width: 274
+                  width: 268
                   height: 92
                   bg_opa: TRANSP
                   border_width: 0

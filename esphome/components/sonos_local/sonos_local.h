@@ -296,9 +296,17 @@ class Favorites {
   void fail() { active_ = false; failed = true; known = false; pending_.clear(); }
 };
 
+// Visible Sonos zones are listed independently of the two configured control
+// targets. Bonded/hidden members must not appear as duplicate rooms in the UI.
+struct System {
+  std::string uuid, name, coordinator;
+};
+
 class State {
  public:
   std::array<Room, 2> rooms;
+  std::vector<System> systems;
+  bool systems_known = false;
   int selected = 0;
   bool command_failed = false;
   const Room &current() const { return rooms[selected]; }
@@ -341,6 +349,7 @@ class State {
       rooms[0].host = origin(living); rooms[1].host = origin(kitchen);
     }
     requests_.clear(); cursor_ = 0; topology_ok_ = false; commanding_ = false; read_retried_ = false;
+    pending_systems_.clear();
     for (int i = 0; i < 2; ++i) {
       pending_[i] = Room{}; pending_[i].uuid = rooms[i].uuid; pending_[i].host = rooms[i].host;
       if (!pending_[i].host.empty()) requests_.push_back({pending_[i].host, "ZoneGroupTopology", "GetZoneGroupState", "", i});
@@ -441,6 +450,8 @@ class State {
     }
   }
   void finish() {
+    systems = pending_systems_;
+    systems_known = topology_ok_;
     if (pending_[0].topology && pending_[1].topology && pending_[0].coordinator == pending_[1].coordinator) {
       auto identity = pending_[1]; pending_[1] = pending_[0];
       pending_[1].uuid = identity.uuid; pending_[1].host = identity.host; pending_[1].volume = identity.volume; pending_[1].mute = identity.mute;
@@ -557,6 +568,7 @@ class State {
 
  private:
   std::array<Room, 2> pending_;
+  std::vector<System> pending_systems_;
   std::vector<Request> requests_;
   size_t cursor_ = 0;
   bool topology_ok_ = false, manual_ = false, commanding_ = false, target_playing_ = false;
@@ -571,6 +583,7 @@ class State {
   bool parse_topology(const std::string &body) {
     Xml xml(body); if (!xml.valid) return false;
     std::array<Room, 2> result = pending_;
+    std::vector<System> systems;
     for (size_t gi = 0; gi < xml.nodes.size(); ++gi) {
       const auto &g = xml.nodes[gi]; if (Xml::local(g.name) != "ZoneGroup") continue;
       const auto coordinator = attribute(g, "Coordinator");
@@ -583,6 +596,13 @@ class State {
       std::sort(members.begin(), members.end()); std::string signature;
       for (const auto &uuid : members) signature += uuid + ";";
       for (const auto &n : xml.nodes) if (n.parent == static_cast<int>(gi) && Xml::local(n.name) == "ZoneGroupMember") {
+        const auto uuid = attribute(n, "UUID");
+        const auto host = origin(attribute(n, "Location"));
+        if (!uuid.empty() && !host.empty() && attribute(n, "Invisible") != "1" && systems.size() < 32) {
+          const auto name = attribute(n, "ZoneName");
+          const bool duplicate = std::any_of(systems.begin(), systems.end(), [&](const System &s) { return s.uuid == uuid; });
+          if (!duplicate) systems.push_back({uuid, name.empty() ? uuid : name, coordinator});
+        }
         for (auto &r : result) if (attribute(n, "UUID") == r.uuid) {
           auto host = origin(attribute(n, "Location")); if (host.empty()) continue;
           r.host = host; r.coordinator = coordinator; r.coordinator_host = coordinator_host; r.members = signature; r.topology = true;
@@ -590,6 +610,10 @@ class State {
       }
     }
     if (!result[0].topology && !result[1].topology) return false;
+    std::sort(systems.begin(), systems.end(), [](const System &a, const System &b) {
+      return a.name == b.name ? a.uuid < b.uuid : a.name < b.name;
+    });
+    pending_systems_ = std::move(systems);
     pending_ = result; return true;
   }
 };

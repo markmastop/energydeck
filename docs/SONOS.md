@@ -33,7 +33,18 @@ battery data shows dashes. Returning restores the original daily-energy gauge;
 solar stays on the right on both pages. This is display-only, with no extra polling.
 
 The page has a 272×272 cover, ellipsized title/artist, room selector, playback,
-skip, volume and mute controls, plus a scrollable three-column favorites grid.
+skip, volume and mute controls. Below the player, **Favorites / Rooms** tabs
+switch between the three-column favorites grid and a scrollable system list.
+The selected tab is retained when leaving and reopening detail. Rooms shows up
+to 32 visible Sonos zones from the existing topology response, with their actual
+zone names and group membership. Hidden bonded/stereo partners are omitted to
+avoid duplicate rooms. Playback status is shown when the zone belongs to a
+polled coordinator; other zones show Detected without claiming playback state.
+Unavailable topology replaces the list with an unavailable message. The list is
+read-only and adds no network requests or control targets: playback commands
+remain scoped to Woonkamer and Keuken. Dashboard idle favorites stay available
+regardless of the selected detail tab, and hidden detail favorites do not start
+new artwork downloads. Tab switching never sends playback or grouping commands.
 The cover fills a rounded square with an aspect-preserving center crop. Playback
 and volume controls sit in a slim column to its right, with only Play/Pause filled.
 Title and artist sit below the cover. The back arrow and Sonos heading form a
@@ -222,6 +233,9 @@ tests cover pagination, invalid/stale pages, filtering, radio, queue append/seek
 failure aborts, mute, skip and read-back confirmation. Setup tests cover both
 speakers, either speaker offline, both offline, stale groups with an offline
 coordinator, grouping failures, and volume/group read-back before playback.
+System-list tests cover hidden/duplicate members, XML-decoded names, additional
+zones, unsafe origins, missing names, the 32-zone limit and offline recovery,
+while ensuring inventory discovery adds no requests to other speakers.
 
 Run `node scripts/test-chunked-cover.cjs` for the JPEG download regression tests.
 Run `node scripts/test-cover-formats.cjs` for PNG/JPEG selection, PNG completion,
@@ -241,6 +255,10 @@ was not reproduced in this short probe. After simplifying navigation, the
 simulator visually confirmed the wider compact controls, direct Sonos-button
 navigation, track-text navigation and Back returning to the compact card. No live
 playback, volume, grouping or queue changes and no firmware upload were performed.
+The Favorites/Rooms tabs and switching back to favorite covers were also visually
+verified. A read-only topology probe found six visible zones and three hidden
+stereo partners. Native swipe automation did not visibly scroll the SDL list;
+touch scrolling on the physical display remains unverified.
 
 2026-09-20 dedicated-page validation: all regression scripts and the native
 simulator/ESP32 builds passed. A read-only live favorites probe decoded 13 playable

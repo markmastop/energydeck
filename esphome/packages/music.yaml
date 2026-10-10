@@ -8,6 +8,7 @@ external_components:
 sonos_local:
 
 substitutions:
+  music_compact_cover_size: "92"
   sonos_living_address: "http://192.168.0.190:1400"
   sonos_kitchen_address: "http://192.168.0.191:1400"
 
@@ -128,23 +129,24 @@ image:
               lv_obj_set_pos(id(music_cover_widget), (272 - w * scale / 256) / 2, (272 - h * scale / 256) / 2);
               // Keep a separate native-size thumbnail: no shared transformed
               // RGB565 buffer/cache between the large and compact widgets.
-              static uint8_t thumbnail[62 * 62 * 2];
+              constexpr int thumbnail_side = ${music_compact_cover_size};
+              static uint8_t thumbnail[thumbnail_side * thumbnail_side * 2];
               static lv_image_dsc_t mini;
               lv_image_cache_drop(&mini);
               const auto *source = id(music_cover).get_lv_image_dsc();
               const int side = std::min(w, h);
-              for (int y = 0; y < 62; ++y) {
-                for (int x = 0; x < 62; ++x) {
-                  const int sx = (w - side) / 2 + x * side / 62;
-                  const int sy = (h - side) / 2 + y * side / 62;
+              for (int y = 0; y < thumbnail_side; ++y) {
+                for (int x = 0; x < thumbnail_side; ++x) {
+                  const int sx = (w - side) / 2 + x * side / thumbnail_side;
+                  const int sy = (h - side) / 2 + y * side / thumbnail_side;
                   const auto *pixel = source->data + sy * source->header.stride + sx * 2;
-                  thumbnail[(y * 62 + x) * 2] = pixel[0];
-                  thumbnail[(y * 62 + x) * 2 + 1] = pixel[1];
+                  thumbnail[(y * thumbnail_side + x) * 2] = pixel[0];
+                  thumbnail[(y * thumbnail_side + x) * 2 + 1] = pixel[1];
                 }
               }
               mini = *source;
-              mini.header.w = mini.header.h = 62;
-              mini.header.stride = 62 * 2;
+              mini.header.w = mini.header.h = thumbnail_side;
+              mini.header.stride = thumbnail_side * 2;
               mini.data_size = sizeof(thumbnail);
               mini.data = thumbnail;
               lv_image_set_pivot(id(small_music_cover_widget), 0, 0);
@@ -608,9 +610,18 @@ script:
             else lv_obj_clear_flag(widget, LV_OBJ_FLAG_HIDDEN);
           }
           if (compact_favorites) lv_obj_add_flag(id(small_music_cover_widget), LV_OBJ_FLAG_HIDDEN);
-          lv_obj_set_width(id(small_music_room_select), compact_favorites ? 274 : 184);
-          if (compact_favorites) lv_obj_add_flag(id(small_music_status), LV_OBJ_FLAG_HIDDEN);
+          lv_obj_set_pos(id(small_music_room_select), compact_favorites ? 10 : 114, compact_favorites ? 3 : 6);
+          lv_obj_set_size(id(small_music_room_select), compact_favorites ? 274 : 170, compact_favorites ? 30 : 28);
+          auto *room_label = lv_obj_get_child(id(small_music_room_select), 0);
+          lv_obj_set_size(room_label, compact_favorites ? 274 : 170, compact_favorites ? 16 : 28);
+          lv_label_set_long_mode(room_label, LV_LABEL_LONG_DOT);
+          lv_obj_set_style_text_align(room_label, LV_TEXT_ALIGN_LEFT, 0);
+          lv_obj_align(room_label, LV_ALIGN_LEFT_MID, 0, 0);
+          // Status replaces the artist row when paused, offline or waiting;
+          // a separate top-right status would compete with the room name.
+          if (compact_favorites || status[0] == '\0') lv_obj_add_flag(id(small_music_status), LV_OBJ_FLAG_HIDDEN);
           else lv_obj_clear_flag(id(small_music_status), LV_OBJ_FLAG_HIDDEN);
+          if (!compact_favorites && status[0] != '\0') lv_obj_add_flag(id(small_music_artist), LV_OBJ_FLAG_HIDDEN);
           // Compact and full players share the same snapshot and command state.
           const std::pair<lv_obj_t *, lv_obj_t *> labels[] = {
             {id(small_music_title), id(music_title)}, {id(small_music_artist), id(music_artist)},
@@ -620,6 +631,16 @@ script:
             lv_label_set_text(pair.first, lv_label_get_text(pair.second));
             lv_obj_set_style_text_color(pair.first, lv_obj_get_style_text_color(pair.second, LV_PART_MAIN), 0);
           }
+          // Collapse the unused artist row and spare title line. Bound the
+          // measured title to two lines so secondary text stays above controls.
+          lv_point_t title_size;
+          lv_text_get_size(&title_size, lv_label_get_text(id(small_music_title)), &lv_font_montserrat_14,
+            0, 0, 170, LV_TEXT_FLAG_NONE);
+          const int secondary_y = 38 + std::min(32, int(title_size.y)) + 2;
+          lv_obj_set_y(id(small_music_artist), secondary_y);
+          lv_obj_set_y(id(small_music_status), secondary_y);
+          const bool secondary_text = status[0] != '\0' || (playing && !room.artist.empty());
+          lv_obj_set_y(id(small_music_volume), secondary_y + (secondary_text ? 16 : 0));
           const std::pair<lv_obj_t *, lv_obj_t *> buttons[] = {
             {id(small_music_room_select), id(music_room_select)}, {id(small_music_play), id(music_play)},
             {id(small_music_minus), id(music_minus)}, {id(small_music_plus), id(music_plus)}
@@ -634,7 +655,11 @@ script:
           // Retain clear word labels in the compact card's existing layout.
           lv_label_set_text(lv_obj_get_child(id(small_music_play), 0),
             waiting ? "${music_button_wait}" : room.tv ? "${music_tv}" : playing ? "${music_pause}" : "${music_resume}");
-          if (s.uses_pair_controls()) lv_label_set_text_fmt(id(music_volume), "${music_volume_side_format}", a, b);
+          if (s.uses_pair_controls()) {
+            // Compact percentages follow the room heading's living/kitchen order.
+            lv_label_set_text_fmt(id(small_music_volume), "${music_compact_pair_volume_format}", a, b);
+            lv_label_set_text_fmt(id(music_volume), "${music_volume_side_format}", a, b);
+          }
           // Explicit combined-state styling prevents the LVGL disabled theme
           // from reintroducing filled rectangles around secondary controls.
           const lv_state_t plain_states[] = {LV_STATE_DEFAULT, LV_STATE_DISABLED, LV_STATE_FOCUSED, LV_STATE_PRESSED,
@@ -649,7 +674,7 @@ script:
             lv_obj_set_style_bg_opa(button, LV_OPA_TRANSP, lv_obj_get_state(button));
             lv_obj_set_style_border_width(button, 0, lv_obj_get_state(button));
             lv_obj_set_style_text_color(lv_obj_get_child(button, 0), lv_color_hex(disabled ? 0x67756D :
-              button == id(music_mute) && s.muted() ? 0xE8B94C : 0xEEF6F0), 0);
+              button == id(small_music_room_select) ? 0x7FE0A2 : button == id(music_mute) && s.muted() ? 0xE8B94C : 0xEEF6F0), 0);
           }
       - script.execute: render_music_systems
 

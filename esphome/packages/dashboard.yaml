@@ -19,7 +19,7 @@ interval:
             id(gas_tab), id(music_tab), id(extra_tab),
             id(today_prices_button), id(tomorrow_prices_button)};
           for (auto *button : buttons) {
-            lv_obj_align(lv_obj_get_child(button, 0), LV_ALIGN_CENTER, 0, -1);
+            lv_obj_align(lv_obj_get_child(button, 0), button == id(small_music_room_select) ? LV_ALIGN_LEFT_MID : LV_ALIGN_CENTER, 0, -1);
             // Override the built-in raised theme in every interactive state.
             for (auto state : {LV_STATE_DEFAULT, LV_STATE_PRESSED, LV_STATE_DISABLED, LV_STATE_FOCUSED}) {
               const auto selector = static_cast<lv_style_selector_t>(LV_PART_MAIN) |
@@ -40,6 +40,7 @@ interval:
             lv_obj_set_style_bg_opa(button, LV_OPA_COVER, LV_STATE_DISABLED);
           }
           lv_obj_set_style_clip_corner(id(music_cover_frame), true, 0);
+          lv_obj_set_style_clip_corner(id(small_music_cover_frame), true, 0);
           // Clip the lower rounded corners of each tab: retain rounded tops
           // while the bottom edge joins the chart without a gap.
           for (auto *tab : {id(today_prices_button), id(tomorrow_prices_button)}) {
@@ -1727,12 +1728,110 @@ lvgl:
             pad_all: 0
             scrollable: false
             widgets:
+              - label:
+                  id: small_music_status
+                  x: 114
+                  y: 73
+                  width: 170
+                  height: 14
+                  text_align: LEFT
+                  long_mode: DOT
+                  text: "${music_loading}"
+                  text_font: montserrat_12
+                  text_color: 0x7FE0A2
+              - label:
+                  id: small_music_title
+                  x: 114
+                  y: 38
+                  width: 170
+                  # A fixed two-line box keeps long titles above artist/volume.
+                  height: 34
+                  long_mode: DOT
+                  text: "${music_ready}"
+                  text_font: montserrat_14
+                  text_color: 0xEEF6F0
+              - label:
+                  id: small_music_artist
+                  x: 114
+                  y: 73
+                  width: 170
+                  height: 14
+                  long_mode: DOT
+                  text: ""
+                  text_font: montserrat_12
+                  text_color: 0xA9B8AE
+              - label:
+                  id: small_music_volume
+                  x: 114
+                  y: 88
+                  width: 170
+                  height: 14
+                  long_mode: DOT
+                  text: "${music_volume_unknown}"
+                  text_font: montserrat_12
+                  text_color: 0xA9B8AE
+              - obj:
+                  id: small_music_cover_frame
+                  x: 10
+                  y: 7
+                  width: ${music_compact_cover_size}
+                  height: ${music_compact_cover_size}
+                  radius: 7
+                  bg_color: 0x244434
+                  border_width: 0
+                  pad_all: 0
+                  scrollable: false
+                  widgets:
+                    # Code-native music-note fallback needs no external asset.
+                    - obj:
+                        x: 51
+                        y: 26
+                        width: 4
+                        height: 34
+                        bg_color: 0x7FE0A2
+                        border_width: 0
+                    - obj:
+                        x: 38
+                        y: 54
+                        width: 17
+                        height: 12
+                        radius: 6
+                        bg_color: 0x7FE0A2
+                        border_width: 0
+                    - obj:
+                        x: 51
+                        y: 26
+                        width: 15
+                        height: 6
+                        bg_color: 0x7FE0A2
+                        border_width: 0
+                    - image:
+                        id: small_music_cover_widget
+                        x: 0
+                        y: 0
+                        src: music_cover
+                        hidden: true
+              # Cover/track open detail. The room button is created above this
+              # target in z-order so its overlapping header opens Rooms instead.
+              - obj:
+                  id: small_music_detail_target
+                  x: 10
+                  y: 7
+                  width: 274
+                  height: 92
+                  bg_opa: TRANSP
+                  border_width: 0
+                  pad_all: 0
+                  scrollable: false
+                  clickable: true
+                  on_click:
+                    - script.execute: open_music_page
               - button:
                   id: small_music_room_select
-                  x: 10
-                  y: 3
-                  width: 184
-                  height: 30
+                  x: 114
+                  y: 6
+                  width: 170
+                  height: 28
                   radius: 6
                   pad_all: 0
                   bg_color: 0x0F1712
@@ -1743,103 +1842,6 @@ lvgl:
                   text_color: 0xEEF6F0
                   on_click:
                     - script.execute: switch_music_room
-              - label:
-                  id: small_music_status
-                  x: 201
-                  y: 13
-                  width: 78
-                  text_align: RIGHT
-                  long_mode: DOT
-                  text: "${music_loading}"
-                  text_font: montserrat_10
-                  text_color: 0x7FE0A2
-              - label:
-                  id: small_music_title
-                  x: 90
-                  y: 36
-                  width: 188
-                  # DOT needs a fixed one-line height; auto-height still wraps.
-                  height: 18
-                  long_mode: DOT
-                  text: "${music_ready}"
-                  text_font: montserrat_14
-                  text_color: 0xEEF6F0
-              - label:
-                  id: small_music_artist
-                  x: 90
-                  y: 59
-                  width: 188
-                  height: 16
-                  long_mode: DOT
-                  text: ""
-                  text_font: montserrat_12
-                  text_color: 0xA9B8AE
-              - label:
-                  id: small_music_volume
-                  x: 90
-                  y: 85
-                  width: 188
-                  height: 12
-                  long_mode: DOT
-                  text: "${music_volume_unknown}"
-                  text_font: montserrat_10
-                  text_color: 0xA9B8AE
-              - obj:
-                  id: small_music_cover_frame
-                  x: 16
-                  y: 34
-                  width: 62
-                  height: 62
-                  radius: 7
-                  bg_color: 0x244434
-                  border_width: 0
-                  pad_all: 0
-                  scrollable: false
-                  widgets:
-                    # Code-native music-note fallback needs no external asset.
-                    - obj:
-                        x: 34
-                        y: 18
-                        width: 3
-                        height: 23
-                        bg_color: 0x7FE0A2
-                        border_width: 0
-                    - obj:
-                        x: 25
-                        y: 37
-                        width: 12
-                        height: 8
-                        radius: 4
-                        bg_color: 0x7FE0A2
-                        border_width: 0
-                    - obj:
-                        x: 34
-                        y: 18
-                        width: 10
-                        height: 4
-                        bg_color: 0x7FE0A2
-                        border_width: 0
-              - image:
-                  id: small_music_cover_widget
-                  x: 16
-                  y: 34
-                  src: music_cover
-                  hidden: true
-              # One touch target spans the cover and track text. Room selection
-              # and playback controls sit outside it to keep their own actions.
-              - obj:
-                  id: small_music_detail_target
-                  x: 10
-                  y: 34
-                  width: 274
-                  height: 64
-                  bg_opa: TRANSP
-                  border_width: 0
-                  pad_all: 0
-                  scrollable: false
-                  clickable: true
-                  on_click:
-                    - script.execute: open_music_page
               - button:
                   id: small_music_minus
                   x: 16

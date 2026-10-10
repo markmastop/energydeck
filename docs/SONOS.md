@@ -7,7 +7,15 @@ card, so favorites and extra controls remain accessible after pausing.
 The dashboard's right-hand **Sonos** button opens the full player directly,
 including while idle, offline or waiting for a command. Tapping the compact
 player's cover or track text also opens detail through one shared touch target.
-Room selection and playback controls retain their own actions. The separate
+The compact player uses a larger 92px cover on the left, with the room selector,
+a two-line track title, artist/status and volume aligned in one column beside it.
+Long room/group names and titles are ellipsized within fixed two-line boxes;
+waiting, pause and error text replace the artist row. The room selector opens
+Rooms. Empty artist rows and unused title lines collapse; combined default-room
+volumes use compact percentages in the heading's living/kitchen order. The selector
+keeps its own touch target above the shared cover/track target. The
+cover is clipped to its rounded frame; idle favorites retain their full-width
+room heading. Playback controls remain in the full-width bottom row. The separate
 Detail button is removed; compact minus/plus controls now occupy 62 px each and
 Play/Pause occupies 122 px, with 8 px gaps. The **back arrow** returns to the
 compact Sonos card in the Gas/Climate card position, with Sonos highlighted green. Starting
@@ -20,7 +28,7 @@ displayed room never starts music or a Homey Flow.
 
 Both players share room selection, current title/artist, volume, waiting/error
 state and playback controls. The compact cover scales the same decoded image to
-62×62 pixels without another network request; the full page uses a 272px cover.
+92×92 pixels without another network request; the full page uses a 272px cover.
 
 The compact live energy header stays at the top on both pages. Sonos starts at
 y=154, the top edge of the dashboard's Today/Tomorrow tabs. The same header widgets
@@ -210,7 +218,7 @@ and artist. Track artwork takes precedence over the station artwork from
 never the technical stream URL. The compact grouped-room label is transparent.
 Both cover widgets detach before decoding, and the LVGL image cache and descriptor
 dimensions are refreshed before displaying a newly decoded buffer.
-The compact cover uses its own persistent 62×62 RGB565 thumbnail, center-cropped
+The compact cover uses its own persistent 92×92 RGB565 thumbnail, center-cropped
 from the decoded artwork and displayed at native scale. It does not share the
 large cover's transformed rendering buffer.
 New cover downloads only start while either Sonos view is selected.
@@ -304,6 +312,15 @@ actual membership. Disabled group actions retain the dark palette. Group writes,
 coordinator promotion and favorite routing were tested only with synthetic SOAP
 replies. No live grouping, playback, volume, mute or queue commands and no
 firmware upload were performed. Physical grouping remains unverified.
+
+2026-10-10 compact-layout validation: cover-format/thumbnail and Sonos
+model/navigation regressions passed, as did the production simulator build.
+Visual checks confirmed the 92px rounded cover, the aligned room/title/volume
+column with an empty artist row collapsed, the paused-room status and fallback,
+and separate navigation from the room heading (Rooms) and cover (detail).
+The thumbnail test exercises crop coordinates, padded source rows and buffer
+boundaries at the configured size. No live playback/group/volume changes or
+firmware upload were performed for this layout change.
 
 2026-09-20 dedicated-page validation: all regression scripts and the native
 simulator/ESP32 builds passed. A read-only live favorites probe decoded 13 playable

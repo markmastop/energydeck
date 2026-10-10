@@ -10,6 +10,7 @@ const decoderEnd = cpp.indexOf('\nOnlineImage::OnlineImage', decoderStart);
 const musicYaml = fs.readFileSync(path.join(root, 'esphome/packages/music.yaml'), 'utf8');
 const cacheHeader = fs.readFileSync(path.join(root, 'esphome/components/online_image/favorite_artwork.h'), 'utf8');
 const cacheCode = cacheHeader.slice(cacheHeader.indexOf('namespace esphome::online_image'), cacheHeader.lastIndexOf('#endif'));
+const thumbnailSize = Number(musicYaml.match(/music_compact_cover_size: "(\d+)"/)[1]);
 const thumbnailStart = musicYaml.indexOf('              const int side =');
 const thumbnailEnd = musicYaml.indexOf('              mini = *source;', thumbnailStart);
 if (thumbnailStart < 0 || thumbnailEnd < 0) throw new Error('Native thumbnail copy missing');
@@ -57,14 +58,15 @@ void test_thumbnail(int w, int h) {
   }
   image.header.stride = stride; image.data = pixels.data();
   const auto *source = &image;
-  uint8_t guarded[62 * 62 * 2 + 2] = {};
+  constexpr int thumbnail_side = ${thumbnailSize};
+  uint8_t guarded[thumbnail_side * thumbnail_side * 2 + 2] = {};
   guarded[0] = guarded[sizeof(guarded)-1] = 123;
   auto *thumbnail = guarded + 1;
 ${musicYaml.slice(thumbnailStart, thumbnailEnd)}
   assert(guarded[0] == 123 && guarded[sizeof(guarded)-1] == 123);
-  for (int y = 0; y < 62; ++y) for (int x = 0; x < 62; ++x) {
-    assert(thumbnail[(y * 62 + x) * 2] == ((w - side) / 2 + x * side / 62) % 251);
-    assert(thumbnail[(y * 62 + x) * 2 + 1] == ((h - side) / 2 + y * side / 62) % 251);
+  for (int y = 0; y < thumbnail_side; ++y) for (int x = 0; x < thumbnail_side; ++x) {
+    assert(thumbnail[(y * thumbnail_side + x) * 2] == ((w - side) / 2 + x * side / thumbnail_side) % 251);
+    assert(thumbnail[(y * thumbnail_side + x) * 2 + 1] == ((h - side) / 2 + y * side / thumbnail_side) % 251);
   }
   auto saved = thumbnail[0]; pixels.assign(pixels.size(), 255);
   assert(thumbnail[0] == saved); // Independent of the next full-cover decode.

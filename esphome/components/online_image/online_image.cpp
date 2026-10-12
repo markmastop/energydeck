@@ -1,7 +1,7 @@
 #include "online_image.h"
 #include "cover_redirect.h"
 #include "station_artwork.h"
-#include "radionl_logo.h"
+#include "station_logos.h"
 #include "esphome/core/log.h"
 
 namespace esphome::online_image {
@@ -12,7 +12,7 @@ OnlineImage::OnlineImage(const std::string &url, int width, int height, runtime_
   set_url(url);
 }
 bool OnlineImage::validate_url_(const std::string &url) {
-  return url == energydeck_artwork::RADIONL_COVER ||
+  return energydeck_artwork::station_index(url) < energydeck_artwork::STATION_COUNT ||
     (!url.empty() && url.size() <= 2048 && (url.starts_with("http://") || url.starts_with("https://")));
 }
 void OnlineImage::update() {
@@ -32,10 +32,12 @@ void OnlineImage::update() {
   cancelled_ = std::make_shared<std::atomic<bool>>(false);
   auto work = [request = std::move(request), decoded, cancelled = cancelled_]() mutable {
     if (cancelled->load(std::memory_order_acquire)) return background_http::Reply{};
-    if (request.url == energydeck_artwork::RADIONL_COVER) {
+    const auto local_index = energydeck_artwork::station_index(request.url);
+    if (local_index < energydeck_artwork::STATION_COUNT) {
       // Keep decoding and publication on the existing UI-first worker path.
       // This baseline asset needs no TLS/download or progressive JPEG decoder.
-      std::string bytes(reinterpret_cast<const char *>(RADIONL_LOGO), sizeof(RADIONL_LOGO));
+      const auto &asset = STATION_LOGOS[local_index];
+      std::string bytes(reinterpret_cast<const char *>(asset.data), asset.size);
       background_http::Reply reply;
       reply.status_code = decoded->decode_complete(bytes, false) ? 200 : 0;
       return reply;
@@ -57,7 +59,8 @@ void OnlineImage::update() {
     reply.body.clear(); // Compressed bytes are never retained alongside published UI images.
     return reply;
   };
-  auto done = [this, generation, decoded, local = url_ == energydeck_artwork::RADIONL_COVER](background_http::Reply reply) {
+  auto done = [this, generation, decoded,
+               local = energydeck_artwork::station_index(url_) < energydeck_artwork::STATION_COUNT](background_http::Reply reply) {
     if (generation != generation_) return;
     pending_ = false;
     if (reply.status_code == 304 && published_) { download_finished_callback_.call(true); return; }

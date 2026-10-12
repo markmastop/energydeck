@@ -200,46 +200,58 @@ int main(int argc, char **argv) {
   cover.release(); pump(http, 400);
   assert(covers == 2 && errors == 0 && !cover.get_data_start() && !cover.is_loaded() && !cover.is_pending());
 
-  // Exercise the shipped logo through the production component at every UI
-  // size, with no HTTP server route or network required for the local resource.
-  std::vector<std::unique_ptr<online_image::OnlineImage>> logos;
-  std::vector<lv_obj_t *> widgets;
-  int y = 10;
-  for (int size : {272, 92, 32}) {
-    auto logo = std::make_unique<online_image::OnlineImage>(energydeck_artwork::RADIONL_COVER, size, size,
-      runtime_image::JPEG, image::IMAGE_TYPE_RGB565, image::TRANSPARENCY_OPAQUE, nullptr, 2048, false);
-    logo->set_parent(&http);
-    auto finished = std::make_shared<int>(0);
-    logo->add_on_finished_callback([finished](bool) { ++*finished; });
-    logo->add_on_error_callback([&]() { ++errors; });
-    touch_state = LV_INDEV_STATE_PRESSED;
-    logo->update(); pump(http, 250);
-    assert(!logo->is_loaded() && *finished == 0); // Local decode also respects UI priority.
-    touch_state = LV_INDEV_STATE_RELEASED; pump(http, 250);
-    assert(logo->is_loaded() && *finished == 1 && errors == 0);
-    assert(logo->get_width() == size && logo->get_height() == size);
-    const auto color = logo->get_pixel(0, 0);
-    assert(color.r > 210 && color.g < 30 && color.b < 60);
-    auto *widget = lv_image_create(lv_screen_active());
-    lv_obj_set_pos(widget, 110, y); y += size + 20;
-    lv_image_set_src(widget, logo->get_lv_image_dsc());
-    widgets.push_back(widget); logos.push_back(std::move(logo));
+  // Exercise every shipped logo through the production component at all UI
+  // sizes. Local keys have no HTTP route and must respect UI-first publication.
+  lv_obj_add_flag(button, LV_OBJ_FLAG_HIDDEN);
+  for (size_t index = 0; index < energydeck_artwork::STATION_COUNT; ++index) {
+    std::vector<std::unique_ptr<online_image::OnlineImage>> logos;
+    std::vector<lv_obj_t *> widgets;
+    int x = 110, y = 10;
+    for (int size : {272, 92, 32}) {
+      auto logo = std::make_unique<online_image::OnlineImage>(energydeck_artwork::STATIONS[index].cover, size, size,
+        runtime_image::JPEG, image::IMAGE_TYPE_RGB565, image::TRANSPARENCY_OPAQUE, nullptr, 2048, false);
+      logo->set_parent(&http);
+      auto finished = std::make_shared<int>(0);
+      logo->add_on_finished_callback([finished](bool) { ++*finished; });
+      logo->add_on_error_callback([&]() { ++errors; });
+      if (index == 0) touch_state = LV_INDEV_STATE_PRESSED;
+      logo->update(); pump(http, 250);
+      if (index == 0) {
+        assert(!logo->is_loaded() && *finished == 0);
+        touch_state = LV_INDEV_STATE_RELEASED; pump(http, 250);
+      }
+      assert(logo->is_loaded() && *finished == 1 && errors == 0);
+      assert(logo->get_width() == size && logo->get_height() == size);
+      auto *widget = lv_image_create(lv_screen_active());
+      lv_obj_set_pos(widget, x, y);
+      lv_image_set_src(widget, logo->get_lv_image_dsc());
+      pump(http, 30);
+      const auto expected = logo->get_pixel(8, 8);
+      const uint16_t rendered = capture_pixel(snapshot[(y + 8) * 480 + x + 8]);
+      assert(std::abs(int(rendered >> 11) - (expected.r >> 3)) <= 1);
+      assert(std::abs(int((rendered >> 5) & 63) - (expected.g >> 2)) <= 1);
+      assert(std::abs(int(rendered & 31) - (expected.b >> 3)) <= 1);
+      widgets.push_back(widget); logos.push_back(std::move(logo));
+      if (size == 272) y = 302;
+      else x = 222;
+    }
+    auto *label = lv_label_create(lv_screen_active());
+    lv_obj_set_pos(label, 110, 410);
+    lv_label_set_text(label, energydeck_artwork::STATIONS[index].cover);
+    pump(http, 30);
+    std::ofstream preview(assets + "/station-" + std::to_string(index) + ".ppm", std::ios::binary);
+    preview << "P6\n480 450\n255\n";
+    for (size_t pos = 0; pos < 480 * 450; ++pos) {
+      const uint16_t pixel = capture_pixel(snapshot[pos]);
+      const uint8_t r = pixel >> 11, g = (pixel >> 5) & 63, b = pixel & 31;
+      const char rgb[] = {static_cast<char>((r << 3) | (r >> 2)),
+        static_cast<char>((g << 2) | (g >> 4)), static_cast<char>((b << 3) | (b >> 2))};
+      preview.write(rgb, sizeof(rgb));
+    }
+    lv_obj_delete(label);
+    for (auto *widget : widgets) lv_obj_delete(widget);
+    for (auto &logo : logos) logo->release();
   }
-  pump(http, 30);
-  const uint16_t rendered = capture_pixel(snapshot[18 * 480 + 118]);
-  assert((rendered >> 11) > 26 && ((rendered >> 5) & 63) < 8 && (rendered & 31) < 12);
-  std::ofstream preview(assets + "/radionl-render.ppm", std::ios::binary);
-  preview << "P6\n480 800\n255\n";
-  for (uint16_t pixel : snapshot) {
-    pixel = capture_pixel(pixel);
-    const uint8_t r = pixel >> 11, g = (pixel >> 5) & 63, b = pixel & 31;
-    const char rgb[] = {static_cast<char>((r << 3) | (r >> 2)),
-      static_cast<char>((g << 2) | (g >> 4)), static_cast<char>((b << 3) | (b >> 2))};
-    preview.write(rgb, sizeof(rgb));
-  }
-  preview.close();
-  for (auto *widget : widgets) lv_obj_delete(widget);
-  for (auto &logo : logos) logo->release();
 
-  std::cout << "PASS: live LVGL input/render during slow HTTP, UI-first publication, FIFO priorities, asynchronous action completion/cancellation, chunked/bounded/deadline reads, redirects/write-once, isolated PNG/JPEG decoding and local RADIONL rendering at 272/92/32 px\n";
+  std::cout << "PASS: live LVGL input/render during slow HTTP, UI-first publication, FIFO priorities, asynchronous action completion/cancellation, chunked/bounded/deadline reads, redirects/write-once, isolated PNG/JPEG decoding and all 11 local station logos rendered at 272/92/32 px\n";
 }

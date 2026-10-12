@@ -321,16 +321,19 @@ alone may follow exactly one HTTPS redirect from either Sonos proxy to
 HTTP downgrades and further redirects are rejected; Homey credentials are never
 sent with the redirected request.
 
-RADIONL West-Brabant (TuneIn `s106736`) uses a bundled baseline JPEG logo in both
-player views and favorites. Its two observed TuneIn logo URLs, including encoded
-Sonos proxy/coordinator URLs, resolve to a registered local image key after the
-usual origin checks. The 272x272 asset is 16,101 compressed bytes; it decodes on
-the artwork worker and publishes after the UI quiet window without HTTPS. It
-uses the existing 92x92 player thumbnail and 32x32 favorite cache. The previous
-workaround skipped this station because the CDN supplied unsupported progressive
-JPEGs. The CDN now returns baseline JPEGs, but the pinned asset avoids depending
-on the remote format or availability. Other stations/regions keep their own
-artwork; no station-name guessing is used. Playback is unaffected.
+Qmusic, NPO Radio 2/5/1, Radio 538, Sky Radio, Radio 10, JOE Nederland,
+Radio Veronica, 100% NL and RADIONL West-Brabant have bundled baseline JPEG logos
+in both player views and favorites. Exact registered TuneIn image resources,
+including encoded Sonos proxy/coordinator URLs and the legacy logo CDN, resolve
+to local keys after the usual origin checks. The eleven 272x272 assets total
+111,228 compressed bytes and decode on the artwork worker, publishing after the
+UI quiet window without HTTPS. Wide NPO marks are padded with white to preserve
+the complete logo in the existing 92x92 player and 32x32 favorite thumbnails.
+Source URLs/checksums and reproducible encoding instructions are recorded in the
+online_image component. The pinned assets avoid depending on remote formats
+(including unsupported progressive JPEGs) or availability. Other stations,
+regions and foreign/theme channels keep their own artwork; no station-name
+guessing is used. Playback is unaffected.
 
 JPEG and PNG covers are decoded at up to 272×272 pixels, above ellipsized title
 and artist. Track artwork takes precedence over the station artwork from
@@ -678,3 +681,27 @@ A 120-second serial capture spanning the update confirmed boot success and
 events. No local-logo publication was recorded during this capture, so physical
 logo appearance still requires user verification. No playback/grouping/volume or
 charging commands were issued for this artwork change.
+
+## Dutch station logo set (2026-10-12)
+
+Added ten pinned baseline JPEGs alongside RADIONL West-Brabant, using the
+canonical TuneIn IDs returned by its public station search. The source URLs and
+SHA256 checksums are recorded in the manifest. Pillow 12.3.0 regeneration from
+the downloaded source files was byte-identical. The set adds 95,127 compressed
+bytes; square padding preserves the complete wide NPO Radio 1/2 marks in the
+existing thumbnail cache. Foreign, regional and theme station IDs do not map to
+these national station logos.
+
+Music/model, artwork cache/redirect and room-widget regressions passed. The
+production simulator components decoded and rendered all eleven logos at
+272/92/32 pixels, checked RGB565 publication and held-input deferral, and exported
+a visually inspected LVGL sheet. Simulator, 5-inch and 7-inch builds passed. The
+5-inch build from `2026-10-12 20:05:18 +0200` was uploaded over OTA; the 7-inch
+was not updated. No playback/grouping/volume or charging commands were issued.
+
+A 120-second serial capture spanning the update confirmed boot success and ten
+known selected-room cycles, without HTTP/Sonos transport errors, crashes or
+watchdog events. No local-logo publication was recorded, so physical logo
+appearance remains unverified. Existing startup/component/script warnings and
+UI publication samples up to 109 ms remain; this short capture does not establish
+long-term stability or a hard interaction-latency guarantee.

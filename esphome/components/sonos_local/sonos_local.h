@@ -310,6 +310,12 @@ class State {
   bool systems_complete = false;
   int selected = 0;
   bool command_failed = false;
+  int command_error = 0;
+  bool command_active() const { return commanding_ && has_request(); }
+  static constexpr unsigned MAX_FAVORITE_SETTLE_READS = 10;
+  uint32_t request_delay_ms() const {
+    return commanding_ && target_action_ == 6 && has_request() && request().action.rfind("Get", 0) == 0 ? 200 : 10;
+  }
   const Room &current() const { return selected < 2 ? rooms[selected] : extra_; }
   bool explicitly_selected() const { return !explicit_uuid_.empty(); }
   bool uses_pair_controls() const { return !explicitly_selected() && selected < 2 && grouped(); }
@@ -409,12 +415,50 @@ class State {
     Xml xml(body);
     const bool ok = status == 200 && xml.valid && xml.has(req.action + "Response") && !xml.has("Fault");
     if (commanding_) {
-      if (!ok) { command_failed = true; requests_.clear(); cursor_ = 0; return; }
+      const bool settling = target_action_ == 6 && req.action.rfind("Get", 0) == 0;
+      // Only read readiness again. A failed/lost write may already have applied,
+      // so SetURI, enqueue, Seek and Play are each sent at most once.
+      const bool transient = !xml.has("Fault") && (status == 0 || status == 408 || status == 429 ||
+        status == 500 || status == 502 || status == 503 || status == 504 || (status == 200 && !ok));
+      if (!ok) {
+        if (settling && transient && ++favorite_settle_reads_ < MAX_FAVORITE_SETTLE_READS) return;
+        command_error = xml.has("Fault") ? std::max(0, number(xml.text("errorCode"))) : 0;
+        command_failed = true; requests_.clear(); cursor_ = 0; return;
+      }
+      if (settling) {
+        bool ready = false;
+        if (req.action == "GetMediaInfo") ready = xml.text("CurrentURI") == favorite_uri_;
+        else if (req.action == "GetTransportInfo") {
+          const auto state = xml.text("CurrentTransportState");
+          ready = (state == "STOPPED" || state == "PAUSED_PLAYBACK" || state == "PLAYING") &&
+                  xml.text("CurrentTransportStatus") != "ERROR_OCCURRED";
+        } else if (req.action == "GetPositionInfo") {
+          const int track = number(xml.text("Track"));
+          ready = track >= favorite_track_ && track < favorite_end_track_;
+        }
+        if (!ready) {
+          if (++favorite_settle_reads_ < MAX_FAVORITE_SETTLE_READS) return;
+          command_error = -1; command_failed = true; requests_.clear(); cursor_ = 0; return;
+        }
+        favorite_settle_reads_ = 0;
+      }
+      if (target_action_ == 6 && req.action == "SetAVTransportURI") {
+        // A successful SetURI acknowledges the change, not completion of the
+        // source transition. Do not Seek/Play while the speaker is transitioning.
+        requests_.insert(requests_.begin() + cursor_ + 1, {
+          {req.host, "AVTransport", "GetMediaInfo", "<InstanceID>0</InstanceID>", target_room_},
+          {req.host, "AVTransport", "GetTransportInfo", "<InstanceID>0</InstanceID>", target_room_}});
+        favorite_settle_reads_ = 0;
+      } else if (target_action_ == 6 && req.action == "Seek") {
+        requests_.insert(requests_.begin() + cursor_ + 1,
+          {req.host, "AVTransport", "GetPositionInfo", "<InstanceID>0</InstanceID>", target_room_});
+        favorite_settle_reads_ = 0;
+      }
       if (req.action == "AddURIToQueue") {
         const int first = number(xml.text("FirstTrackNumberEnqueued"));
         const int added = number(xml.text("NumTracksAdded"));
-        if (first <= 0 || added <= 0) { command_failed = true; requests_.clear(); cursor_ = 0; return; }
-        favorite_track_ = first;
+        if (first <= 0 || added <= 0) { command_error = -2; command_failed = true; requests_.clear(); cursor_ = 0; return; }
+        favorite_track_ = first; favorite_end_track_ = first + added;
         const auto &r = room(target_room_);
         const auto uri = "x-rincon-queue:" + r.coordinator + "#0";
         favorite_uri_ = uri;
@@ -580,7 +624,7 @@ class State {
   void capture() { captured_room_ = selected; captured_scope_ = scope(); }
   bool prepare_command(int action) {
     selected = captured_room_;
-    command_failed = false; requests_.clear(); cursor_ = 0; commanding_ = true;
+    command_failed = false; command_error = 0; requests_.clear(); cursor_ = 0; commanding_ = true;
     if (action < 0 || action > 5 || captured_scope_.empty() || captured_scope_ != scope() || !current().known()) return false;
     if ((action == 0 && current().tv) || ((action == 1 || action == 2) && !can_volume()) ||
         (action == 3 && (current().tv || !current().previous)) || (action == 4 && (current().tv || !current().next)) ||
@@ -607,10 +651,10 @@ class State {
   bool can_favorite() const { return current().known(); }
   bool prepare_favorite(const Favorite &favorite) {
     selected = captured_room_;
-    command_failed = false; requests_.clear(); cursor_ = 0; commanding_ = true;
+    command_failed = false; command_error = 0; requests_.clear(); cursor_ = 0; commanding_ = true;
     if (captured_scope_.empty() || captured_scope_ != scope() || !current().known() || favorite.uri.empty() || favorite.metadata.empty()) return false;
     target_action_ = 6; target_scope_ = scope(); target_room_ = selected;
-    favorite_uri_ = favorite.uri; favorite_track_ = -1;
+    favorite_uri_ = favorite.uri; favorite_track_ = -1; favorite_end_track_ = -1; favorite_settle_reads_ = 0;
     if (favorite.radio) {
       requests_.push_back({current().coordinator_host, "AVTransport", "SetAVTransportURI", "<InstanceID>0</InstanceID><CurrentURI>" + xml_escape(favorite.uri) +
         "</CurrentURI><CurrentURIMetaData>" + xml_escape(favorite.metadata) + "</CurrentURIMetaData>", selected});
@@ -656,7 +700,8 @@ class State {
   }
   void reset_group_edit() { group_dirty_ = false; sync_group_edit(); }
   bool prepare_group() {
-    requests_.clear(); cursor_ = 0; commanding_ = true; command_failed = false;
+    requests_.clear(); cursor_ = 0; commanding_ = true; command_failed = false; command_error = 0;
+    target_action_ = -1; // Group SetURI must never inherit a preceding favorite's readiness sequence.
     group_expected_.clear();
     if (!group_dirty_ || !group_edit_valid() || !group_checked(group_anchor_)) return false;
     const auto &anchor = *system(group_anchor_);
@@ -712,7 +757,7 @@ class State {
     if (target_action_ == 0) return !r.transitioning && r.playing == target_playing_;
     if (target_action_ == 3 || target_action_ == 4) return !r.track_uri.empty() && r.track_uri != target_track_uri_;
     if (target_action_ == 5) return r.mute == target_mute_ && (!target_pair_ || rooms[1-target_room_].mute == target_mute_);
-    if (target_action_ == 6) return r.playing && r.uri == favorite_uri_ && (favorite_track_ < 0 || r.track == favorite_track_);
+    if (target_action_ == 6) return r.playing && r.uri == favorite_uri_ && (favorite_track_ < 0 || (r.track >= favorite_track_ && r.track < favorite_end_track_));
     for (int i = 0; i < 3; ++i) if (target_volumes_[i] >= 0 && room(i).volume != target_volumes_[i]) return false;
     return true;
   }
@@ -738,7 +783,8 @@ class State {
   int captured_room_ = 0, target_room_ = 0, target_action_ = 0;
   std::string captured_scope_, target_scope_;
   std::string target_track_uri_, favorite_uri_;
-  int target_mute_ = 0, favorite_track_ = -1;
+  int target_mute_ = 0, favorite_track_ = -1, favorite_end_track_ = -1;
+  unsigned favorite_settle_reads_ = 0;
   std::array<int, 3> target_volumes_{{-1, -1, -1}};
   const System *system(const std::string &uuid) const {
     for (const auto &s : systems) if (s.uuid == uuid) return &s;

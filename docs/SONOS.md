@@ -705,3 +705,23 @@ watchdog events. No local-logo publication was recorded, so physical logo
 appearance remains unverified. Existing startup/component/script warnings and
 UI publication samples up to 109 ms remain; this short capture does not establish
 long-term stability or a hard interaction-latency guarantee.
+
+The user subsequently confirmed that the RADIONL West-Brabant logo is visible
+in both the player and favorite on the physical 5-inch display.
+
+## 7-inch rollout (2026-10-12)
+
+After the user connected the 7-inch unit, a serial MAC read matched the previously
+verified device (`14:c1:9f:c3:10:e0`). The current 7-inch configuration compiled
+successfully and was uploaded over OTA to `energydeck-7.local`. The serial boot
+log confirmed the expected build timestamp, `2026-10-12 20:05:15 +0200`, including
+the shared UI-first transport, radio-start fixes, memory settings and local logo
+set. The 5-inch was not updated in this rollout. No playback/grouping/volume or
+charging commands were issued for verification.
+
+A 140-second serial capture spanning the update confirmed boot success and
+twelve known selected-room cycles, with no unknown cycles, HTTP/Sonos transport
+errors, crashes or watchdog events. No local-logo publication was captured;
+physical 7-inch logo appearance and interaction responsiveness remain unverified.
+Existing startup/component/script warnings and UI publication samples up to
+110 ms remain. This observation does not measure long-term reliability.

@@ -107,6 +107,39 @@ void test_xml() {
     "https://sali.sonos.radio/image?image=https%3x%2F%2Fcdn-profiles.tunein.com%2Fs106736%2Fimages%2Flogog.jpg"})
     assert(artwork_url(path, living) == path);
   for (auto url : {"https://sali.sonos.superhi.fi.evil/image", "https://sali.sonos.radio@evil/image", "http://sali.sonos.radio/image", "//evil/image"}) assert(artwork_url(url, living).empty());
+  // All registered logos work through both proxy families and coordinator
+  // metadata, including the legacy CDN and small/medium/large PNG/JPEG URLs.
+  auto encode_uri = [](const std::string &uri) {
+    const char *hex = "0123456789ABCDEF";
+    std::string encoded;
+    for (unsigned char c : uri) { encoded += '%'; encoded += hex[c >> 4]; encoded += hex[c & 15]; }
+    return encoded;
+  };
+  for (size_t index = 0; index < energydeck_artwork::STATION_COUNT; ++index) {
+    const auto &station = energydeck_artwork::STATIONS[index];
+    assert(energydeck_artwork::station_index(station.cover) == index);
+    for (const char *scheme : {"http://", "https://"}) for (char size : {'g', 'd', 'q'}) {
+      for (const char *extension : {".jpg", ".png"}) {
+        for (const auto &resource : {
+          std::string(scheme) + "cdn-profiles.tunein.com/" + station.tunein_id + "/images/logo" + size + extension,
+          std::string(scheme) + "cdn-radiotime-logos.tunein.com/" + station.tunein_id + size + extension}) {
+          for (const char *proxy : {"https://sali.sonos.radio/image?w=60&image=", "https://sali.sonos.superhi.fi/image?image="}) {
+            const auto url = std::string(proxy) + resource + "?t=1&partnerId=tunein";
+            assert(artwork_url(url, living) == station.cover);
+            assert(artwork_url(std::string(proxy) + encode_uri(resource), living) == station.cover);
+            assert(artwork_url(std::string(proxy) + resource + ".evil", living) == std::string(proxy) + resource + ".evil");
+          }
+          assert(artwork_url("/getaa?u=" + encode_uri(resource), living) == station.cover);
+          assert(artwork_url(resource, living).empty()); // Outer origin rules still apply.
+        }
+      }
+    }
+  }
+  assert(energydeck_artwork::station_index("energydeck://artwork/unregistered") == energydeck_artwork::STATION_COUNT);
+  for (const char *foreign : {"s2398", "s98611", "s25741", "s109868", "s8585", "s346477", "s154463", "s210021"}) {
+    const auto url = std::string("https://sali.sonos.radio/image?image=https://cdn-profiles.tunein.com/") + foreign + "/images/logog.png";
+    assert(artwork_url(url, living) == url); // No regional, thematic or foreign substitutions.
+  }
   State radio; Fixture fixture; fixture.radio = true; poll(radio, fixture);
   assert(radio.current().artist == "Qmusic" && radio.current().title == "Song - Artist");
   assert(radio.current().cover == "https://sali.sonos.superhi.fi/image?w=60&image=logo.png");
@@ -589,6 +622,11 @@ void test_favorites() {
     item.cover = "https://sali.sonos.radio/image?image=https%3A%2F%2Fcdn-profiles.tunein.com%2Fs106736%2Fimages%2Flogog.jpg";
     covers.begin(kitchen); covers.accept(200, favorite_page({item}, 1));
     assert(covers.items[0].cover == energydeck_artwork::RADIONL_COVER);
+    for (const auto &station : energydeck_artwork::STATIONS) {
+      item.cover = std::string("https://sali.sonos.radio/image?w=60&image=https://cdn-profiles.tunein.com/") + station.tunein_id + "/images/logoq.png?t=1&partnerId=tunein";
+      covers.begin(kitchen); covers.accept(200, favorite_page({item}, 1));
+      assert(covers.items.size() == 1 && covers.items[0].cover == station.cover);
+    }
     item.cover.clear();
     item.metadata = "<item><class>object.container.playlistContainer</class><albumArtURI>https://image-cdn-ak.spotifycdn.com/image/test</albumArtURI></item>";
     covers.begin(kitchen); covers.accept(200, favorite_page({item}, 1));

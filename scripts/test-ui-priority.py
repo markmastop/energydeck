@@ -89,9 +89,14 @@ with tempfile.TemporaryDirectory(prefix="energydeck-ui-priority-") as temp:
     server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True); thread.start()
     try:
-        subprocess.run([str(binary), f"http://127.0.0.1:{server.server_port}", str(assets)], check=True, timeout=20, env={**os.environ, "SDL_VIDEODRIVER": "dummy"})
+        subprocess.run([str(binary), f"http://127.0.0.1:{server.server_port}", str(assets)], check=True, timeout=30, env={**os.environ, "SDL_VIDEODRIVER": "dummy"})
         if preview := os.environ.get("ENERGYDECK_UI_SNAPSHOT"):
-            Image.open(assets / "radionl-render.ppm").save(preview)
+            pages = [Image.open(p) for p in sorted(assets.glob("station-*.ppm"), key=lambda p: int(p.stem.split("-")[1]))]
+            assert len(pages) == 11
+            sheet = Image.new("RGB", (480 * 3, 450 * 4), "white")
+            for i, page in enumerate(pages):
+                sheet.paste(page, ((i % 3) * 480, (i // 3) * 450))
+            sheet.save(preview)
     finally:
         server.shutdown(); server.server_close()
     assert not Handler.failures, Handler.failures

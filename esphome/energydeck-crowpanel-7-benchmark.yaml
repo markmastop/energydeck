@@ -1,0 +1,4 @@
+packages:
+  deck: !include energydeck-crowpanel-7.yaml
+ui_performance:
+  benchmark_redraws: 5

@@ -211,6 +211,10 @@ Use the same local environment variables as the 5-inch build to compile this
 target with `esphome compile esphome/energydeck-crowpanel-7.yaml`. Compilation
 does not upload firmware. Keep the 5-inch `flash.sh` target unchanged.
 
+Both physical targets use the shared [display responsiveness optimizations
+and diagnostics](docs/PERFORMANCE.md). On the 7-inch deck, measured full-screen
+dashboard redraws decreased from approximately 1.09 seconds to 0.23 seconds.
+
 ## Simulator
 
 Requirements on macOS:

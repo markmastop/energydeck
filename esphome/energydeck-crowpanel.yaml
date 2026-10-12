@@ -67,6 +67,11 @@ esp32:
   framework:
     type: esp-idf
     sdkconfig_options:
+      # RGB scanout and LVGL's portrait rotation share PSRAM bandwidth. Match
+      # ELECROW's larger data cache and use 64-byte lines for framebuffer traffic.
+      CONFIG_ESP32S3_DATA_CACHE_64KB: y
+      CONFIG_ESP32S3_DATA_CACHE_LINE_64B: y
+      CONFIG_ESP32S3_INSTRUCTION_CACHE_32KB: y
       # Make normal malloc/new allocations PSRAM-aware. Homey's device JSON can
       # exceed 20 KB and must not compete with LVGL for internal SRAM.
       CONFIG_SPIRAM_USE_MALLOC: y
@@ -85,6 +90,9 @@ psram:
 
 logger:
   hardware_uart: UART0
+
+ui_performance:
+  display_id: energydeck_display
 
 wifi:
   ssid: !env_var ENERGYDECK_WIFI_SSID
@@ -161,6 +169,9 @@ packages:
 # Rotate the landscape LCD into the 480x800 portrait dashboard coordinate space.
 lvgl:
   displays: energydeck_display
+  # ESPHome rounds buffer sizes to 100/50/25/12.5%. Its smallest supported
+  # chunk halves both draw/rotation buffers and reduces strided PSRAM traffic.
+  buffer_size: 12.5%
   rotation: 90
   touchscreens:
     - energydeck_touch

@@ -1,0 +1,121 @@
+#pragma once
+
+#include "esphome/core/component.h"
+#include "esphome/core/hal.h"
+#include "esphome/core/log.h"
+#include "lvgl.h"
+#include "esphome/components/lvgl/lvgl_esphome.h"
+#include "portrait_rotation.h"
+#include <array>
+#include <cstring>
+
+namespace esphome::ui_performance {
+
+// LVGL rebuilds label layout even for identical text. Skip unchanged snapshots
+// so regular read-only polls do not invalidate the same text repeatedly.
+inline void set_text(lv_obj_t *label, const char *text) {
+  if (text == nullptr || std::strcmp(lv_label_get_text(label), text) != 0)
+    lv_label_set_text(label, text);
+}
+
+class UiPerformance : public Component {
+ public:
+  void set_benchmark_redraws(uint8_t count) { this->benchmark_left_ = count; }
+  void set_display(display::Display *panel, bool tiled) { this->panel_ = panel; this->tiled_ = tiled; }
+  float get_setup_priority() const override { return setup_priority::LATE; }
+  void setup() override {
+    auto *display = lv_display_get_default();
+    if (display == nullptr) { this->mark_failed(); return; }
+    lv_display_add_event_cb(display, event_callback_, LV_EVENT_ALL, this);
+    if (this->panel_ != nullptr && this->tiled_) {
+      instance_ = this;
+      // Keep LVGL's touch transform, page lifecycle and refresh events intact.
+      // Only replace the synchronous RGB565 flush; unsupported modes fall back
+      // to ESPHome's public callback. No ESPHome core files are patched.
+      lv_display_set_flush_cb(display, tiled_flush_);
+    }
+    // Opt-in redraws only invalidate the current screen. They never click a
+    // button, switch a page, or invoke Homey/Sonos commands.
+    this->set_timeout("benchmark", 30000, [this]() {
+      if (this->benchmark_left_ == 0) return;
+      this->set_interval("benchmark", 3000, [this]() {
+        if (this->benchmark_pending_) return;
+        this->benchmark_pending_ = true;
+        lv_obj_invalidate(lv_screen_active());
+        if (--this->benchmark_left_ == 0) this->cancel_interval("benchmark");
+      });
+    });
+  }
+
+ protected:
+  static void tiled_flush_(lv_display_t *display, const lv_area_t *area, uint8_t *pixels) {
+    auto *self = instance_;
+    auto *ui = static_cast<lvgl::LvglComponent *>(lv_display_get_user_data(display));
+    if (self == nullptr || ui->is_paused() || ui->get_rotation() != display::DISPLAY_ROTATION_90_DEGREES ||
+        self->panel_->get_rotation() != display::DISPLAY_ROTATION_0_DEGREES ||
+        lv_display_get_color_format(display) != LV_COLOR_FORMAT_RGB565) {
+      lvgl::LvglComponent::static_flush_cb(display, area, pixels);
+      return;
+    }
+    const int width = lv_area_get_width(area);
+    const int height = lv_area_get_height(area);
+    const auto *source = reinterpret_cast<const uint16_t *>(pixels);
+    // A full strided transpose repeatedly evicts dirty PSRAM cache lines.
+    // Transpose 32x32 pixels in a 2 KB internal tile, then copy each packed
+    // rectangle to the existing RGB framebuffer. Handle partial edge tiles.
+    for (int y = 0; y < height; y += TILE_SIDE) {
+      const int h = std::min(TILE_SIDE, height - y);
+      for (int x = 0; x < width; x += TILE_SIDE) {
+        const int w = std::min(TILE_SIDE, width - x);
+        rotate_portrait_tile(source + y * width + x, width, w, h, self->tile_.data());
+        self->panel_->draw_pixels_at(self->panel_->get_native_width() - area->y1 - y - h,
+                                    area->x1 + x, h, w, reinterpret_cast<const uint8_t *>(self->tile_.data()),
+                                    display::COLOR_ORDER_RGB, display::COLOR_BITNESS_565, true);
+      }
+    }
+    lv_display_flush_ready(display);
+  }
+  static void event_callback_(lv_event_t *event) {
+    auto *self = static_cast<UiPerformance *>(lv_event_get_user_data(event));
+    switch (lv_event_get_code(event)) {
+      case LV_EVENT_RENDER_START:
+        self->render_started_ = micros();
+        self->flush_us_ = 0;
+        self->pixels_ = 0;
+        break;
+      case LV_EVENT_FLUSH_START: {
+        self->flush_started_ = micros();
+        auto *area = static_cast<lv_area_t *>(lv_event_get_param(event));
+        self->pixels_ += lv_area_get_width(area) * lv_area_get_height(area);
+        break;
+      }
+      case LV_EVENT_FLUSH_FINISH:
+        self->flush_us_ += micros() - self->flush_started_;
+        break;
+      case LV_EVENT_RENDER_READY: {
+        const uint32_t total = micros() - self->render_started_;
+        // Flush includes ESPHome's software rotation and framebuffer copy;
+        // the remainder is LVGL drawing. Both run on the main event loop.
+        if (self->benchmark_pending_ || total >= 100000) {
+          ESP_LOGI("ui_performance", "%s: pixels=%u total=%.1f ms draw=%.1f ms rotate/copy=%.1f ms",
+                   self->benchmark_pending_ ? "Benchmark" : "Render", static_cast<unsigned>(self->pixels_),
+                   total / 1000.0f, (total - self->flush_us_) / 1000.0f, self->flush_us_ / 1000.0f);
+        }
+        self->benchmark_pending_ = false;
+        break;
+      }
+      default:
+        break;
+    }
+  }
+  uint32_t render_started_{0}, flush_started_{0}, flush_us_{0}, pixels_{0};
+  uint8_t benchmark_left_{0};
+  bool benchmark_pending_{false};
+  static constexpr int TILE_SIDE = 32;
+  inline static UiPerformance *instance_{nullptr};
+  display::Display *panel_{nullptr};
+  bool tiled_{false};
+  std::array<uint16_t, TILE_SIDE * TILE_SIDE> tile_{};
+};
+
+}  // namespace esphome::ui_performance

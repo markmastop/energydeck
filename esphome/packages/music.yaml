@@ -3,7 +3,9 @@ external_components:
   - source:
       type: local
       path: components
-    components: [online_image, sonos_local]
+    components: [online_image, sonos_local, ui_performance]
+
+ui_performance:
 
 sonos_local:
 
@@ -212,6 +214,8 @@ script:
       - lvgl.page.show: sonos_page
       - script.execute: render_sonos_energy_header
       - script.execute: render_music
+      # Show the new page before synchronous HTTP work can block touch/render.
+      - delay: 100ms
       - if:
           condition:
             lambda: return !id(music_busy);
@@ -235,6 +239,16 @@ script:
     then:
       - lambda: |-
           const bool detail = id(music_page_open);
+          const std::string status = lv_label_get_text(id(battery_status_label));
+          const std::string percentage_text = lv_label_get_text(id(battery_percentage_label));
+          const int level = lv_bar_get_value(id(battery_level_bar));
+          const uint32_t level_rgb = lv_color_to_u32(lv_obj_get_style_bg_color(id(battery_level_bar), LV_PART_INDICATOR));
+          const uint32_t state_rgb = lv_color_to_u32(lv_obj_get_style_text_color(id(battery_status_label), LV_PART_MAIN));
+          static std::string previous;
+          const std::string snapshot = std::to_string(detail) + "|" + status + "|" + percentage_text + "|" +
+            std::to_string(level) + "|" + std::to_string(level_rgb) + "|" + std::to_string(state_rgb);
+          if (snapshot == previous) return;
+          previous = snapshot;
           for (auto *widget : {id(electricity_today_arc), id(electricity_today_value_label),
               id(electricity_today_unit_label), id(electricity_ytd_label)}) {
             if (detail) lv_obj_add_flag(widget, LV_OBJ_FLAG_HIDDEN);
@@ -246,20 +260,19 @@ script:
             return;
           }
           lv_obj_clear_flag(id(sonos_battery_gauge), LV_OBJ_FLAG_HIDDEN);
-          const std::string status = lv_label_get_text(id(battery_status_label));
           const auto separator = status.find(" | ");
           const bool known = separator != std::string::npos;
           std::string percentage = known ? lv_label_get_text(id(battery_percentage_label)) : "--";
           const auto percent = percentage.find('%');
           if (percent != std::string::npos) percentage.resize(percent);
-          lv_label_set_text(id(sonos_battery_value), percentage.c_str());
+          esphome::ui_performance::set_text(id(sonos_battery_value), percentage.c_str());
           lv_arc_set_value(id(sonos_battery_arc), known ? lv_bar_get_value(id(battery_level_bar)) : 0);
           const auto level_color = known ? lv_obj_get_style_bg_color(id(battery_level_bar), LV_PART_INDICATOR) : lv_color_hex(0xA9B8AE);
           const auto state_color = lv_obj_get_style_text_color(id(battery_status_label), LV_PART_MAIN);
           lv_obj_set_style_arc_color(id(sonos_battery_arc), level_color, LV_PART_INDICATOR);
           lv_obj_set_style_text_color(id(sonos_battery_unit), level_color, 0);
-          lv_label_set_text(id(sonos_battery_power), known ? status.substr(separator + 3).c_str() : "-- W");
-          lv_label_set_text(id(sonos_battery_state), known ? status.substr(0, separator).c_str() : status.c_str());
+          esphome::ui_performance::set_text(id(sonos_battery_power), known ? status.substr(separator + 3).c_str() : "-- W");
+          esphome::ui_performance::set_text(id(sonos_battery_state), known ? status.substr(0, separator).c_str() : status.c_str());
           lv_obj_set_style_text_color(id(sonos_battery_power), state_color, 0);
           lv_obj_set_style_text_color(id(sonos_battery_state), state_color, 0);
 
@@ -284,7 +297,9 @@ script:
                 max_response_buffer_size: 65536
                 on_response:
                   then:
-                    - lambda: id(sonos).accept(response->status_code, body);
+                    - lambda: |-
+                        ESP_LOGD("network_performance", "Sonos %s: %u ms", id(sonos).request().action.c_str(), static_cast<unsigned>(response->duration_ms));
+                        id(sonos).accept(response->status_code, body);
                 on_error:
                   then:
                     - lambda: id(sonos).accept(0, "");
@@ -310,8 +325,6 @@ script:
             id(sonos).selected, id(sonos).grouped(), id(sonos).current().known(),
             id(sonos).current().playing, id(sonos).current().tv);
       - script.execute: select_detail_tab
-      - script.execute: render_music
-      - script.execute: refresh_music_cover
 
   - id: switch_music_room
     then:
@@ -470,6 +483,11 @@ script:
   - id: select_detail_tab
     then:
       - lambda: |-
+          // Polling calls this too. Restyling the same tab invalidates its card
+          // without changing anything; still refresh content below the lambda.
+          static int previous_tab = -1;
+          if (previous_tab == id(detail_tab)) return;
+          previous_tab = id(detail_tab);
           lv_obj_t *cards[] = {id(gas_card), id(music_card), id(extra_card)};
           for (int i = 0; i < 3; ++i) {
             if (id(detail_tab) == i) lv_obj_clear_flag(cards[i], LV_OBJ_FLAG_HIDDEN);
@@ -504,12 +522,12 @@ script:
             id(music_command_failed) ? "${music_control_failed}" :
             s.group_dirty() && !s.group_edit_valid() ? "${music_group_changed}" :
             !known ? "${music_offline}" : playing ? "" : "${music_paused}";
-          lv_label_set_text(id(music_status), status);
+          esphome::ui_performance::set_text(id(music_status), status);
           lv_obj_set_style_text_color(id(music_status),
             lv_color_hex(id(music_command_failed) || !known ? 0xEA665F : 0x7FE0A2), 0);
           const std::string room_heading = s.explicitly_selected() ? s.current_name() + " >" :
             s.grouped() ? "${music_rooms}" : s.selected == 0 ? "${music_living_select}" : "${music_kitchen_select}";
-          lv_label_set_text(lv_obj_get_child(id(music_room_select), 0), room_heading.c_str());
+          esphome::ui_performance::set_text(lv_obj_get_child(id(music_room_select), 0), room_heading.c_str());
           if (waiting) lv_obj_add_state(id(music_room_select), LV_STATE_DISABLED);
           else lv_obj_clear_state(id(music_room_select), LV_STATE_DISABLED);
           // Group names are typography, never a disabled grey button slab.
@@ -521,12 +539,12 @@ script:
           lv_obj_align(lv_obj_get_child(id(music_room_select), 0), LV_ALIGN_LEFT_MID, 0, 0);
           lv_obj_set_style_bg_opa(id(music_room_select), LV_OPA_TRANSP, lv_obj_get_state(id(music_room_select)));
           lv_obj_set_style_border_width(id(music_room_select), 0, lv_obj_get_state(id(music_room_select)));
-          lv_label_set_text(id(music_title), !known ? "${music_offline}" :
+          esphome::ui_performance::set_text(id(music_title), !known ? "${music_offline}" :
             playing && room.tv ? "${music_tv}" :
             playing && !room.title.empty() ? room.title.c_str() :
             playing ? "${music_playing}" : "${music_ready}");
-          lv_label_set_text(id(music_artist), playing && !room.tv ? room.artist.c_str() : "");
-          lv_label_set_text(id(music_cover_fallback), room.tv ? "${music_tv}" : LV_SYMBOL_AUDIO);
+          esphome::ui_performance::set_text(id(music_artist), playing && !room.tv ? room.artist.c_str() : "");
+          esphome::ui_performance::set_text(id(music_cover_fallback), room.tv ? "${music_tv}" : LV_SYMBOL_AUDIO);
           char a[12], b[12];
           for (int i = 0; i < 2; ++i) {
             char *v = i == 0 ? a : b;
@@ -536,9 +554,9 @@ script:
           const std::string selected_volume = known && room.volume >= 0 ? std::to_string(room.volume) + "%" : "--";
           if (s.uses_pair_controls()) lv_label_set_text_fmt(id(music_volume), "${music_volume_format}", a, b);
           else lv_label_set_text_fmt(id(music_volume), "${music_single_volume_format}", selected_volume.c_str());
-          lv_label_set_text(lv_obj_get_child(id(music_play), 0),
+          esphome::ui_performance::set_text(lv_obj_get_child(id(music_play), 0),
             waiting ? LV_SYMBOL_REFRESH : room.tv ? "${music_tv}" : playing ? LV_SYMBOL_PAUSE : LV_SYMBOL_PLAY);
-          lv_label_set_text(lv_obj_get_child(id(music_mute), 0), s.muted() ? "${music_unmute}" : "${music_mute}");
+          esphome::ui_performance::set_text(lv_obj_get_child(id(music_mute), 0), s.muted() ? "${music_unmute}" : "${music_mute}");
           lv_obj_set_style_bg_color(id(music_mute), lv_color_hex(s.muted() ? 0x66512A : 0x18231E), 0);
           for (auto *button : {id(music_play), id(music_minus), id(music_plus), id(music_previous), id(music_next), id(music_mute)}) {
             bool unavailable = !known;
@@ -589,7 +607,7 @@ script:
             lv_obj_set_style_border_width(content_tabs[i], active ? 2 : 1, 0);
           }
           if (compact_favorites) {
-            lv_label_set_text(id(music_favorites_status), id(music_favorites_loading) ? "${music_favorites_loading}" :
+            esphome::ui_performance::set_text(id(music_favorites_status), id(music_favorites_loading) ? "${music_favorites_loading}" :
               !id(sonos_favorites).known ? "${music_favorites_error}" : id(sonos_favorites).items.empty() ? "${music_favorites_empty}" : "");
           }
           for (uint32_t i = 0; i < lv_obj_get_child_count(id(music_favorites_grid)); ++i) {
@@ -628,7 +646,7 @@ script:
             {id(small_music_status), id(music_status)}, {id(small_music_volume), id(music_volume)}
           };
           for (const auto &pair : labels) {
-            lv_label_set_text(pair.first, lv_label_get_text(pair.second));
+            esphome::ui_performance::set_text(pair.first, lv_label_get_text(pair.second));
             lv_obj_set_style_text_color(pair.first, lv_obj_get_style_text_color(pair.second, LV_PART_MAIN), 0);
           }
           // Collapse the unused artist row and spare title line. Bound the
@@ -646,14 +664,14 @@ script:
             {id(small_music_minus), id(music_minus)}, {id(small_music_plus), id(music_plus)}
           };
           for (const auto &pair : buttons) {
-            lv_label_set_text(lv_obj_get_child(pair.first, 0), lv_label_get_text(lv_obj_get_child(pair.second, 0)));
+            esphome::ui_performance::set_text(lv_obj_get_child(pair.first, 0), lv_label_get_text(lv_obj_get_child(pair.second, 0)));
             if (lv_obj_has_state(pair.second, LV_STATE_DISABLED)) lv_obj_add_state(pair.first, LV_STATE_DISABLED);
             else lv_obj_clear_state(pair.first, LV_STATE_DISABLED);
           }
           if (compact_favorites && (waiting || id(music_command_failed)))
-            lv_label_set_text(lv_obj_get_child(id(small_music_room_select), 0), status);
+            esphome::ui_performance::set_text(lv_obj_get_child(id(small_music_room_select), 0), status);
           // Retain clear word labels in the compact card's existing layout.
-          lv_label_set_text(lv_obj_get_child(id(small_music_play), 0),
+          esphome::ui_performance::set_text(lv_obj_get_child(id(small_music_play), 0),
             waiting ? "${music_button_wait}" : room.tv ? "${music_tv}" : playing ? "${music_pause}" : "${music_resume}");
           if (s.uses_pair_controls()) {
             // Compact percentages follow the room heading's living/kitchen order.
@@ -744,7 +762,7 @@ script:
             lv_obj_set_width(label, 432);
             lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_CENTER, 0);
             lv_obj_set_style_text_color(label, lv_color_hex(0xA9B8AE), 0);
-            lv_label_set_text(label, s.systems_known ? "${music_systems_empty}" : "${music_systems_unavailable}");
+            esphome::ui_performance::set_text(label, s.systems_known ? "${music_systems_empty}" : "${music_systems_unavailable}");
             lv_obj_align(label, LV_ALIGN_TOP_MID, 0, 60);
           }
           for (size_t i = 0; i < rows.size(); ++i) {
@@ -774,7 +792,7 @@ script:
               lv_obj_set_style_text_font(label, field == 0 ? &lv_font_montserrat_14 : &lv_font_montserrat_12, 0);
               lv_obj_set_style_text_color(label, lv_color_hex(waiting ? 0x77857C : field == 0 ? 0xEEF6F0 : field == 2 ? 0x7FE0A2 : 0xA9B8AE), 0);
               if (field == 2) lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_RIGHT, 0);
-              lv_label_set_text(label, rows[i][field].c_str());
+              esphome::ui_performance::set_text(label, rows[i][field].c_str());
             }
             lv_obj_set_style_bg_color(membership, lv_color_hex(checked ? 0x24583B : 0x18231E), 0);
             lv_obj_set_style_border_width(membership, checked ? 2 : 1, 0);
@@ -782,13 +800,13 @@ script:
             auto *mark = lv_label_create(membership);
             lv_obj_set_style_text_font(mark, &lv_font_montserrat_12, 0);
             lv_obj_set_style_text_color(mark, lv_color_hex(waiting || !valid ? 0x77857C : 0xEEF6F0), 0);
-            lv_label_set_text(mark, selected ? "${music_group_leader}" : checked ? LV_SYMBOL_OK : LV_SYMBOL_PLUS);
+            esphome::ui_performance::set_text(mark, selected ? "${music_group_leader}" : checked ? LV_SYMBOL_OK : LV_SYMBOL_PLUS);
             lv_obj_align(mark, LV_ALIGN_CENTER, 0, 0);
             // Hidden labels own stable UUID copies for the lifetime of each
             // button; callbacks copy them before a render can destroy the row.
             for (auto *button : {choose, membership}) {
               auto *uuid = lv_label_create(button);
-              lv_label_set_text(uuid, system.uuid.c_str());
+              esphome::ui_performance::set_text(uuid, system.uuid.c_str());
               lv_obj_add_flag(uuid, LV_OBJ_FLAG_HIDDEN);
             }
             lv_obj_add_event_cb(choose, [](lv_event_t *event) {
@@ -838,7 +856,7 @@ script:
           then:
             - lambda: |-
                 id(music_favorites_loading) = true;
-                lv_label_set_text(id(music_favorites_status), "${music_favorites_loading}");
+                esphome::ui_performance::set_text(id(music_favorites_status), "${music_favorites_loading}");
                 id(sonos_favorites).begin(id(sonos).current().host.empty() ?
                   "${sonos_kitchen_address}" : id(sonos).current().host);
             - script.execute: render_music
@@ -860,7 +878,7 @@ script:
     then:
       - lambda: |-
           auto &f = id(sonos_favorites);
-          lv_label_set_text(id(music_favorites_status), !f.known ? "${music_favorites_error}" :
+          esphome::ui_performance::set_text(id(music_favorites_status), !f.known ? "${music_favorites_error}" :
             f.items.empty() ? "${music_favorites_empty}" : "");
           if (!f.known) return;
           static std::string previous_signature;
@@ -898,7 +916,7 @@ script:
             lv_obj_set_style_pad_top(kind, 8, 0);
             lv_obj_set_style_text_font(kind, &lv_font_montserrat_14, 0);
             lv_obj_set_style_text_color(kind, lv_color_hex(0x7FE0A2), 0);
-            lv_label_set_text(kind, f.items[i].radio ? LV_SYMBOL_AUDIO : LV_SYMBOL_LIST);
+            esphome::ui_performance::set_text(kind, f.items[i].radio ? LV_SYMBOL_AUDIO : LV_SYMBOL_LIST);
             auto *title = lv_label_create(button);
             lv_obj_set_pos(title, 42, 7);
             lv_obj_set_size(title, 98, 30);
@@ -927,7 +945,7 @@ script:
                 display.append(raw, start, j - start);
             }
             if (display.find_first_not_of(' ') == std::string::npos) display = "${music_favorite_playlist}";
-            lv_label_set_text(title, display.c_str());
+            esphome::ui_performance::set_text(title, display.c_str());
             lv_point_t measured;
             lv_text_get_size(&measured, display.c_str(), &lv_font_montserrat_12, 0, 0, 98, LV_TEXT_FLAG_NONE);
             if (measured.y <= lv_font_montserrat_12.line_height) {

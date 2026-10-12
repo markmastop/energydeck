@@ -614,6 +614,7 @@ script:
           on_response:
             then:
               - lambda: |-
+                  ESP_LOGD("network_performance", "refresh_homey_sessy: %u ms", static_cast<unsigned>(response->duration_ms));
                   if (response->status_code != 200) {
                     lv_label_set_text(id(battery_status_label), "${battery_unavailable}");
                     lv_obj_set_style_text_color(id(battery_status_label), lv_color_hex(0xEA665F), LV_PART_MAIN);
@@ -667,12 +668,14 @@ script:
                     lv_obj_set_style_text_color(id(battery_status_label), lv_color_hex(0xEA665F), LV_PART_MAIN);
                     ESP_LOGW("homey", "Could not parse Sessy device capabilities");
                   }
+              - script.execute: render_sonos_energy_header
           on_error:
             then:
               - lvgl.label.update:
                   id: battery_status_label
                   text: "${battery_unavailable}"
                   text_color: 0xEA665F
+              - script.execute: render_sonos_energy_header
 
   - id: refresh_homey_charger
     mode: restart
@@ -687,6 +690,7 @@ script:
           on_response:
             then:
               - lambda: |-
+                  ESP_LOGD("network_performance", "refresh_homey_charger: %u ms", static_cast<unsigned>(response->duration_ms));
                   auto set_button = [](bool enabled, const char *text, uint32_t color) {
                     if (id(charge_pending)) {
                       enabled = false;
@@ -816,6 +820,7 @@ script:
           on_response:
             then:
               - lambda: |-
+                  ESP_LOGD("network_performance", "refresh_homey_electricity_now: %u ms", static_cast<unsigned>(response->duration_ms));
                   if (response->status_code != 200) {
                     lv_label_set_text(id(electricity_now_value_label), "--");
                     lv_label_set_text(id(electricity_now_unit_label), "");
@@ -946,6 +951,7 @@ script:
           on_response:
             then:
               - lambda: |-
+                  ESP_LOGD("network_performance", "refresh_homey_solar_now: %u ms", static_cast<unsigned>(response->duration_ms));
                   if (response->status_code != 200) {
                     lv_label_set_text(id(solar_now_value_label), "${solar_unavailable}");
                     ESP_LOGW("homey", "Solar request returned HTTP %d", response->status_code);

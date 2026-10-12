@@ -88,8 +88,24 @@ void test_xml() {
   playback.live[1] = false; poll(follow, playback);
   assert(follow.follow_compact_tab(2) == 2); // Stopping does not replace Climate.
   assert(artwork_url("https://sali.sonos.superhi.fi/image?x=1", living) == "https://sali.sonos.superhi.fi/image?x=1");
-  assert(artwork_url("https://sali.sonos.superhi.fi/image?image=https%3A%2F%2Fcdn-profiles.tunein.com%2Fs106736%2Fimages%2Flogog.jpg", living).empty());
-  assert(artwork_url("https://sali.sonos.radio/image?image=https://cdn-profiles.tunein.com/s106736/images/logod.jpg", living).empty());
+  const std::string radionl = energydeck_artwork::RADIONL_COVER;
+  for (auto path : {
+    "https://sali.sonos.superhi.fi/image?image=https%3A%2F%2Fcdn-profiles.tunein.com%2Fs106736%2Fimages%2Flogog.jpg",
+    "https://sali.sonos.radio/image?image=https://cdn-profiles.tunein.com/s106736/images/logod.jpg?t=1",
+    "https://sali.sonos.radio/image?image=https%3a%2f%2fcdn-profiles.tunein.com%2fs106736%2fimages%2flogog.jpg",
+    "/getaa?u=https%3A%2F%2Fcdn-profiles.tunein.com%2Fs106736%2Fimages%2Flogog.jpg"})
+    assert(artwork_url(path, living) == radionl);
+  for (auto path : {
+    "https://evil.example/image?image=https://cdn-profiles.tunein.com/s106736/images/logog.jpg",
+    "https://cdn-profiles.tunein.com/s106736/images/logog.jpg",
+    "energydeck://artwork/unregistered",
+    "energydeck://artwork/radionl-west-brabant-v1"}) assert(artwork_url(path, living).empty());
+  for (auto path : {
+    "https://sali.sonos.radio/image?image=https://cdn-profiles.tunein.com/s106737/images/logog.jpg",
+    "https://sali.sonos.radio/image?image=https://cdn-profiles.tunein.com/s106736/images/logog.jpg.evil",
+    "https://sali.sonos.radio/image?image=https://cdn-profiles.tunein.com/s106736/images/other.jpg",
+    "https://sali.sonos.radio/image?image=https%3x%2F%2Fcdn-profiles.tunein.com%2Fs106736%2Fimages%2Flogog.jpg"})
+    assert(artwork_url(path, living) == path);
   for (auto url : {"https://sali.sonos.superhi.fi.evil/image", "https://sali.sonos.radio@evil/image", "http://sali.sonos.radio/image", "//evil/image"}) assert(artwork_url(url, living).empty());
   State radio; Fixture fixture; fixture.radio = true; poll(radio, fixture);
   assert(radio.current().artist == "Qmusic" && radio.current().title == "Song - Artist");
@@ -570,6 +586,9 @@ void test_favorites() {
     item.cover = "https://i.scdn.co.evil/image/abc";
     covers.begin(kitchen); covers.accept(200, favorite_page({item}, 1));
     assert(covers.items[0].cover.empty());
+    item.cover = "https://sali.sonos.radio/image?image=https%3A%2F%2Fcdn-profiles.tunein.com%2Fs106736%2Fimages%2Flogog.jpg";
+    covers.begin(kitchen); covers.accept(200, favorite_page({item}, 1));
+    assert(covers.items[0].cover == energydeck_artwork::RADIONL_COVER);
     item.cover.clear();
     item.metadata = "<item><class>object.container.playlistContainer</class><albumArtURI>https://image-cdn-ak.spotifycdn.com/image/test</albumArtURI></item>";
     covers.begin(kitchen); covers.accept(200, favorite_page({item}, 1));

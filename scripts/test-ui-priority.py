@@ -90,6 +90,8 @@ with tempfile.TemporaryDirectory(prefix="energydeck-ui-priority-") as temp:
     thread = threading.Thread(target=server.serve_forever, daemon=True); thread.start()
     try:
         subprocess.run([str(binary), f"http://127.0.0.1:{server.server_port}", str(assets)], check=True, timeout=20, env={**os.environ, "SDL_VIDEODRIVER": "dummy"})
+        if preview := os.environ.get("ENERGYDECK_UI_SNAPSHOT"):
+            Image.open(assets / "radionl-render.ppm").save(preview)
     finally:
         server.shutdown(); server.server_close()
     assert not Handler.failures, Handler.failures

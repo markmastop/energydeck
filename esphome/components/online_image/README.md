@@ -13,6 +13,17 @@ JPEG callbacks use RGB565 to preserve channel ordering across scalar ESP32 and
 SIMD simulator paths. Decoded buffers are bounded to 512 KiB and source dimensions
 to 4096 on each axis. Downloads and decoding have separate 15-second budgets.
 
+RADIONL West-Brabant (TuneIn `s106736`) uses the bundled 16,101-byte baseline
+JPEG in `radionl_logo.h`, resized to 272x272 from the station's existing logo.
+The header records the original source, checksum and encoding settings. Metadata
+from an accepted Sonos/coordinator origin maps the two observed logo resources
+to the exact `energydeck://artwork/radionl-west-brabant-v1` key. No other local
+resource is accepted. This key decodes on the same low-priority worker and uses
+the same guarded publication, scaling and thumbnail cache as remote covers,
+without HTTPS or a progressive decoder. Other stations retain remote artwork;
+other RADIONL regions are not relabeled as West-Brabant. The live CDN returned
+baseline images on 2026-10-12; the pinned asset also tolerates future format changes.
+
 The worker owns a separate RuntimeImage and never invokes App/watchdog, model,
 scheduler, logging or LVGL callbacks. It yields regularly on ESP32. Completed
 pixels cross a release/acquire mailbox; the main thread waits for touch/scroll

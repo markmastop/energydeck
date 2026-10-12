@@ -71,11 +71,6 @@ int main() {
   test_favorite_cache();
   test_thumbnail(272,272); test_thumbnail(272,136); test_thumbnail(136,272); test_thumbnail(1,1);
   using esphome::online_image::allowed_cover_redirect;
-  using esphome::online_image::compatible_cover_url;
-  assert(compatible_cover_url("https://cdn-profiles.tunein.com/s106736/images/logog.jpg?t=151324") ==
-    "https://cdn-profiles.tunein.com/s106736/images/logod.jpg");
-  assert(compatible_cover_url("https://cdn-profiles.tunein.com/s87683/images/logog.png?t=1") ==
-    "https://cdn-profiles.tunein.com/s87683/images/logog.png?t=1");
   const std::string proxy = "https://sali.sonos.superhi.fi/image?w=60";
   const std::string logo = "https://cdn-profiles.tunein.com/s87683/images/logog.png?t=1";
   assert(allowed_cover_redirect(proxy, logo));
@@ -103,7 +98,7 @@ try {
   const schema = fs.readFileSync(path.join(root, 'esphome/components/online_image/image.py'), 'utf8');
   if (!schema.includes('lv_defines.add_define("LV_DRAW_SW_SUPPORT_RGB565A8", "1")'))
     throw new Error('Opaque RGB565 cover scaling requires RGB565A8 renderer support');
-  if (!cpp.includes('request.headers.clear();') || !cpp.includes('request.url = compatible_cover_url(target);'))
+  if (!cpp.includes('request.headers.clear();') || !cpp.includes('request.url = target;'))
     throw new Error('The allowlisted artwork hop must not forward request headers');
   if (!yaml.includes('signature == previous_signature') || !yaml.includes('lv_obj_scroll_to_y(id(music_favorites_grid), scroll, LV_ANIM_OFF)') || yaml.includes('id(favorite_artwork).clear();'))
     throw new Error('Favorites must preserve unchanged widgets, cached covers and scroll position');

@@ -321,9 +321,16 @@ alone may follow exactly one HTTPS redirect from either Sonos proxy to
 HTTP downgrades and further redirects are rejected; Homey credentials are never
 sent with the redirected request.
 
-RADIONL TuneIn station `s106736` artwork is deliberately skipped in both player
-views and favorites because it is unreliable on the physical display. The music
-icon remains visible; station playback is unaffected. Other covers are unchanged.
+RADIONL West-Brabant (TuneIn `s106736`) uses a bundled baseline JPEG logo in both
+player views and favorites. Its two observed TuneIn logo URLs, including encoded
+Sonos proxy/coordinator URLs, resolve to a registered local image key after the
+usual origin checks. The 272x272 asset is 16,101 compressed bytes; it decodes on
+the artwork worker and publishes after the UI quiet window without HTTPS. It
+uses the existing 92x92 player thumbnail and 32x32 favorite cache. The previous
+workaround skipped this station because the CDN supplied unsupported progressive
+JPEGs. The CDN now returns baseline JPEGs, but the pinned asset avoids depending
+on the remote format or availability. Other stations/regions keep their own
+artwork; no station-name guessing is used. Playback is unaffected.
 
 JPEG and PNG covers are decoded at up to 272×272 pixels, above ellipsized title
 and artist. Track artwork takes precedence over the station artwork from
@@ -365,7 +372,8 @@ No music service login or Homey authorization is sent with these requests.
 
 JPEG covers use JPEGDEC; PNG covers use PNGLE. The extra stb_image decoder has
 been removed. Progressive JPEGs are unsupported and leave the fallback icon
-visible. RADIONL artwork is skipped before downloading.
+visible. The registered RADIONL West-Brabant asset bypasses remote downloading
+without adding another decoder.
 
 On CrowPanel, mbedTLS allocates from external PSRAM rather than internal SRAM.
 The observed `mbedtls_ssl_setup returned -0x7F00` is a TLS allocation failure,
@@ -655,3 +663,18 @@ not measure long-term reliability or prove a particular artwork download.
 Model, room-widget, exchange and UI-priority/artwork regressions and the simulator
 build passed. UI publication still had a 111 ms sample and startup LVGL warnings;
 the worker priorities do not establish a hard interaction-latency guarantee.
+
+## RADIONL local artwork follow-up (2026-10-12)
+
+The station artwork exclusion was replaced with the bundled baseline logo.
+Music/model, cover ownership/redirect, room-widget and UI-priority regressions
+passed. The actual simulator components decoded and rendered the asset at
+272/92/32 pixels, deferred publication during held input, and asserted rendered
+RGB565 colors. The exported LVGL frame was visually inspected at all three sizes.
+The simulator, 5-inch and 7-inch builds passed. The 5-inch build from
+`2026-10-12 19:31:25 +0200` was uploaded over OTA; the 7-inch was not updated.
+A 120-second serial capture spanning the update confirmed boot success and
+10 known selected-room cycles without transport failures, crashes or watchdog
+events. No local-logo publication was recorded during this capture, so physical
+logo appearance still requires user verification. No playback/grouping/volume or
+charging commands were issued for this artwork change.

@@ -16,7 +16,7 @@ import esphome.config_validation as cv
 from .image import ONLINE_IMAGE_CONFIG_SCHEMA, setup_online_image
 
 AUTO_LOAD = ["image", "runtime_image"]
-DEPENDENCIES = ["display", "http_request"]
+DEPENDENCIES = ["display", "background_http"]
 CODEOWNERS = ["@guillempages", "@clydebarrow"]
 MULTI_CONF = True
 

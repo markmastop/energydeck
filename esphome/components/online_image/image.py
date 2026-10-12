@@ -2,7 +2,7 @@ from esphome import automation
 import esphome.codegen as cg
 from esphome.components import runtime_image
 from esphome.components.const import CONF_REQUEST_HEADERS
-from esphome.components.http_request import CONF_HTTP_REQUEST_ID, HttpRequestComponent
+from esphome.components.background_http import BackgroundHttp
 from esphome.components.image import CONF_TRANSPARENCY, add_metadata
 import esphome.config_validation as cv
 from esphome.const import CONF_BUFFER_SIZE, CONF_ID, CONF_ON_ERROR, CONF_TYPE, CONF_URL
@@ -10,9 +10,10 @@ from esphome.core import CORE, Lambda
 from esphome.types import ConfigType
 
 AUTO_LOAD = ["runtime_image"]
-DEPENDENCIES = ["http_request"]
+DEPENDENCIES = ["background_http"]
 CODEOWNERS = ["@guillempages", "@clydebarrow"]
 
+CONF_HTTP_REQUEST_ID = "http_request_id"
 CONF_ON_DOWNLOAD_FINISHED = "on_download_finished"
 CONF_UPDATE = "update"
 
@@ -36,7 +37,7 @@ ONLINE_IMAGE_SCHEMA = (
     .extend(
         {
             # Online Image specific options
-            cv.GenerateID(CONF_HTTP_REQUEST_ID): cv.use_id(HttpRequestComponent),
+            cv.GenerateID(CONF_HTTP_REQUEST_ID): cv.use_id(BackgroundHttp),
             cv.Required(CONF_URL): cv.url,
             cv.Optional(CONF_BUFFER_SIZE, default=65536): cv.int_range(256, 65536),
             cv.Optional(CONF_REQUEST_HEADERS): cv.All(

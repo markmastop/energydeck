@@ -232,11 +232,14 @@ visible row must not start a competing scroll-to-view animation before a drag.
 Room selection and membership changes still require an actual click.
 Periodic Sonos style/layout updates are deferred while the room or favorite list
 is scrolling. New cover connections are also deferred throughout the Rooms tab,
-so synchronous artwork connection/TLS cannot interrupt room browsing. The cover
+so optional artwork does not compete with room discovery and controls. The cover
 refresh resumes when Favorites is selected or the compact card is shown. The
 GT911 touch interval is 20 ms rather
-than the default 50 ms. Artwork downloading and Homey HTTP still use their
-existing client, so they can produce separate short pauses outside a drag.
+than the default 50 ms. Homey HTTP and artwork download/decode also run on a
+separate background worker.
+All reply publication waits for touch/momentum and a 150 ms quiet window across
+all pages; ESP32 workers run below the foreground task priority on core 0.
+See [application-wide UI priority](PERFORMANCE.md#ui-first-background-work).
 
 ## Sonos favorites
 
@@ -370,9 +373,10 @@ protection, stale/incomplete topology, promotion without clearing the source,
 unchecked followers of a moving coordinator, follower-before-leader ordering,
 topology confirmation and stopping after an unacknowledged write.
 
-Run `node scripts/test-chunked-cover.cjs` for the JPEG download regression tests.
-Run `node scripts/test-cover-formats.cjs` for PNG/JPEG selection, PNG completion,
-decoder initialization failures and shared-widget lifecycle safeguards.
+Run `node scripts/test-chunked-cover.cjs` for actual loopback HTTP, asynchronous
+actions, UI input and PNG/JPEG decoder tests (rebuild the simulator first).
+Run `node scripts/test-cover-formats.cjs` for thumbnail colors/cropping, cache ownership,
+redirect allowlist checks and shared-widget lifecycle safeguards.
 
 Additional responsiveness tests (no live speaker commands):
 

@@ -1,34 +1,32 @@
-# ESPHome online_image patch
+# EnergyDeck background artwork
 
-Vendored from the installed ESPHome 2026.8.2 online_image component, under the
-included MIT license. The image schema, header and implementation contain local
-artwork handling changes.
+Based on the installed ESPHome 2026.8.2 online_image schema, under the included
+MIT license, with local asynchronous transport and decoder changes.
 
-Homey sends artwork using a chunked HTTP response. ESP-IDF exposes its size as
-zero, unlike the simulator's buffered HTTP implementation. Upstream JPEGDEC
-decodes the first partial buffer and fails. It also cannot report completion
-when its expected file size is zero.
+`http_request_id` now points to the `background_http` component. The field and
+`buffer_size` remain compatible with the existing YAML; compressed replies are
+always completed on a worker and capped at 512 KiB, independent of buffer_size.
+Content-Type selects PNG or JPEG. PNGLE requires its IEND completion callback;
+JPEGDEC requires complete baseline JPEG data and a terminal EOI marker.
+Progressive JPEGs and malformed/incomplete images use the existing error fallback.
+JPEG callbacks use RGB565 to preserve channel ordering across scalar ESP32 and
+SIMD simulator paths. Decoded buffers are bounded to 512 KiB and source dimensions
+to 4096 on each axis. Downloads and decoding have separate 15-second budgets.
 
-The patch buffers unknown-length JPEGs until EOF plus a terminal JPEG EOI marker,
-then decodes once and explicitly finalizes. Reads remain incremental. Compressed
-JPEGs are bounded to 512 KiB and chunked transfers to a 15-second deadline; failed
-allocation, HTTP reads or decoding take the existing fallback callback.
-Known-length JPEGs retain the upstream path with the same size bound.
-JPEGDEC remains the only JPEG decoder. Progressive JPEGs are unsupported and
-use the existing image-error fallback; no stb_image decoder is compiled.
+The worker owns a separate RuntimeImage and never invokes App/watchdog, model,
+scheduler, logging or LVGL callbacks. It yields regularly on ESP32. Completed
+pixels cross a release/acquire mailbox; the main thread waits for touch/scroll
+and the 150 ms quiet window, invalidates the LVGL cache, and replaces the published
+buffer. Old URLs/releases invalidate stale work. ETag/Last-Modified and 304 reuse
+remain supported. Existing widgets/favorite thumbnails retain their ownership.
 
-PNG responses are selected by Content-Type, regardless of the configured JPEG
-default. PNGLE's completion callback handles chunked PNGs and rejects unfinished
-images; PNG transfers also have a 512 KiB / 15 second limit. The UI detaches both
-cover widgets before decoding and invalidates LVGL's cache before reattaching.
-Code generation also enables `LV_DRAW_SW_SUPPORT_RGB565A8`: LVGL 9 requires it
-alongside RGB565 support when scaling opaque RGB565 covers. Without it, decoding
-succeeds but the transform renderer rejects color format 0x12.
+LVGL 9's RGB565 scaling path requires `LV_DRAW_SW_SUPPORT_RGB565A8` alongside
+RGB565; code generation enables both for opaque covers.
 
-Sonos radio proxies may return a redirect to TuneIn's image CDN. The downloader
-allows one HTTPS hop from the two approved Sonos proxies to
-`cdn-profiles.tunein.com` only, with no forwarded headers. Shared-client automatic
-redirects stay disabled.
+Only one HTTPS redirect from the two approved Sonos proxies to
+`cdn-profiles.tunein.com` is allowed, with no forwarded headers and the same
+download deadline. Shared automatic redirects remain disabled.
 
-Remove this override when an upstream release includes equivalent handling.
-Run node scripts/test-chunked-cover.cjs for offline branch tests.
+Build the simulator, then run `node scripts/test-chunked-cover.cjs` for actual
+loopback HTTP and decoder tests and `node scripts/test-cover-formats.cjs` for
+thumbnail colors/cropping, cache ownership and redirect allowlist tests.

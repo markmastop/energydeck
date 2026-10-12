@@ -67,14 +67,41 @@ acknowledgment and confirm on later snapshots rather than waiting two seconds
 and a full read-back cycle. Room rows are retained and updates are deferred during
 scrolling. See [Sonos responsiveness details and tests](SONOS.md).
 
-Homey HTTP and artwork retain their existing synchronous connection/read paths;
-they can still cause their own pauses. New artwork connections are deferred while
-the Sonos lists are scrolling and throughout the Rooms tab. Discovery now renders
-the room inventory before the rest of the status cycle, and selecting a room
-abandons unsent older status reads after draining their one in-flight reply.
-The selected title/status render before optional control reads, and favorites
-Browse pages yield to selection with the same 1.5-second read deadline. These
-changes reduce queue delays; they do not measure or guarantee touch latency.
+## UI-first background work
+
+Homey, climate, temperature and rain HTTP now use one sleeping background worker,
+including the existing charging POSTs. TLS, socket waits and PNG/JPEG decoding
+never run in the display loop. On both ESP32-S3 targets, the application task runs
+at priority 2 on its normal core; Sonos and HTTP/artwork workers run at priority 1
+on core 0. System Wi-Fi/interrupt priorities remain under ESP-IDF's control.
+
+Main-thread publication waits while any LVGL input is pressed or scrolling,
+including momentum, and until 150 ms after the last interaction. This applies to
+Homey/artwork callbacks and Sonos reply consumption across all pages. Homey
+publications are spaced by at least 20 ms; callbacks over 20 ms emit a diagnostic.
+Models, scripts and LVGL objects remain owned by the main thread. Long callbacks
+and full-screen redraws can still take time; this is not a hard touch-latency bound.
+
+The bounded queue holds at most 32 unsent jobs. Controls precede data, which
+precedes artwork, with FIFO ordering within each class. Sent requests are drained
+once and never automatically retried. Stopped/restarted scripts discard old
+results and cancel unsent requests; script continuations and `script.wait` advance
+only after the matching response. Existing charging fallback decisions are
+unchanged and are not exercised against real Homey Flows during UI tests.
+
+Data replies keep their configured body limits and an 8-second deadline. Artwork
+is capped at 512 KiB compressed and decoded, with a 15-second download deadline
+shared across its single allowlisted redirect and a separate 15-second decode
+budget. Workers decode into separate buffers and yield to system tasks regularly.
+The old displayed pixels remain valid until a complete result is published;
+changing the URL or releasing an image invalidates old work. Incomplete, oversize
+and failed responses use the existing error/fallback handlers. HTTPS retains CA
+and hostname verification, redirects remain disabled for authenticated data,
+and artwork redirects forward no headers.
+
+Rooms still defers new artwork throughout the tab. Inventory and selected-room
+metadata publish early; selection abandons unsent older Sonos reads, and favorites
+Browse pages yield to selection with a 1.5-second read deadline.
 The full-screen redraw measurements above describe
 the rotation change, not the later background-network changes or command latency.
 
@@ -88,8 +115,8 @@ a room, momentum ends, and an actual tap still selects the correct UUID. This
 changes input behavior without adding redraws, polling or network requests.
 The accompanying 150-second physical baseline captured no renders exceeding
 100 ms, but did capture 34 foreground operations exceeding 50 ms, including a
-1,743 ms rain refresh. Those existing synchronous network pauses remain a
-separate limitation; they are not proof of the room-focus issue's latency.
+1,743 ms rain refresh. Those measurements predate the app-wide background HTTP change and do not
+measure its effect or the room-focus issue's latency.
 
 Verify the rotation mapping, including partial tiles and nonzero origins:
 
@@ -99,6 +126,15 @@ c++ -std=c++17 -Wall -Wextra -Werror -fsanitize=address,undefined \
 /tmp/energydeck-test-rotation
 node scripts/test-music-controls.cjs
 ```
+
+After building the simulator, run `.venv/bin/python scripts/test-ui-priority.py`
+(or `node scripts/test-chunked-cover.cjs`). It links the actual built LVGL,
+HTTP/actions and artwork components to a loopback fixture server. It verifies real
+pointer clicks and redraws during a delayed request, quiet-window publication,
+queue priorities, script completion/cancellation, complete chunked reads, reply
+bounds/deadlines, write-once behavior, decoding/colors and stale-image/caching
+behavior. It uses synthetic credentials and no external services. The simulator
+must be rebuilt after source changes before running this test.
 
 If a future ESPHome/LVGL update changes the flush API, disable the tiled path
 with `ui_performance: {tiled_rotation: false}` and rebuild while investigating.

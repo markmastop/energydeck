@@ -319,7 +319,7 @@ script:
                 then:
                   - lambda: |-
                       const auto &request = id(sonos).request();
-                      id(sonos_transport).submit(request, request.action.rfind("Get", 0) == 0 ? 1500 : 8000);
+                      id(sonos_transport).submit(request, id(sonos).request_timeout_ms());
                   - wait_until:
                       lambda: return id(sonos_transport).ready() && esphome::ui_performance::background_allowed();
                   - lambda: |-
@@ -597,14 +597,14 @@ script:
             return;
           }
           if (!path.empty()) {
-            // Artwork connection/TLS still runs on the display loop. Keep room
-            // browsing and selection free of these foreground connections.
+            // Defer new artwork work while browsing rooms so control/data jobs
+            // and user interaction retain priority over background downloads.
             if (id(music_page_open) && id(music_content_tab) == 1) return;
             if (id(music_page_open) && (lv_obj_is_scrolling(id(music_systems_list)) || lv_obj_is_scrolling(id(music_favorites_grid)))) {
               id(refresh_music_cover_after_scroll).execute();
               return;
             }
-            // Finish the foreground climate refresh before starting artwork.
+            // Finish the higher-priority climate refresh before queuing artwork.
             if (id(favorite_artwork).busy || id(refresh_climate).is_running()) return;
             // Detach both consumers before the decoder mutates its shared buffer.
             lv_image_set_src(id(music_cover_widget), static_cast<const void *>(nullptr));
@@ -619,8 +619,8 @@ script:
   - id: refresh_music_cover_after_scroll
     mode: single
     then:
-      # Artwork still uses the shared synchronous downloader. Start new cover
-      # connections only after a drag settles; this waiter exists only as needed.
+      # Queue background artwork only after a drag settles; this waiter exists
+      # only as needed and keeps scrolling ahead of lower-priority image work.
       - wait_until:
           lambda: return !id(music_page_open) || (!lv_obj_is_scrolling(id(music_systems_list)) && !lv_obj_is_scrolling(id(music_favorites_grid)));
       - script.execute: refresh_music_cover

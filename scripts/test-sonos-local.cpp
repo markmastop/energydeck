@@ -597,18 +597,23 @@ void test_favorites() {
   State s; Fixture fixture; fixture.grouped = false; fixture.tv[0] = true; poll(s,fixture);
   s.capture(); poll(s,fixture); assert(s.prepare_favorite(radio));
   assert(s.request().action == "SetAVTransportURI" && s.request().host == kitchen);
+  assert(s.request_timeout_ms() == 30000);
   assert(s.request().arguments.find("sid=1&amp;flags=2") != std::string::npos);
   s.accept(200,response("SetAVTransportURI","")); settle_favorite_source(s, radio);
   assert(s.request().action == "Play");
+  assert(s.request_timeout_ms() == 8000);
   s.accept(200,response("Play","")); assert(!s.has_request() && !s.command_failed);
   assert(!s.command_confirmed()); // Old playing track is not confirmation.
   s.rooms[1].uri = radio.uri; assert(s.command_confirmed());
   s.capture(); poll(s,fixture); assert(s.prepare_favorite(music));
   assert(s.request().action == "AddURIToQueue" && s.request().arguments.find("<EnqueueAsNext>0</EnqueueAsNext>") != std::string::npos);
+  assert(s.request_timeout_ms() == 30000);
   s.accept(200,response("AddURIToQueue","<FirstTrackNumberEnqueued>17</FirstTrackNumberEnqueued><NumTracksAdded>20</NumTracksAdded>"));
   assert(s.request().action == "SetAVTransportURI"); s.accept(200,response("SetAVTransportURI",""));
+  assert(s.request_timeout_ms() == 1500);
   settle_favorite_source(s, music);
   assert(s.request().action == "Seek" && s.request().arguments.find("<Target>17</Target>") != std::string::npos);
+  assert(s.request_timeout_ms() == 8000);
   s.accept(200,response("Seek",""));
   assert(s.request().action == "GetPositionInfo"); accept_favorite_read(s, s.request(), music);
   assert(s.request().action == "Play"); s.accept(200,response("Play",""));
@@ -706,11 +711,53 @@ void test_favorite_readiness() {
   poll(s, f); s.reset_group_edit(); assert(s.toggle_group(kid) && s.prepare_group());
   while (s.has_request()) {
     const auto q = s.request();
-    assert(q.action.rfind("Get", 0) != 0 && s.request_delay_ms() == 10);
+    assert(q.action.rfind("Get", 0) != 0 && s.request_delay_ms() == 10 && s.request_timeout_ms() == 8000);
     s.accept(200, response(q.action, ""));
   }
   assert(!s.command_failed); // Group SetURI does not inherit prior favorite readiness.
 
+}
+void test_radio_source_normalization() {
+  const std::string expected = "x-sonosapi-stream:tunein%3As123?sid=303&flags=8296&sn=8";
+  const std::string normalized = "x-sonosapi-stream:tunein%3as123?sid=303&flags=8232&sn=8";
+  assert(favorite_source_matches(expected, normalized));
+  assert(!favorite_source_matches(expected, ""));
+  for (const auto &other : {
+    "x-sonosapi-stream:tunein%3as999?sid=303&flags=8232&sn=8",
+    "x-sonosapi-stream:tunein%3as123?sid=304&flags=8232&sn=8",
+    "x-sonosapi-stream:tunein%3as123?sid=303&flags=8232&sn=9",
+    "x-sonosapi-stream:tunein%3as123?sid=303&flags=8233&sn=8",
+    "x-sonosapi-stream:tunein%3as123?sid=303&flags=bad&sn=8",
+    "x-sonosapi-stream:tunein%3as123?sid=303&flags=8232&flags=8232&sn=8",
+    "x-sonosapi-stream:tunein%3xs123?sid=303&flags=8232&sn=8",
+    "x-sonosapi-stream:tunein%3as123?sid=303&flags=8232&sn=8&extra=1",
+    "x-rincon-queue:coordinator#0"}) assert(!favorite_source_matches(expected, other));
+  assert(!favorite_source_matches("x-rincon-queue:a#0", "x-rincon-queue:b#0"));
+  assert(!favorite_source_matches("https://radio.example/a%3A?flags=8296", "https://radio.example/a%3a?flags=8232"));
+
+  State s; Fixture f; auto radio = favorite(true); radio.uri = expected;
+  poll(s, f); s.capture(); assert(s.prepare_favorite(radio));
+  s.accept(200, response("SetAVTransportURI", ""));
+  s.accept(200, response("GetMediaInfo", "<CurrentURI>" + escape(normalized) + "</CurrentURI>"));
+  assert(s.request().action == "GetTransportInfo" && !s.command_failed);
+  accept_favorite_read(s, s.request(), radio);
+  assert(s.request().action == "Play"); s.accept(200, response("Play", ""));
+  f.uri[1] = normalized; poll(s, f); assert(s.command_confirmed());
+  s.rooms[s.selected].transport_error = true; assert(!s.command_confirmed());
+  f.live[0] = f.live[1] = false; poll(s, f); assert(!s.command_confirmed());
+  s.capture(); assert(s.prepare_favorite(radio));
+  assert(s.request().action == "GetMediaInfo");
+  s.accept(200, response("GetMediaInfo", "<CurrentURI>" + escape(normalized) + "</CurrentURI>"));
+  accept_favorite_read(s, s.request(), radio);
+  assert(s.request().action == "Play"); s.accept(200, response("Play", ""));
+  assert(!s.has_request() && !s.command_failed); // Reuse the loaded radio; no second SetURI.
+  for (bool transitioning : {false, true}) {
+    poll(s, f);
+    s.rooms[s.selected].transport_error = !transitioning;
+    s.rooms[s.selected].transitioning = transitioning;
+    s.capture(); assert(s.prepare_favorite(radio));
+    assert(s.request().action == "SetAVTransportURI"); // An errored/transitioning source needs a load.
+  }
 }
 void test_favorite_preserves_rooms() {
   // Cover both default selection (no click) and explicitly selected rooms.
@@ -780,9 +827,10 @@ int main(int argc, char **argv) {
     for(const auto &r:s.rooms) std::cout << "ROOM known=" << r.known() << " playing=" << r.playing << " tv=" << r.tv << " volume=" << r.volume << " title=" << r.title << " artist=" << r.artist << " cover=" << r.cover << std::endl;
     return 0;
   }
-  test_xml(); test_states(); test_controls(); test_read_recovery(); test_system_inventory(); test_room_selection(); test_dashboard_room_follow(); test_selection_during_poll(); test_progressive_room_refresh(); test_group_editing(); test_favorites(); test_favorite_readiness();
+  test_xml(); test_states(); test_controls(); test_read_recovery(); test_system_inventory(); test_room_selection(); test_dashboard_room_follow(); test_selection_during_poll(); test_progressive_room_refresh(); test_group_editing(); test_favorites(); test_favorite_readiness(); test_radio_source_normalization();
   std::cout << "PASS: favorites preserve default/explicit rooms, existing groups, volume and mute; offline/stale scopes abort" << std::endl;
   std::cout << "PASS: favorites wait for source/transport/seek readiness, bound read retries, never retry writes and confirm the added track range or fresh playback after a lost acknowledgement" << std::endl;
+  std::cout << "PASS: radio readiness/playback accept observed Sonos URI normalization and reject other stations, services, accounts and unrelated flag changes" << std::endl;
   std::cout << "PASS: paged favorites, filtering, XML escaping, direct radio, queue append/seek, failed-command abort, mute and skip" << std::endl;
   std::cout << "PASS: Sonos XML, topology/coordinator, visible system inventory, explicit room selection and grouping, solo/group, music/TV priority, selection, offline, artwork and scoped controls" << std::endl;
   std::cout << "PASS: all-room dashboard following, stable targets, detail/control guards, selected-room-only reads and unknown playback edges" << std::endl;

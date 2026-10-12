@@ -171,7 +171,7 @@ struct Room {
   int volume = -1, mute = -1, track = -1;
   bool next = false, previous = false;
   bool topology = false, transport = false, media = false, position = false;
-  bool playing = false, tv = false, transitioning = false;
+  bool playing = false, tv = false, transitioning = false, transport_error = false;
   bool known() const { return topology && transport && media && position; }
 };
 
@@ -210,6 +210,46 @@ inline int number(const std::string &s, int maximum = 100000) {
   int n = 0;
   for (char c : s) { if (c < '0' || c > '9') return -1; n = n * 10 + c - '0'; }
   return n > maximum ? -1 : n;
+}
+
+inline std::string canonical_radio_uri(std::string uri) {
+  if (uri.rfind("x-sonosapi-stream:", 0) != 0 || uri.size() > 8192) return {};
+  // Sonos returned Qmusic with lowercase percent escapes and flags 8296 ->
+  // 8232. Normalize only escape spelling and that observed 0x40 flag bit;
+  // the station, service/account and every other parameter must still match.
+  for (size_t i = 0; i < uri.size(); ++i) if (uri[i] == '%') {
+    if (i + 2 >= uri.size()) return {};
+    for (size_t j = i + 1; j <= i + 2; ++j) {
+      const auto c = static_cast<unsigned char>(uri[j]);
+      if (!std::isxdigit(c)) return {};
+      uri[j] = static_cast<char>(std::toupper(c));
+    }
+    i += 2;
+  }
+  const auto query = uri.find('?');
+  if (query == std::string::npos) return uri;
+  std::string result = uri.substr(0, query + 1);
+  bool flags_seen = false;
+  for (size_t start = query + 1; start < uri.size();) {
+    const auto end = uri.find('&', start);
+    auto parameter = uri.substr(start, end == std::string::npos ? end : end - start);
+    if (parameter.rfind("flags=", 0) == 0) {
+      const int flags = number(parameter.substr(6), 999999);
+      if (flags_seen || flags < 0) return {};
+      flags_seen = true;
+      parameter = "flags=" + std::to_string(flags & ~0x40);
+    }
+    result += parameter;
+    if (end == std::string::npos) break;
+    result += '&'; start = end + 1;
+  }
+  return result;
+}
+
+inline bool favorite_source_matches(const std::string &expected, const std::string &actual) {
+  if (expected == actual) return !expected.empty();
+  const auto canonical = canonical_radio_uri(expected);
+  return !canonical.empty() && canonical == canonical_radio_uri(actual);
 }
 
 struct Favorite {
@@ -313,6 +353,15 @@ class State {
   int command_error = 0;
   bool command_active() const { return commanding_ && has_request(); }
   static constexpr unsigned MAX_FAVORITE_SETTLE_READS = 10;
+  uint32_t request_timeout_ms() const {
+    if (!has_request()) return 8000;
+    const auto &action = request().action;
+    if (action.rfind("Get", 0) == 0) return 1500;
+    // Loading a service-backed favorite can outlast a normal control. Keep
+    // the one write on the worker longer, rather than repeat an uncertain write.
+    return commanding_ && target_action_ == 6 &&
+      (action == "SetAVTransportURI" || action == "AddURIToQueue") ? 30000 : 8000;
+  }
   uint32_t request_delay_ms() const {
     return commanding_ && target_action_ == 6 && has_request() && request().action.rfind("Get", 0) == 0 ? 200 : 10;
   }
@@ -427,7 +476,7 @@ class State {
       }
       if (settling) {
         bool ready = false;
-        if (req.action == "GetMediaInfo") ready = xml.text("CurrentURI") == favorite_uri_;
+        if (req.action == "GetMediaInfo") ready = favorite_source_matches(favorite_uri_, xml.text("CurrentURI"));
         else if (req.action == "GetTransportInfo") {
           const auto state = xml.text("CurrentTransportState");
           ready = (state == "STOPPED" || state == "PAUSED_PLAYBACK" || state == "PLAYING") &&
@@ -507,6 +556,7 @@ class State {
         r.transport = state == "PLAYING" || state == "PAUSED_PLAYBACK" || state == "STOPPED" || state == "NO_MEDIA_PRESENT" || state == "TRANSITIONING";
         r.playing = state == "PLAYING";
         r.transitioning = state == "TRANSITIONING";
+        r.transport_error = xml.text("CurrentTransportStatus") == "ERROR_OCCURRED";
       } else if (req.action == "GetMediaInfo") {
         r.media = xml.has("CurrentURI"); r.uri = xml.text("CurrentURI");
         r.tv = r.uri.rfind("x-sonos-htastream:", 0) == 0;
@@ -656,8 +706,15 @@ class State {
     target_action_ = 6; target_scope_ = scope(); target_room_ = selected;
     favorite_uri_ = favorite.uri; favorite_track_ = -1; favorite_end_track_ = -1; favorite_settle_reads_ = 0;
     if (favorite.radio) {
-      requests_.push_back({current().coordinator_host, "AVTransport", "SetAVTransportURI", "<InstanceID>0</InstanceID><CurrentURI>" + xml_escape(favorite.uri) +
-        "</CurrentURI><CurrentURIMetaData>" + xml_escape(favorite.metadata) + "</CurrentURIMetaData>", selected});
+      if (!current().transitioning && !current().transport_error && favorite_source_matches(favorite.uri, current().uri)) {
+        // A previous click may have loaded this radio without reaching Play.
+        // Recheck the fresh preflight source, then start it without reloading it.
+        requests_.push_back({current().coordinator_host, "AVTransport", "GetMediaInfo", "<InstanceID>0</InstanceID>", selected});
+        requests_.push_back({current().coordinator_host, "AVTransport", "GetTransportInfo", "<InstanceID>0</InstanceID>", selected});
+      } else {
+        requests_.push_back({current().coordinator_host, "AVTransport", "SetAVTransportURI", "<InstanceID>0</InstanceID><CurrentURI>" + xml_escape(favorite.uri) +
+          "</CurrentURI><CurrentURIMetaData>" + xml_escape(favorite.metadata) + "</CurrentURIMetaData>", selected});
+      }
       requests_.push_back({current().coordinator_host, "AVTransport", "Play", "<InstanceID>0</InstanceID><Speed>1</Speed>", selected});
     } else {
       // Append; never clear/replace a user-curated queue. Only a successful
@@ -757,7 +814,7 @@ class State {
     if (target_action_ == 0) return !r.transitioning && r.playing == target_playing_;
     if (target_action_ == 3 || target_action_ == 4) return !r.track_uri.empty() && r.track_uri != target_track_uri_;
     if (target_action_ == 5) return r.mute == target_mute_ && (!target_pair_ || rooms[1-target_room_].mute == target_mute_);
-    if (target_action_ == 6) return r.playing && r.uri == favorite_uri_ && (favorite_track_ < 0 || (r.track >= favorite_track_ && r.track < favorite_end_track_));
+    if (target_action_ == 6) return r.playing && !r.transport_error && favorite_source_matches(favorite_uri_, r.uri) && (favorite_track_ < 0 || (r.track >= favorite_track_ && r.track < favorite_end_track_));
     for (int i = 0; i < 3; ++i) if (target_volumes_[i] >= 0 && room(i).volume != target_volumes_[i]) return false;
     return true;
   }

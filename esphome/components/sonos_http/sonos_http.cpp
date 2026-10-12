@@ -3,6 +3,7 @@
 #include "esphome/core/log.h"
 #ifdef USE_ESP32
 #include "esp_http_client.h"
+#include "esp_heap_caps.h"
 #else
 // ESPHome gates its bundled HTTP library so it is compiled only in .cpp files.
 #define USE_HTTP_REQUEST_HOST_H
@@ -24,10 +25,10 @@ void SonosHttp::setup() {
 #endif
 }
 
-void SonosHttp::dump_config() { ESP_LOGCONFIG(TAG, "Sonos SOAP: background worker, 8s deadline, 64 KiB response limit"); }
+void SonosHttp::dump_config() { ESP_LOGCONFIG(TAG, "Sonos SOAP: background worker, 8s controls/30s favorite loads, 64 KiB response limit"); }
 
 void SonosHttp::submit(const energydeck_sonos::Request &request, uint32_t timeout_ms) {
-  if (!this->exchange_.submit(request, std::clamp(timeout_ms, uint32_t(100), uint32_t(8000)))) return;
+  if (!this->exchange_.submit(request, std::clamp(timeout_ms, uint32_t(100), uint32_t(30000)))) return;
   if (this->is_failed() || energydeck_sonos::origin(request.host) != request.host || request.host.empty()) {
     this->exchange_.complete({});
     return;
@@ -75,6 +76,8 @@ Reply SonosHttp::perform_(const energydeck_sonos::Request &request, uint32_t tim
   Reply reply;
   const uint32_t start = millis();
   const std::string url = request.url(), body = request.body(), soap = request.soap_action();
+  const char *phase = "connect";
+  size_t sent = 0;
 #ifdef USE_ESP32
   esp_http_client_config_t config{};
   config.url = url.c_str();
@@ -97,7 +100,7 @@ Reply SonosHttp::perform_(const energydeck_sonos::Request &request, uint32_t tim
     esp_http_client_set_header(client, "SOAPAction", soap.c_str());
     esp_http_client_set_header(client, "Connection", "close");
     bool ok = within_deadline() && esp_http_client_open(client, body.size()) == ESP_OK;
-    size_t sent = 0;
+    if (ok) phase = "send";
     while (ok && sent < body.size()) {
       if (!within_deadline()) { ok = false; break; }
       const int count = esp_http_client_write(client, body.data() + sent, body.size() - sent);
@@ -105,9 +108,11 @@ Reply SonosHttp::perform_(const energydeck_sonos::Request &request, uint32_t tim
       sent += count;
     }
     if (ok && within_deadline()) {
+      phase = "headers";
       const int64_t length = esp_http_client_fetch_headers(client);
       ok = length >= 0 && length <= Reply::MAX_BODY;
     } else ok = false;
+    if (ok) phase = "body";
     char chunk[1024];
     // fetch_headers may already buffer a complete small response. Drain those
     // bytes before using the completion flag, including cached final chunks.
@@ -135,16 +140,30 @@ Reply SonosHttp::perform_(const energydeck_sonos::Request &request, uint32_t tim
   message.body = body;
   message.headers = {{"Content-Type", "text/xml; charset=\"utf-8\""}, {"SOAPAction", soap}};
   message.response_handler = [&](const httplib::Response &response) {
+    phase = "body";
     return response.get_header_value_u64("Content-Length") <= Reply::MAX_BODY && millis() - start < timeout_ms;
   };
   message.content_receiver = [&](const char *data, size_t size, uint64_t, uint64_t) {
     return millis() - start < timeout_ms && reply.append(data, size);
   };
+  phase = "request";
   auto result = client.send(message);
+  if (result) sent = body.size();
   if (result && millis() - start < timeout_ms) reply.status = result->status;
 #endif
-  if (reply.status == 0) reply.body.clear();  // Never parse an incomplete/truncated successful response.
   reply.duration_ms = millis() - start;
+  if (reply.status == 0) {
+    // Report transport stages and sizes, never URLs, SOAP bodies or credentials.
+    ESP_LOGW(TAG, "%s failed during %s: %u ms, sent %u/%u bytes, received %u bytes",
+      request.action.c_str(), phase, static_cast<unsigned>(reply.duration_ms),
+      static_cast<unsigned>(sent), static_cast<unsigned>(body.size()), static_cast<unsigned>(reply.body.size()));
+#ifdef USE_ESP32
+    ESP_LOGW(TAG, "Internal heap: free %u bytes, largest block %u bytes",
+      static_cast<unsigned>(heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)),
+      static_cast<unsigned>(heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)));
+#endif
+    reply.body.clear(); // Never parse an incomplete/truncated successful response.
+  }
   return reply;
 }
 

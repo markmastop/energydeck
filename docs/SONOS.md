@@ -217,7 +217,8 @@ with a single request/reply mailbox. Only the owning script consumes a reply.
 The worker never reads/modifies Sonos models, LVGL widgets, the ESPHome scheduler
 or the shared Homey client. Models and UI updates stay on the main thread.
 Replies are limited to 64 KiB; status reads and favorites Browse pages have a
-1.5-second deadline, while writes retain up to eight seconds. Browse pages wait
+1.5-second deadline. Writes use eight seconds, with 30 seconds for favorite source
+loading/enqueue. Browse pages wait
 until pending room choices and their snapshots have finished. The firmware
 shares one deadline across
 connect/send/read, rejects incomplete/oversize bodies, follows no redirects and
@@ -258,6 +259,12 @@ omitted. Tiles show title and a radio/music icon, not remote thumbnail downloads
 - First verify fresh status and the displayed room/group scope without changing membership, volume or mute.
 - Radio: set the favorite URI with its original metadata, verify that the new
   source is visible and the transport has settled, then Play.
+  For `x-sonosapi-stream`, source matching accepts percent-escape case changes
+  and the observed `flags` bit `0x40` normalization. The station, service/account,
+  all other flags and parameters must still match. Other URI schemes retain exact
+  matching. The same rule applies to final playback confirmation.
+  If fresh preflight already sees that radio without an error or transition,
+  recheck its readiness and Play without issuing another SetURI.
 - Playlist/album/track: append to the existing queue, select that queue, verify
   source/transport readiness, seek to the first newly added track, verify its
   position, then Play. The old queue is never cleared.
@@ -267,6 +274,9 @@ omitted. Tiles show title and a radio/music icon, not remote thumbnail downloads
 - A failed command stops the remaining sequence. Each write is sent at most once.
   A fresh playback read may confirm an applied command despite a lost response;
   there is no automatic write retry or duplicate enqueue.
+- Favorite source selection and enqueue have a 30-second worker deadline for
+  service-backed loading; other writes keep eight seconds and reads 1.5 seconds.
+  A longer network wait does not block input, rendering or the foreground loop.
 - Waiting appears immediately; fresh playback URI (and a track inside the newly
   added range for a playlist) confirms the selection. Advancing to the next added
   track does not falsely leave a successfully started playlist unconfirmed.
@@ -280,6 +290,8 @@ sequence logs its action, HTTP status and UPnP error code; internal readiness
 exhaustion uses -1 and an invalid enqueue result uses -2. Preflight rejection and
 final playback-confirmation failures have separate log messages. No metadata,
 service credentials or response bodies are logged.
+Transport failures also report the failed stage (connection, sending, response
+headers or body), sent/received byte counts and available internal memory.
 
 The original Sonos favorite metadata is preserved and XML-escaped when sent.
 No music-service credentials are stored on the deck. Availability still depends
@@ -559,3 +571,87 @@ boot-success check and nine status cycles without crash/watchdog/error markers;
 OTA remained reachable afterward. No new favorite start was recorded during
 that capture, so physical Qmusic/Deep House Relax playback remains unverified.
 The 7-inch was compiled but not updated.
+
+## Captured favorite start follow-up (2026-10-12)
+
+On the 5-inch, a user-triggered Deep House Relax start in Woonkamer/Keuken
+successfully acknowledged enqueue, source selection, readiness, Seek and Play.
+An independent read-only transport check confirmed PLAYING; the user also
+confirmed audible playback. A subsequent user-triggered Qmusic attempt reached
+the eight-second SetAVTransportURI deadline with HTTP status 0. No Play was sent,
+and read-only status still showed the prior playlist. The user confirmed the same
+Qmusic favorite works from the official Sonos app. No UPnP rejection was captured.
+
+Favorite source/enqueue writes now allow 30 seconds on the same background worker;
+they are still issued only once. Transport diagnostics distinguish connection,
+send, headers and body failures without exposing request content. Repeated
+AES allocation errors were also captured in the independent HTTPS worker; the
+physical configurations now prefer PSRAM above 1 KiB instead of 4 KiB to reduce
+internal-memory pressure. A failed source selection does not silently play the
+old source or repeat the selection. These observations identify a real timeout,
+but do not yet prove its transport stage or whether additional time resolves it.
+
+After that update, another user-triggered Qmusic start acknowledged SetURI in
+1,126 ms but failed the source-readiness comparison. Read-only inspection on the
+current group coordinator showed the same radio resource with lowercase percent
+escapes and `flags` changed from 8296 to 8232, while transport was STOPPED. The
+comparison now accepts those specific normalizations, allowing Play and later
+confirmation for the same radio. A regression reproduces the observed mismatch
+and checks that different stations, service IDs, accounts, other flags, duplicate
+flags and malformed escapes still cannot confirm the source. A separate repeated
+Qmusic attempt returned UPnP 402 after 10,037 ms; the longer deadline exposed that
+rejection instead of reporting only an eight-second timeout. Play remains blocked
+after a rejected SetURI. The user reports real playlists start promptly.
+
+The radio-fix simulator, 5-inch and 7-inch builds and model/room-widget/UI-priority
+regressions passed. The 5-inch build from `2026-10-12 18:59:24 +0200` was uploaded
+over OTA. A user-triggered Qmusic start then acknowledged SetURI in 248 ms,
+passed source/transport readiness and acknowledged Play in 3,878 ms. The user
+confirmed success, and independent read-only inspection on the current group
+coordinator confirmed the normalized Qmusic URI with PLAYING / OK. This verifies
+one physical Qmusic start; it is not a long-term reliability measurement. The
+7-inch was compiled but not updated. Background HTTPS AES allocation errors
+remained visible despite the lower allocation threshold. One status cycle became
+unknown, with repeated read timeouts and only 8,859 internal bytes free / a
+4,608-byte largest block. The next cycle recovered, as the user reported; the
+radio logo subsequently appeared. The dedicated internal reserve increases from
+32 KiB to 64 KiB to account for worker stacks and network/crypto memory. HTTPS
+transport errors now sample internal and DMA-capable memory before cleanup.
+These memory changes are separate from the confirmed radio-comparison fix.
+The 64 KiB-reserve build still captured an AES failure during background HTTPS:
+the before-cleanup diagnostic reported 7,811 DMA-capable bytes free but only a
+2,432-byte largest block. Hardware AES is disabled in favor of software AES on
+the background worker, avoiding these driver staging allocations while retaining
+TLS verification. Read-only inspection also confirmed RADIONL West-Brabant
+PLAYING / OK after the user switched from Qmusic.
+
+The software-AES simulator/5-inch/7-inch builds and regression checks passed.
+The 5-inch build from `2026-10-12 19:08:33 +0200` was uploaded over OTA; the
+7-inch remains unchanged. A 105-second capture confirmed boot success and eight
+known Sonos status cycles after reset, with no unknown cycles, AES allocation
+errors, crashes or watchdog events. Two background HTTP transport failures were
+recorded: one immediate startup failure and one 16,125 ms timeout. The latter
+still reported low/fragmented DMA headroom (919 bytes free, largest block 448
+bytes), so this check does not establish that all network memory pressure or
+artwork download failures are eliminated. The observed radio URI blocker is
+fixed and physically verified; background HTTP diagnostics remain available for
+any further intermittent failures.
+The same capture ended during another status poll whose reads were timing out;
+its eventual result was not captured. Read-only inspection still confirmed the
+latest Qmusic start PLAYING / OK. The internal reserve therefore increases to
+128 KiB to preserve DMA/socket headroom during artwork transfers; the eight
+completed known cycles must not be interpreted as proof of sustained recovery.
+
+The final 128 KiB-reserve 5-inch and 7-inch builds passed. The 5-inch build from
+`2026-10-12 19:16:19 +0200` was uploaded over OTA; the 7-inch was not updated.
+A 150-second serial capture spanning the update confirmed boot success and
+12 completed known selected-room cycles after reset. No background HTTP/Sonos
+transport failures, AES allocation errors, crashes or watchdog events were
+captured. Eight cycles reported playing; the final four reported stopped, which
+independent read-only inspection confirmed as STOPPED / OK. No playback write
+was recorded during this capture, so the reason for that transition is unknown.
+This short observation improves on the preceding low-memory capture but does
+not measure long-term reliability or prove a particular artwork download.
+Model, room-widget, exchange and UI-priority/artwork regressions and the simulator
+build passed. UI publication still had a 111 ms sample and startup LVGL warnings;
+the worker priorities do not establish a hard interaction-latency guarantee.

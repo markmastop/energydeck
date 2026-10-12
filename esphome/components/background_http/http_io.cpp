@@ -1,8 +1,10 @@
 #include "http_io.h"
 #include "esphome/core/defines.h"
 #include "esphome/core/hal.h"
+#include "esphome/core/log.h"
 #ifdef USE_ESP32
 #include "esp_http_client.h"
+#include "esp_heap_caps.h"
 #include "esp_crt_bundle.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -78,6 +80,16 @@ Reply perform_http(const Request &request) {
     }
   }
   if (ok && millis() - start < request.timeout_ms) reply.status_code = esp_http_client_get_status_code(client);
+  if (reply.status_code == 0) {
+    // Sample before cleanup releases TLS memory, otherwise transient DMA/RAM
+    // exhaustion disappears from diagnostics. Keep authenticated URLs private.
+    ESP_LOGW("background_http", "HTTP transport failed: %u ms, internal free %u/largest %u bytes, DMA free %u/largest %u bytes",
+      static_cast<unsigned>(millis() - start),
+      static_cast<unsigned>(heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)),
+      static_cast<unsigned>(heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)),
+      static_cast<unsigned>(heap_caps_get_free_size(MALLOC_CAP_DMA)),
+      static_cast<unsigned>(heap_caps_get_largest_free_block(MALLOC_CAP_DMA)));
+  }
   esp_http_client_cleanup(client);
 #else
   const auto path_start = request.url.find('/', scheme + 3);

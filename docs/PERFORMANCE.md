@@ -99,6 +99,26 @@ and failed responses use the existing error/fallback handlers. HTTPS retains CA
 and hostname verification, redirects remain disabled for authenticated data,
 and artwork redirects forward no headers.
 
+The physical displays put allocations larger than 1 KiB in PSRAM when space is
+available, leaving more internal memory for sockets and TLS AES-DMA buffers.
+The previous 4 KiB preference also kept many Sonos metadata strings in internal
+RAM. A live 5-inch favorite trial captured repeated AES allocation failures from
+the background HTTPS worker. The lower threshold addresses that observed memory
+pressure; it does not establish that it caused the separate Sonos HTTP timeout.
+The dedicated internal reserve increases from 32 KiB to 128 KiB, accounting for
+the two background workers' 24 KiB of task stacks and network/crypto allocations
+that cannot use ordinary PSRAM. Transport errors report both internal and
+DMA-capable free/largest blocks before TLS cleanup releases its allocations.
+Hardware AES is disabled on the physical displays: despite the larger reserve,
+cover HTTPS still produced an AES allocation failure with 7,811 DMA-capable bytes
+free but only a 2,432-byte largest block. Software AES keeps encryption on the
+low-priority background worker and avoids the driver's DMA staging allocations.
+TLS algorithms, CA/hostname verification and network deadlines are unchanged.
+The intermediate 64 KiB reserve still left only 919 DMA-capable bytes free
+during an artwork request, with selected-room reads timing out concurrently.
+The larger reserve preserves headroom for network buffers while ordinary model
+and JSON allocations can fall back to the available PSRAM.
+
 Rooms still defers new artwork throughout the tab. Inventory and selected-room
 metadata publish early; selection abandons unsent older Sonos reads, and favorites
 Browse pages yield to selection with a 1.5-second read deadline.

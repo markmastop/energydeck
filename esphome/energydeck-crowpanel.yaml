@@ -75,7 +75,12 @@ esp32:
       # Make normal malloc/new allocations PSRAM-aware. Homey's device JSON can
       # exceed 20 KB and must not compete with LVGL for internal SRAM.
       CONFIG_SPIRAM_USE_MALLOC: y
-      CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL: "4096"
+      # Sonos favorites/topology create many small strings. Keep >1 KiB
+      # allocations in PSRAM so TLS AES-DMA and sockets retain internal memory.
+      CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL: "1024"
+      # The two workers add 24 KiB of internal task stacks. Preserve a larger
+      # dedicated pool for stacks, sockets and AES-DMA alongside ordinary malloc.
+      CONFIG_SPIRAM_MALLOC_RESERVE_INTERNAL: "131072"
       CONFIG_SPIRAM_TRY_ALLOCATE_WIFI_LWIP: y
       CONFIG_SPIRAM_FETCH_INSTRUCTIONS: y
       CONFIG_SPIRAM_RODATA: y
@@ -83,6 +88,10 @@ esp32:
       # TLS otherwise uses internal RAM even when normal malloc uses PSRAM.
       CONFIG_MBEDTLS_INTERNAL_MEM_ALLOC: n
       CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC: y
+      # AES-DMA still fails to allocate internal buffers during cover HTTPS
+      # with PSRAM-backed TLS. Software AES runs on the low-priority worker and
+      # avoids those DMA staging allocations without changing TLS verification.
+      CONFIG_MBEDTLS_HARDWARE_AES: n
 
 psram:
   mode: octal

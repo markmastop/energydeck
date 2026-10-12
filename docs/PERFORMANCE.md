@@ -1,0 +1,77 @@
+# Display responsiveness
+
+The 5-inch and 7-inch CrowPanel Advance targets share these optimizations:
+
+- 64 KiB data cache, 64-byte data cache lines and 32 KiB instruction cache;
+- a 12.5% LVGL draw buffer instead of 25%; ESPHome 2026.8.2 rounds configured
+  sizes to 100%, 50%, 25% or 12.5%, so smaller percentages are not smaller buffers;
+- clockwise RGB565 rotation in 32 x 32 tiles, using a 2 KiB internal scratch
+  buffer rather than strided writes into a full PSRAM rotation buffer;
+- one Sonos render/cover update per completed poll, unchanged-text and tab-style
+  checks, and battery-header updates on Sessy responses or page transitions;
+- a brief cooperative delay before opening-page network requests so the page
+  can draw first. Polling frequency and charging commands are unchanged.
+
+The tiled flush uses LVGL's public callback API and the existing RGB display
+driver. Touch transforms, colors, page lifecycle and paused-display handling
+remain with ESPHome/LVGL. Other rotations and color formats use ESPHome's
+original flush callback. The fast path is restricted to the CrowPanel's
+`rpi_dpi_rgb` display and its unrotated native 800 x 480 framebuffer.
+
+## Hardware measurements
+
+Measured on the connected 7-inch ESP32-S3 on 2026-10-12. Each row is the median
+of five explicitly invalidated 384,000-pixel dashboard redraws with live
+background polling. These are rendering durations, **not** finger-to-screen
+latencies or guaranteed durations for every page.
+
+| Configuration | Total redraw | LVGL drawing | Rotation/framebuffer copy |
+| --- | ---: | ---: | ---: |
+| Original cache and 25% buffer | 1094.7 ms | 314.3 ms | 785.3 ms |
+| Larger cache, 25% buffer | 933.1 ms | 158.0 ms | 774.9 ms |
+| Larger cache, 12.5% buffer | 667.0 ms | 130.8 ms | 547.8 ms |
+| Larger cache, 12.5% buffer, tiled rotation | 229.0 ms | 138.1 ms | 90.5 ms |
+
+Medians are calculated independently per column, so they need not add exactly.
+The total redraw improved by approximately 79%. The user confirmed that page
+navigation feels clearly faster and that the display, colors and touch work.
+Only the 7-inch device was uploaded; the 5-inch target receives the shared code
+but needs its own hardware check after an explicitly requested upload.
+
+## Diagnostics and reproduction
+
+`ui_performance` logs render durations above 100 ms. `draw` is total render time
+minus synchronous flush time; `rotate/copy` includes the RGB framebuffer copy.
+The normal firmware never forces redraws for measurement. The simulator uses
+the same diagnostics without the hardware rotation path.
+
+For a deliberate hardware benchmark, compile
+`esphome/energydeck-crowpanel-7-benchmark.yaml` using the normal local environment.
+Upload only when requested. This target forces five redraws of the current
+screen, three seconds apart, starting approximately 33 seconds after boot.
+It never clicks controls or starts charging, playback or grouping commands.
+Use the same page for comparisons and restore the normal 7-inch target afterward.
+Wait at least 60 seconds after OTA boot before deliberately resetting the deck:
+ESPHome's boot-success window protects updates against early-reset rollback.
+Check the logged build timestamp and buffer size when comparing versions.
+
+Read-only Homey fast polls and Sonos SOAP requests also log their response times
+under `network_performance`, without credentials or response bodies. These HTTP
+requests remain synchronous and can still briefly delay touch, especially if a
+service is slow or unavailable. They have not been moved to another task; the
+measured dominant bottleneck was rotation. Successful local reads generally
+take tens of milliseconds, but the final production check also recorded one
+2,968 ms Sonos topology request. An occasional network-related stall remains
+possible despite the faster rendering.
+
+Verify the rotation mapping, including partial tiles and nonzero origins:
+
+```sh
+c++ -std=c++17 -Wall -Wextra -Werror -fsanitize=address,undefined \
+  scripts/test-portrait-rotation.cpp -o /tmp/energydeck-test-rotation
+/tmp/energydeck-test-rotation
+node scripts/test-music-controls.cjs
+```
+
+If a future ESPHome/LVGL update changes the flush API, disable the tiled path
+with `ui_performance: {tiled_rotation: false}` and rebuild while investigating.

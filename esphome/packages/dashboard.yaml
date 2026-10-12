@@ -3,7 +3,6 @@
 interval:
   - interval: 1s
     then:
-      - script.execute: render_sonos_energy_header
       - lambda: |-
           // ESPHome's button text shorthand creates an unaligned child label.
           // Initialize after LVGL setup; alignment persists across text updates.
@@ -2065,6 +2064,8 @@ lvgl:
             on_click:
               - lambda: id(detail_tab) = 2;
               - script.execute: select_detail_tab
+              # Paint the tab before the first blocking climate request.
+              - delay: 100ms
               - script.execute: refresh_climate
 
         - obj:

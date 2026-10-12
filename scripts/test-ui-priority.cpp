@@ -2,9 +2,11 @@
 // and a loopback HTTP server. No Homey/Sonos/charging commands are used.
 #include "esphome/components/background_http/background_http.h"
 #include "esphome/components/online_image/online_image.h"
+#include "esphome/components/online_image/station_artwork.h"
 #include "esphome/components/ui_performance/ui_priority.h"
 #include "esphome/core/hal.h"
 #include "esphome/core/base_automation.h"
+#include "esphome/components/logger/logger.h"
 #include <cassert>
 #include <chrono>
 #include <fstream>
@@ -21,6 +23,14 @@ const char *get_reexec_path() { return nullptr; }
 static int frames = 0, taps = 0;
 static lv_indev_state_t touch_state = LV_INDEV_STATE_RELEASED;
 static lv_point_t touch_point{20,20};
+static uint16_t capture_pixel(uint16_t pixel) {
+  // ESPHome's LVGL config swaps RGB565 bytes just before the display flush.
+  // Undo the wire order when exporting native host pixels for visual checks.
+#if defined(LV_COLOR_16_SWAP) && LV_COLOR_16_SWAP
+  pixel = static_cast<uint16_t>((pixel >> 8) | (pixel << 8));
+#endif
+  return pixel;
+}
 static void pump(BackgroundHttp &http, int ms) {
   for (int elapsed = 0; elapsed < ms; elapsed += 5) {
     lv_tick_inc(5);
@@ -38,11 +48,23 @@ static std::string read(const std::string &path) {
 int main(int argc, char **argv) {
   assert(argc == 3);
   const std::string base = argv[1], assets = argv[2];
+  logger::Logger logger(0);
+  logger.pre_setup();
   lv_init();
   auto *display = lv_display_create(480, 800);
+  // Specify the capture format explicitly rather than depend on the linked
+  // LVGL library's native color-depth configuration.
+  lv_display_set_color_format(display, LV_COLOR_FORMAT_RGB565);
   static uint16_t pixels[480 * 40];
+  static uint16_t snapshot[480 * 800];
   lv_display_set_buffers(display, pixels, nullptr, sizeof(pixels), LV_DISPLAY_RENDER_MODE_PARTIAL);
-  lv_display_set_flush_cb(display, [](lv_display_t *d, const lv_area_t *, uint8_t *) { ++frames; lv_display_flush_ready(d); });
+  lv_display_set_flush_cb(display, [](lv_display_t *d, const lv_area_t *area, uint8_t *data) {
+    const auto *source = reinterpret_cast<const uint16_t *>(data);
+    const int width = lv_area_get_width(area);
+    for (int y = area->y1; y <= area->y2; ++y)
+      std::copy_n(source + (y - area->y1) * width, width, snapshot + y * 480 + area->x1);
+    ++frames; lv_display_flush_ready(d);
+  });
   auto *button = lv_button_create(lv_screen_active());
   lv_obj_set_size(button, 100, 100); lv_obj_set_pos(button, 0, 0);
   lv_obj_add_event_cb(button, [](lv_event_t *) { ++taps; }, LV_EVENT_CLICKED, nullptr);
@@ -178,5 +200,46 @@ int main(int argc, char **argv) {
   cover.release(); pump(http, 400);
   assert(covers == 2 && errors == 0 && !cover.get_data_start() && !cover.is_loaded() && !cover.is_pending());
 
-  std::cout << "PASS: live LVGL input/render during slow HTTP, UI-first publication, FIFO priorities, asynchronous action completion/cancellation, chunked/bounded/deadline reads, redirects/write-once and isolated PNG/JPEG decoding\n";
+  // Exercise the shipped logo through the production component at every UI
+  // size, with no HTTP server route or network required for the local resource.
+  std::vector<std::unique_ptr<online_image::OnlineImage>> logos;
+  std::vector<lv_obj_t *> widgets;
+  int y = 10;
+  for (int size : {272, 92, 32}) {
+    auto logo = std::make_unique<online_image::OnlineImage>(energydeck_artwork::RADIONL_COVER, size, size,
+      runtime_image::JPEG, image::IMAGE_TYPE_RGB565, image::TRANSPARENCY_OPAQUE, nullptr, 2048, false);
+    logo->set_parent(&http);
+    auto finished = std::make_shared<int>(0);
+    logo->add_on_finished_callback([finished](bool) { ++*finished; });
+    logo->add_on_error_callback([&]() { ++errors; });
+    touch_state = LV_INDEV_STATE_PRESSED;
+    logo->update(); pump(http, 250);
+    assert(!logo->is_loaded() && *finished == 0); // Local decode also respects UI priority.
+    touch_state = LV_INDEV_STATE_RELEASED; pump(http, 250);
+    assert(logo->is_loaded() && *finished == 1 && errors == 0);
+    assert(logo->get_width() == size && logo->get_height() == size);
+    const auto color = logo->get_pixel(0, 0);
+    assert(color.r > 210 && color.g < 30 && color.b < 60);
+    auto *widget = lv_image_create(lv_screen_active());
+    lv_obj_set_pos(widget, 110, y); y += size + 20;
+    lv_image_set_src(widget, logo->get_lv_image_dsc());
+    widgets.push_back(widget); logos.push_back(std::move(logo));
+  }
+  pump(http, 30);
+  const uint16_t rendered = capture_pixel(snapshot[18 * 480 + 118]);
+  assert((rendered >> 11) > 26 && ((rendered >> 5) & 63) < 8 && (rendered & 31) < 12);
+  std::ofstream preview(assets + "/radionl-render.ppm", std::ios::binary);
+  preview << "P6\n480 800\n255\n";
+  for (uint16_t pixel : snapshot) {
+    pixel = capture_pixel(pixel);
+    const uint8_t r = pixel >> 11, g = (pixel >> 5) & 63, b = pixel & 31;
+    const char rgb[] = {static_cast<char>((r << 3) | (r >> 2)),
+      static_cast<char>((g << 2) | (g >> 4)), static_cast<char>((b << 3) | (b >> 2))};
+    preview.write(rgb, sizeof(rgb));
+  }
+  preview.close();
+  for (auto *widget : widgets) lv_obj_delete(widget);
+  for (auto &logo : logos) logo->release();
+
+  std::cout << "PASS: live LVGL input/render during slow HTTP, UI-first publication, FIFO priorities, asynchronous action completion/cancellation, chunked/bounded/deadline reads, redirects/write-once, isolated PNG/JPEG decoding and local RADIONL rendering at 272/92/32 px\n";
 }

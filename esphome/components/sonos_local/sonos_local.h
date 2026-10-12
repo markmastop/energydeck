@@ -9,6 +9,7 @@
 #include <map>
 #include <string>
 #include <vector>
+#include "../online_image/station_artwork.h"
 
 namespace energydeck_sonos {
 
@@ -149,19 +150,14 @@ inline std::string origin(const std::string &url) {
 // Artwork may come from the coordinator or Sonos' HTTPS radio image proxies.
 // Never attach Homey credentials or accept arbitrary metadata-provided hosts.
 inline std::string artwork_url(const std::string &path, const std::string &host) {
-  // Skip this unreliable TuneIn cover, including encoded proxy URLs.
-  // Station playback and other artwork remain unaffected.
-  if (path.find("/s106736/") != std::string::npos ||
-      path.find("%2Fs106736%2F") != std::string::npos ||
-      path.find("%2fs106736%2f") != std::string::npos) return {};
-  if (path.find_first_of("\r\n\\") != std::string::npos) return {};
+  if (path.size() > 2048 || path.find_first_of("\r\n\\") != std::string::npos) return {};
   if (path.rfind("/", 0) == 0 && path.rfind("//", 0) != 0 && path.find("..") == std::string::npos)
-    return host + path;
-  if (!host.empty() && origin(path) == host) return path;
+    return energydeck_artwork::station_cover(host + path);
+  if (!host.empty() && origin(path) == host) return energydeck_artwork::station_cover(path);
   for (const auto *proxy : {"https://sali.sonos.superhi.fi/", "https://sali.sonos.radio/",
       "https://i.scdn.co/", "https://image-cdn-ak.spotifycdn.com/",
       "https://image-cdn-fa.spotifycdn.com/", "https://seed-mix-image.spotifycdn.com/"})
-    if (path.rfind(proxy, 0) == 0) return path;
+    if (path.rfind(proxy, 0) == 0) return energydeck_artwork::station_cover(path);
   return {};
 }
 

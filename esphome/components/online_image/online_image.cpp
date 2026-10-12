@@ -1,5 +1,7 @@
 #include "online_image.h"
 #include "cover_redirect.h"
+#include "station_artwork.h"
+#include "radionl_logo.h"
 #include "esphome/core/log.h"
 
 namespace esphome::online_image {
@@ -10,7 +12,8 @@ OnlineImage::OnlineImage(const std::string &url, int width, int height, runtime_
   set_url(url);
 }
 bool OnlineImage::validate_url_(const std::string &url) {
-  return !url.empty() && url.size() <= 2048 && (url.starts_with("http://") || url.starts_with("https://"));
+  return url == energydeck_artwork::RADIONL_COVER ||
+    (!url.empty() && url.size() <= 2048 && (url.starts_with("http://") || url.starts_with("https://")));
 }
 void OnlineImage::update() {
   if (pending_) return;
@@ -29,11 +32,19 @@ void OnlineImage::update() {
   cancelled_ = std::make_shared<std::atomic<bool>>(false);
   auto work = [request = std::move(request), decoded, cancelled = cancelled_]() mutable {
     if (cancelled->load(std::memory_order_acquire)) return background_http::Reply{};
+    if (request.url == energydeck_artwork::RADIONL_COVER) {
+      // Keep decoding and publication on the existing UI-first worker path.
+      // This baseline asset needs no TLS/download or progressive JPEG decoder.
+      std::string bytes(reinterpret_cast<const char *>(RADIONL_LOGO), sizeof(RADIONL_LOGO));
+      background_http::Reply reply;
+      reply.status_code = decoded->decode_complete(bytes, false) ? 200 : 0;
+      return reply;
+    }
     auto reply = background_http::perform_http(request);
     if (reply.status_code == 301 || reply.status_code == 302 || reply.status_code == 303 || reply.status_code == 307 || reply.status_code == 308) {
       const auto target = reply.header("location");
       if (allowed_cover_redirect(request.url, target)) {
-        request.url = compatible_cover_url(target);
+        request.url = target;
         request.headers.clear(); // One allowlisted hop; never forward Authorization or caching headers.
         const auto elapsed = reply.duration_ms;
         request.timeout_ms = elapsed < request.timeout_ms ? request.timeout_ms - elapsed : 0;
@@ -46,7 +57,7 @@ void OnlineImage::update() {
     reply.body.clear(); // Compressed bytes are never retained alongside published UI images.
     return reply;
   };
-  auto done = [this, generation, decoded](background_http::Reply reply) {
+  auto done = [this, generation, decoded, local = url_ == energydeck_artwork::RADIONL_COVER](background_http::Reply reply) {
     if (generation != generation_) return;
     pending_ = false;
     if (reply.status_code == 304 && published_) { download_finished_callback_.call(true); return; }
@@ -58,6 +69,8 @@ void OnlineImage::update() {
     data_start_ = published_->get_data_start();
     width_ = published_->get_width(); height_ = published_->get_height();
     etag_ = reply.header("etag"); last_modified_ = reply.header("last-modified");
+    if (local) ESP_LOGD("online_image", "Local station artwork ready: %ux%u",
+      static_cast<unsigned>(width_), static_cast<unsigned>(height_));
     download_finished_callback_.call(false);
   };
   if (!parent_->enqueue(std::move(work), done, 2, cancelled_)) done({});

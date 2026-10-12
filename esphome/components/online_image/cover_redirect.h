@@ -2,14 +2,6 @@
 #include <string>
 
 namespace esphome::online_image {
-inline std::string compatible_cover_url(const std::string &url) {
-  // Legacy smaller-image mapping. RADIONL is now filtered before downloading:
-  // either size may be served as unsupported progressive JPEG.
-  const std::string large = "https://cdn-profiles.tunein.com/s106736/images/logog.jpg";
-  if (url == large || url.rfind(large + "?", 0) == 0)
-    return "https://cdn-profiles.tunein.com/s106736/images/logod.jpg";
-  return url;
-}
 // Only the observed Sonos -> TuneIn image redirect is trusted. Do not enable
 // redirects on the shared HTTP client, which also carries Homey credentials.
 inline bool allowed_cover_redirect(const std::string &source, const std::string &target) {

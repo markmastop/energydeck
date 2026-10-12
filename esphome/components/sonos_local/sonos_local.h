@@ -330,8 +330,11 @@ class State {
     return true;
   }
   bool grouped() const { return rooms[0].topology && rooms[1].topology && rooms[0].coordinator == rooms[1].coordinator; }
-  bool any_playing() const { return (rooms[0].known() && rooms[0].playing) || (rooms[1].known() && rooms[1].playing) || (selected == 2 && extra_.known() && extra_.playing); }
-  bool all_stopped() const { return rooms[0].known() && rooms[1].known() && !rooms[0].playing && !rooms[1].playing && !rooms[0].transitioning && !rooms[1].transitioning && (selected != 2 || (extra_.known() && !extra_.playing && !extra_.transitioning)); }
+  bool any_playing() const { return system_playing_ || (rooms[0].known() && rooms[0].playing) || (rooms[1].known() && rooms[1].playing) || (selected == 2 && extra_.known() && extra_.playing); }
+  bool all_stopped() const { return system_stopped_ && rooms[0].known() && rooms[1].known() && !rooms[0].playing && !rooms[1].playing && !rooms[0].transitioning && !rooms[1].transitioning && (selected != 2 || (extra_.known() && !extra_.playing && !extra_.transitioning)); }
+  // The lightweight all-room scan also drives dashboard playback edges. A
+  // partial/unknown scan cannot prove a stop, even if both default rooms pause.
+  void set_system_activity(bool playing, bool stopped) { system_playing_ = playing; system_stopped_ = stopped; }
   // Follow playback edges, not every poll: manual Gas/Climate selections remain
   // usable during playback. Unknown/transitioning replies never imply a stop.
   int follow_compact_tab(int tab) {
@@ -380,6 +383,25 @@ class State {
       pending_[i] = Room{}; pending_[i].uuid = rooms[i].uuid; pending_[i].host = rooms[i].host;
       if (!pending_[i].host.empty()) requests_.push_back({pending_[i].host, "ZoneGroupTopology", "GetZoneGroupState", "", i});
     }
+  }
+  // A newly followed room needs its own snapshot, not another full system poll.
+  // Reuse the topology just discovered by this cycle; user commands still do
+  // their normal fresh topology/scope check before any write.
+  void begin_current() {
+    requests_.clear(); cursor_ = 0; commanding_ = false; read_retried_ = false;
+    topology_ok_ = systems_known; pending_complete_ = systems_complete;
+    pending_systems_ = systems;
+    pending_ = {{rooms[0], rooms[1], extra_}};
+    const auto *s = system(current().uuid);
+    if (!systems_known || !s) return;
+    auto &r = pending_[selected];
+    r = Room{}; r.uuid = s->uuid; r.host = s->host;
+    r.coordinator = s->coordinator; r.coordinator_host = s->coordinator_host;
+    r.members = s->members; r.topology = true;
+    for (const auto &action : {"GetTransportInfo", "GetMediaInfo", "GetPositionInfo", "GetCurrentTransportActions"})
+      requests_.push_back({r.coordinator_host, "AVTransport", action, "<InstanceID>0</InstanceID>", selected});
+    requests_.push_back({r.host, "RenderingControl", "GetVolume", "<InstanceID>0</InstanceID><Channel>Master</Channel>", selected});
+    requests_.push_back({r.host, "RenderingControl", "GetMute", "<InstanceID>0</InstanceID><Channel>Master</Channel>", selected});
   }
   void accept(int status, const std::string &body) {
     if (!has_request()) return;
@@ -702,6 +724,7 @@ class State {
   size_t cursor_ = 0;
   bool topology_ok_ = false, manual_ = false, commanding_ = false, target_playing_ = false;
   bool compact_playing_ = false, read_retried_ = false, target_pair_ = false, favorite_custom_ = false;
+  bool system_playing_ = false, system_stopped_ = true;
   bool pending_complete_ = true;
   std::string explicit_uuid_, explicit_name_;
   bool group_dirty_ = false;
@@ -773,7 +796,7 @@ class State {
     pending_ = result; return true;
   }
 };
-// Lightweight room-list activity: existing polled coordinators are reused;
+// Lightweight room-list/dashboard activity: existing polled coordinators are reused;
 // each remaining coordinator gets one read-only transport request per cycle.
 // Group followers share their coordinator's activity, never separate requests.
 class RoomActivity {
@@ -822,6 +845,27 @@ class RoomActivity {
   Transport transport(const System &system) const {
     const auto found = activity_.find(system.coordinator);
     return found == activity_.end() ? UNKNOWN : found->second;
+  }
+  // Keep a playing target stable when several rooms play. Only the dashboard
+  // may change targets; detail navigation and in-flight controls stay pinned.
+  bool follow_dashboard(State &state, bool allow_selection) const {
+    bool playing = false;
+    bool stopped = state.systems_known && state.systems_complete && !state.systems.empty();
+    bool current_playing = false;
+    for (const auto &system : state.systems) {
+      const auto value = transport(system);
+      playing |= value == PLAYING;
+      stopped &= value == STOPPED;
+      current_playing |= system.uuid == state.current().uuid && value == PLAYING;
+    }
+    state.set_system_activity(playing, stopped);
+    if (!allow_selection || current_playing || !playing) return false;
+    // Use the same deterministic alphabetical order as Rooms for a new target.
+    for (const auto index : order(state)) {
+      const auto &system = state.systems[index];
+      if (transport(system) == PLAYING) return state.select_system(system.uuid);
+    }
+    return false;
   }
   std::vector<size_t> order(const State &state) const {
     std::vector<size_t> indices;

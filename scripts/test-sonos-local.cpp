@@ -29,8 +29,8 @@ struct Fixture {
   std::string actions = "Play,Pause,Next,Previous";
   std::string zones;
 };
-int poll(State &s, const Fixture &f, const std::string &failed_once = "", int failure_status = 0) {
-  s.begin(living,kitchen); int requests = 0; bool injected = false;
+int poll_requests(State &s, const Fixture &f, const std::string &failed_once = "", int failure_status = 0) {
+  int requests = 0; bool injected = false;
   while(s.has_request()) {
     assert(++requests < 40); // Three rooms, at most one bounded retry per read.
     const auto q = s.request(); int i = q.host == living ? 0 : q.host == kitchen ? 1 : 2;
@@ -55,6 +55,10 @@ int poll(State &s, const Fixture &f, const std::string &failed_once = "", int fa
     s.accept(200,response(q.action,body));
   }
   s.finish(); return requests;
+}
+int poll(State &s, const Fixture &f, const std::string &failed_once = "", int failure_status = 0) {
+  s.begin(living,kitchen);
+  return poll_requests(s, f, failed_once, failure_status);
 }
 void test_xml() {
   State follow; Fixture playback;
@@ -238,6 +242,84 @@ std::string groups(const std::vector<std::string> &groups) {
   std::string xml = "<ZoneGroups>";
   for (const auto &g : groups) xml += g;
   return xml + "</ZoneGroups>";
+}
+void test_dashboard_room_follow() {
+  Fixture f;
+  f.zones = groups({zone_group(lid, {{lid,living}}), zone_group(kid, {{kid,kitchen}}),
+    zone_group(tid, {{oid,office},{tid,study}})});
+  f.live[0] = f.live[1] = false;
+  State s; poll(s,f);
+  RoomActivity activity;
+  auto scan = [&](const std::string &extra_transport, int status = 200) {
+    activity.begin(s);
+    while (activity.has_request()) {
+      const auto q = activity.request();
+      assert(q.action == "GetTransportInfo" && q.host == study);
+      activity.accept(status, response(q.action, "<CurrentTransportState>" + extra_transport + "</CurrentTransportState>"));
+    }
+    activity.finish();
+  };
+  scan("PLAYING");
+  // Detail navigation must stay pinned, but activity outside the two seeds
+  // still exposes the compact player rather than idle favorites.
+  assert(!activity.follow_dashboard(s, false) && s.selected == 0);
+  assert(s.any_playing() && !s.all_stopped());
+  assert(s.follow_compact_tab(0) == 1);
+  assert(activity.follow_dashboard(s, true));
+  assert(s.current().uuid == oid && s.selected == 2 && !s.current().known());
+  assert(!s.has_request()); // Automatic following is selection, never a write.
+  s.begin_current();
+  assert(s.request().host == study);
+  assert(poll_requests(s,f) == 6); // Only the new room, no duplicate topology/default polls.
+  assert(s.current().known() && s.current().title == "Other track" && s.current().volume == 23);
+  assert(s.current().host == office && s.current().coordinator_host == study && !s.uses_pair_controls());
+  assert(s.rooms[0].known() && !s.rooms[0].playing && s.systems.size() == 4);
+  activity.begin(s); assert(!activity.has_request()); activity.finish();
+  assert(!activity.follow_dashboard(s, true)); // Reuse the now-polled coordinator.
+  assert(s.follow_compact_tab(2) == 2); // Manual Climate remains usable.
+  f.live[0] = f.live[1] = true; poll(s,f);
+  activity.begin(s); activity.finish();
+  assert(!activity.follow_dashboard(s, true) && s.current().uuid == oid); // Several independent groups: no jumping.
+  f.live[0] = f.live[1] = false; poll(s,f);
+
+  // A follower selected in detail keeps its own volume and coordinator routing.
+  assert(s.select_system(tid)); poll(s,f);
+  activity.begin(s); activity.finish();
+  assert(!activity.follow_dashboard(s, true) && s.current().uuid == tid);
+  s.capture(); poll(s,f); assert(s.prepare_command(2));
+  assert(s.request().host == study && s.request().action == "SetVolume");
+  s.accept(200, response("SetVolume", ""));
+
+  f.live[2] = false; f.live[1] = true; poll(s,f);
+  activity.begin(s); activity.finish();
+  assert(!activity.follow_dashboard(s, false) && s.current().uuid == tid);
+  assert(activity.follow_dashboard(s, true) && s.current().uuid == kid);
+  assert(s.current().known() && s.current().title == "Kitchen track");
+  assert(s.follow_compact_tab(1) == 1); // Another playing room never emits a stop edge.
+  assert(s.select_system(oid)); poll(s,f);
+  // While a clicked control is pending, the same guard keeps its target intact.
+  activity.begin(s); activity.finish();
+  assert(!activity.follow_dashboard(s, false) && s.current().uuid == oid);
+
+  f.live[1] = false; poll(s,f);
+  activity.begin(s); activity.finish();
+  assert(!activity.follow_dashboard(s, true) && s.all_stopped());
+  assert(s.follow_compact_tab(1) == 0);
+  s.set_system_activity(true, false); assert(s.follow_compact_tab(0) == 1);
+  s.systems_complete = false;
+  activity.follow_dashboard(s, true);
+  assert(!s.all_stopped() && s.follow_compact_tab(1) == 1); // Incomplete discovery is not a stop.
+
+  // An unselected offline/transitioning room cannot hide the card or be chosen.
+  assert(s.select_system(lid)); f.fail[2] = true; poll(s,f);
+  scan("", 0); assert(!activity.follow_dashboard(s, true));
+  assert(!s.any_playing() && !s.all_stopped() && s.follow_compact_tab(1) == 1);
+  scan("TRANSITIONING"); assert(!activity.follow_dashboard(s, true) && !s.all_stopped());
+  scan("STOPPED"); assert(!activity.follow_dashboard(s, true) && s.all_stopped());
+  assert(s.follow_compact_tab(1) == 0);
+  scan("PLAYING"); assert(activity.follow_dashboard(s, true));
+  s.begin_current(); assert(poll_requests(s,f) == 12); // One bounded retry per failed read.
+  assert(!s.current().known() && !s.can_volume() && !s.can_mute());
 }
 std::vector<Request> complete_writes(State &s) {
   std::vector<Request> writes;
@@ -516,7 +598,8 @@ int main(int argc, char **argv) {
     for(const auto &r:s.rooms) std::cout << "ROOM known=" << r.known() << " playing=" << r.playing << " tv=" << r.tv << " volume=" << r.volume << " title=" << r.title << " artist=" << r.artist << " cover=" << r.cover << std::endl;
     return 0;
   }
-  test_xml(); test_states(); test_controls(); test_read_recovery(); test_system_inventory(); test_room_selection(); test_group_editing(); test_favorites();
+  test_xml(); test_states(); test_controls(); test_read_recovery(); test_system_inventory(); test_room_selection(); test_dashboard_room_follow(); test_group_editing(); test_favorites();
   std::cout << "PASS: paged favorites, filtering, XML escaping, direct radio, queue append/seek, failed-command abort, mute and skip" << std::endl;
   std::cout << "PASS: Sonos XML, topology/coordinator, visible system inventory, explicit room selection and grouping, solo/group, music/TV priority, selection, offline, artwork and scoped controls" << std::endl;
+  std::cout << "PASS: all-room dashboard following, stable targets, detail/control guards, selected-room-only reads and unknown playback edges" << std::endl;
 }

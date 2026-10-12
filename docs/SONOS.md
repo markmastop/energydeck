@@ -145,8 +145,22 @@ Sonos updates.
 - Separate rooms: show the playing room; music takes priority over TV when both
   are playing. If both play music, retain the current room.
 - Tap the room heading to open Rooms, then tap the desired room. An explicit
-  choice persists across pause, regrouping and offline recovery. Editing group
-  membership also pins the displayed anchor, even without first tapping its row.
+  choice in the full Sonos page persists across pause, regrouping and offline
+  recovery. Editing group membership also pins the displayed anchor, even
+  without first tapping its row.
+- On the dashboard, the compact player follows playback in every discovered
+  room, including rooms outside Woonkamer/Keuken. Keep the displayed room while
+  it plays; otherwise choose the first playing room in the Rooms list's
+  case-insensitive alphabetical order. A new target gets six read-only requests
+  for transport, metadata, actions, volume and mute using the just-discovered
+  topology. Already-polled default rooms reuse their snapshot. No second full
+  poll, extra timer, playback command or grouping change is needed.
+- Automatic following pauses while the full Sonos page is open or a control or
+  favorite is in flight. Automatic room selection uses the same single-room
+  volume/mute and coordinator-based transport/favorites scope as a clicked room.
+  All-room activity participates in compact playback edges; unknown,
+  transitioning or incompletely discovered rooms never prove that all playback
+  stopped. Detection uses the existing ten-second poll and bounded activity scan.
 - TV is detected from the coordinator's `x-sonos-htastream:` source. Show **TV**
   and clear old song/artist/artwork. TV volume remains available; Pause/Play is
   disabled because the TV controls its source.
@@ -299,7 +313,10 @@ Run `node scripts/test-music-controls.cjs` for the actual C++ model's offline
 tests: XML/entity handling, malformed replies, URL restrictions, coordinator
 changes, separate/grouped rooms, TV/music priority, manual selection, missing
 speakers, transient read recovery, bounded/permanent failures, no write retries,
-command scope changes, volume bounds and command confirmation. Transitioning
+command scope changes, volume bounds and command confirmation. Dashboard-follow
+tests cover playback outside the default rooms, multiple playing groups,
+detail/control selection guards, coordinator/volume routing, six-read target
+loading and unknown/incomplete/transitioning playback edges. Transitioning
 transport does not confirm a pause. Favorites
 tests cover pagination, invalid/stale pages, filtering, radio, queue append/seek,
 failure aborts, mute, skip and read-back confirmation. Setup tests cover both
@@ -344,6 +361,18 @@ comparison; `--favorites-probe` emits only Browse requests. Automated/live diagn
 checks must not start favorites, modify queues, change groups, pause music or
 change volume. Compile the simulator and physical
 firmware separately; upload to the deck only when explicitly requested.
+
+2026-10-12 dashboard-follow validation: the simulator and both CrowPanel builds
+passed. Sonos model/navigation, all-room following, room ordering and the actual
+LVGL room-widget tests passed; the model and room-order tests also passed
+AddressSanitizer/UBSan. Both the 5-inch and 7-inch firmware updates completed
+successfully over OTA. A 95-second serial capture across the 5-inch update
+confirmed boot success, seven usable status cycles and 126 background replies
+(12–973 ms), without crash/error markers. The native SDL preview was not exposed
+to the UI automation tool. Automatic switching was tested with synthetic SOAP
+replies; visual behavior on the physical main screen still needs user
+confirmation. No live playback, queue, volume, mute, grouping or charging
+commands were sent for testing.
 
 2026-10-12 responsiveness validation: simulator and both CrowPanel builds passed,
 as did Sonos model/navigation, cover-format, room-order and actual LVGL room-widget

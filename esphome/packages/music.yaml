@@ -322,9 +322,6 @@ script:
       - script.wait: sonos_requests
       - lambda: |-
           id(sonos).finish();
-          // Follow playback on the dashboard; explicit detail navigation stays
-          // open so pause, idle favorites and network recovery remain usable.
-          id(detail_tab) = id(sonos).follow_compact_tab(id(detail_tab));
           if (id(music_favorite_pending) && id(sonos).command_confirmed()) {
             id(music_favorite_pending) = false;
             id(music_command_failed) = false;
@@ -348,6 +345,29 @@ script:
           then:
             - script.execute: refresh_music_room_activity
             - script.wait: refresh_music_room_activity
+      - if:
+          condition:
+            lambda: |-
+              return id(sonos_room_activity).follow_dashboard(id(sonos),
+                !id(music_page_open) && !id(music_busy) &&
+                !id(music_favorite_pending) && !id(music_control_pending));
+          then:
+            - lambda: |-
+                ESP_LOGI("sonos_local", "Dashboard follows Sonos room: %s", id(sonos).current_name().c_str());
+            # Fetch only the newly followed room, using this cycle's topology.
+            # This serialized read does not start playback or write any setting.
+            - if:
+                condition:
+                  lambda: return !id(sonos).current().known();
+                then:
+                  - lambda: id(sonos).begin_current();
+                  - script.execute: sonos_requests
+                  - script.wait: sonos_requests
+                  - lambda: id(sonos).finish();
+      - lambda: |-
+          // All-room activity must be available before consuming playback edges.
+          // Explicit detail navigation stays open during pause and recovery.
+          id(detail_tab) = id(sonos).follow_compact_tab(id(detail_tab));
       - script.execute: select_detail_tab
 
   - id: refresh_music_room_activity

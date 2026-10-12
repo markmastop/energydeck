@@ -138,3 +138,18 @@ must be rebuilt after source changes before running this test.
 
 If a future ESPHome/LVGL update changes the flush API, disable the tiled path
 with `ui_performance: {tiled_rotation: false}` and rebuild while investigating.
+
+## 5-inch rollout verification
+
+The UI-first firmware from `aa91f5f` was uploaded to the 5-inch over OTA on
+2026-10-12. The serial log confirmed the expected build timestamp
+`2026-10-12 18:01:31 +0200`, successful setup and the 60-second boot-success
+check. The 95-second capture included seven Sonos status cycles and 151
+background replies (11–189 ms), plus live Homey, rain and temperature data,
+without crash, watchdog or error markers. OTA remained reachable afterward.
+
+Eleven main-thread publication warnings measured 22–107 ms. These callbacks can
+still occupy the foreground after input settles; this check does not measure
+physical room-switching or touch latency. No charging, playback or grouping
+commands were triggered for verification. The 7-inch was not updated in this
+rollout.

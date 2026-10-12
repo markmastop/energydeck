@@ -48,7 +48,15 @@ The selected tab is retained when leaving and reopening detail. Rooms shows up
 to 32 visible Sonos zones from the existing topology response, with their actual
 zone names and group membership. Hidden bonded/stereo partners are omitted to
 avoid duplicate rooms. Playback status is shown when the zone belongs to a
-polled coordinator; other zones show Detected without claiming playback state.
+polled coordinator. Other visible groups receive one lightweight, read-only
+GetTransportInfo request per coordinator. Rooms are ordered with confirmed
+playing groups first, then alphabetically within both playing and other rooms
+(case-insensitive ASCII names; UUID breaks ties). Unknown activity shows Detected
+and never counts as playing. These display-only reads have a 1-second deadline,
+stop when a command needs the worker, and start no new reads after a 4-second scan
+budget (an in-flight read can add up to one second). Scan
+starting points rotate so slow/offline groups cannot permanently starve later
+rooms. The normal ten-second status polling frequency is unchanged.
 Unavailable topology replaces the list with an unavailable message. The left
 part of each row selects that room for the shared player; its green outline
 marks the selection. Selection only reads status and persists when paused or
@@ -157,8 +165,33 @@ actual group, so avoid adding unrelated rooms if they should remain unaffected.
 
 Commands are only created after a user click. For ordinary playback controls, the displayed target is captured,
 fresh topology/volume is read, and a changed group scope cancels the command.
-Controls are disabled during requests and unavailable data; read-back verifies
-the result. There is no automatic command retry.
+Controls are disabled while a command is being checked/sent and for unavailable
+data. Once Sonos acknowledges an ordinary playback/volume/mute/skip command,
+controls are released immediately. A background poll starts without waiting for
+its result; subsequent status snapshots confirm the latest command. An
+unconfirmed action is reported after 15 seconds as observed by a completed poll.
+There is no fixed two-second post-command delay and no automatic write retry.
+Fresh room/scope checks before writes and the existing stricter favorites and
+grouping confirmation safeguards remain in place.
+
+SOAP requests, including favorites Browse, run on one sleeping background worker
+with a single request/reply mailbox. Only the owning script consumes a reply.
+The worker never reads/modifies Sonos models, LVGL widgets, the ESPHome scheduler
+or the shared Homey client. Models and UI updates stay on the main thread.
+Replies are limited to 64 KiB; normal status reads have a 1.5-second deadline and
+writes/Browse retain up to eight seconds. The firmware shares one deadline across
+connect/send/read, rejects incomplete/oversize bodies, follows no redirects and
+sends no credentials. The simulator uses separate socket timeouts and rejects
+results arriving past its deadline. The inter-request UI yield is 10 ms rather
+than 80 ms; network waiting no longer blocks touch.
+
+Room widgets are reused when status, selection, names or draft membership change;
+only changed rows update. Inventory or presentation-order changes rebuild the
+rows together with their UUID callbacks and restore scroll position. Periodic
+Sonos style/layout updates and new cover connections are deferred while the room
+or favorite list is scrolling. The GT911 touch interval is 20 ms rather than
+the default 50 ms. Artwork downloading and Homey HTTP still use their existing
+client, so they can produce separate short pauses outside a drag.
 
 ## Sonos favorites
 
@@ -286,11 +319,42 @@ Run `node scripts/test-chunked-cover.cjs` for the JPEG download regression tests
 Run `node scripts/test-cover-formats.cjs` for PNG/JPEG selection, PNG completion,
 decoder initialization failures and shared-widget lifecycle safeguards.
 
+Additional responsiveness tests (no live speaker commands):
+
+```sh
+c++ -std=c++17 -Wall -Wextra -Werror -fsanitize=thread \
+  scripts/test-sonos-exchange.cpp -o /tmp/energydeck-test-exchange
+/tmp/energydeck-test-exchange
+c++ -std=c++17 -Wall -Wextra -Werror -fsanitize=address,undefined \
+  scripts/test-sonos-room-order.cpp -o /tmp/energydeck-test-room-order
+/tmp/energydeck-test-room-order
+.venv/bin/python scripts/test-sonos-room-widgets.py
+```
+
+Build the simulator before the widget test; it uses that build's actual LVGL
+library and the production render lambda. It verifies retained widgets and scroll
+position, label updates, playing-first sorting, and correct UUID callbacks after
+reordering. The mailbox test covers delayed I/O, immutable snapshots, exclusive
+reply ownership, 1,000 cross-thread exchanges and response-size bounds. Activity
+tests cover shared coordinators, read-only discovery, unknown/failed replies,
+unsafe endpoints and stable command identities.
+
 The C++ test's `--probe` mode emits only Get* requests for a read-only live
 comparison; `--favorites-probe` emits only Browse requests. Automated/live diagnostic
 checks must not start favorites, modify queues, change groups, pause music or
 change volume. Compile the simulator and physical
 firmware separately; upload to the deck only when explicitly requested.
+
+2026-10-12 responsiveness validation: simulator and both CrowPanel builds passed,
+as did Sonos model/navigation, cover-format, room-order and actual LVGL room-widget
+tests. The mailbox test passed ThreadSanitizer; the room-order test passed
+AddressSanitizer/UBSan. After uploading the 7-inch firmware, an 85-second serial
+capture confirmed boot success, eight usable Sonos status cycles and 144
+background replies (10–484 ms), with no crash/error markers. The native SDL
+preview was not accessible through the UI automation tool; physical scroll feel
+and ordinary command responsiveness still require user verification. No live
+playback, volume, mute, grouping, queue or charging actions were used for testing.
+The 5-inch firmware was built but not uploaded.
 
 2026-10-10 validation: Sonos model/navigation, cover-format, chunked-cover and
 climate-priority regression checks passed, as did the production simulator build.

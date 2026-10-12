@@ -56,13 +56,19 @@ ESPHome's boot-success window protects updates against early-reset rollback.
 Check the logged build timestamp and buffer size when comparing versions.
 
 Read-only Homey fast polls and Sonos SOAP requests also log their response times
-under `network_performance`, without credentials or response bodies. These HTTP
-requests remain synchronous and can still briefly delay touch, especially if a
-service is slow or unavailable. They have not been moved to another task; the
-measured dominant bottleneck was rotation. Successful local reads generally
-take tens of milliseconds, but the final production check also recorded one
-2,968 ms Sonos topology request. An occasional network-related stall remains
-possible despite the faster rendering.
+under `network_performance`, without credentials or response bodies. The initial
+production check recorded one 2,968 ms Sonos topology request, which exposed a
+separate interaction bottleneck after rotation was fixed. Sonos SOAP now runs on
+a separate sleeping worker; its log entries include `(background)`. Status
+models and UI callbacks stay on the main thread. Ordinary controls release after
+acknowledgment and confirm on later snapshots rather than waiting two seconds
+and a full read-back cycle. Room rows are retained and updates are deferred during
+scrolling. See [Sonos responsiveness details and tests](SONOS.md).
+
+Homey HTTP and artwork retain their existing synchronous connection/read paths;
+they can still cause their own pauses. New artwork connections are deferred while
+the Sonos lists are scrolling. The full-screen redraw measurements above describe
+the rotation change, not the later background-network changes or command latency.
 
 Verify the rotation mapping, including partial tiles and nonzero origins:
 

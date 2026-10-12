@@ -3,11 +3,14 @@ external_components:
   - source:
       type: local
       path: components
-    components: [online_image, sonos_local, ui_performance]
+    components: [online_image, sonos_local, sonos_http, ui_performance]
 
 ui_performance:
 
 sonos_local:
+
+sonos_http:
+  id: sonos_transport
 
 substitutions:
   music_compact_cover_size: "92"
@@ -21,6 +24,11 @@ globals:
     type: energydeck_sonos::State
   - id: sonos_favorites
     type: energydeck_sonos::Favorites
+  - id: sonos_room_activity
+    type: energydeck_sonos::RoomActivity
+  - id: music_room_activity_started
+    type: uint32_t
+    initial_value: "0"
   - id: music_favorite_copy
     type: energydeck_sonos::Favorite
   - id: detail_tab
@@ -38,6 +46,12 @@ globals:
   - id: music_command_failed
     type: bool
     initial_value: "false"
+  - id: music_control_pending
+    type: bool
+    initial_value: "false"
+  - id: music_control_started
+    type: uint32_t
+    initial_value: "0"
   - id: music_favorites_loading
     type: bool
     initial_value: "false"
@@ -284,26 +298,21 @@ script:
           condition:
             lambda: return id(sonos).has_request();
           then:
-            - http_request.post:
-                url: !lambda return id(sonos).request().url();
-                request_headers:
-                  Content-Type: 'text/xml; charset="utf-8"'
-                  SOAPAction: !lambda |-
-                    static std::string header;
-                    header = id(sonos).request().soap_action();
-                    return header.c_str();
-                body: !lambda return id(sonos).request().body();
-                capture_response: true
-                max_response_buffer_size: 65536
-                on_response:
-                  then:
-                    - lambda: |-
-                        ESP_LOGD("network_performance", "Sonos %s: %u ms", id(sonos).request().action.c_str(), static_cast<unsigned>(response->duration_ms));
-                        id(sonos).accept(response->status_code, body);
-                on_error:
-                  then:
-                    - lambda: id(sonos).accept(0, "");
-            - delay: 80ms
+            # Playback/status and favorites share one bounded worker. Only the
+            # owning script consumes its reply; models and LVGL stay on this loop.
+            - wait_until:
+                lambda: return !id(sonos_transport).busy();
+            - lambda: |-
+                const auto &request = id(sonos).request();
+                id(sonos_transport).submit(request, request.action.rfind("Get", 0) == 0 ? 1500 : 8000);
+            - wait_until:
+                lambda: return id(sonos_transport).ready();
+            - lambda: |-
+                auto reply = id(sonos_transport).take();
+                ESP_LOGD("network_performance", "Sonos %s: %u ms (background)", id(sonos).request().action.c_str(), static_cast<unsigned>(reply.duration_ms));
+                id(sonos).accept(reply.status, reply.body);
+            # The worker already yields during I/O; no 80 ms foreground gap is needed.
+            - delay: 10ms
 
   - id: refresh_music
     mode: single
@@ -321,10 +330,49 @@ script:
             id(music_command_failed) = false;
             id(music_favorite_timeout).stop();
           }
+          // Acknowledged controls release the UI before read-back. The latest
+          // pending action is confirmed by ordinary polls, never resent.
+          if (id(music_control_pending)) {
+            if (id(sonos).command_confirmed()) id(music_control_pending) = false;
+            else if (millis() - id(music_control_started) >= 15000) {
+              id(music_control_pending) = false;
+              id(music_command_failed) = true;
+            }
+          }
           ESP_LOGD("sonos_local", "Direct Sonos: selected=%d grouped=%d known=%d playing=%d tv=%d",
             id(sonos).selected, id(sonos).grouped(), id(sonos).current().known(),
             id(sonos).current().playing, id(sonos).current().tv);
+      - if:
+          condition:
+            lambda: return !id(music_busy);
+          then:
+            - script.execute: refresh_music_room_activity
+            - script.wait: refresh_music_room_activity
       - script.execute: select_detail_tab
+
+  - id: refresh_music_room_activity
+    mode: single
+    then:
+      - lambda: |-
+          id(sonos_room_activity).begin(id(sonos));
+          id(music_room_activity_started) = millis();
+      - while:
+          condition:
+            lambda: return id(sonos_room_activity).has_request() && !id(music_busy) && millis() - id(music_room_activity_started) < 4000;
+          then:
+            - wait_until:
+                lambda: return !id(sonos_transport).busy();
+            # Extra rooms are display-only reads; a slow zone must not delay
+            # controls. Bound each read to 1 s and yield to commands between reads.
+            - lambda: id(sonos_transport).submit(id(sonos_room_activity).request(), 1000);
+            - wait_until:
+                lambda: return id(sonos_transport).ready();
+            - lambda: |-
+                auto reply = id(sonos_transport).take();
+                ESP_LOGD("network_performance", "Sonos room activity: %u ms (background)", static_cast<unsigned>(reply.duration_ms));
+                id(sonos_room_activity).accept(reply.status, reply.body);
+            - delay: 10ms
+      - lambda: id(sonos_room_activity).finish();
 
   - id: switch_music_room
     then:
@@ -352,6 +400,7 @@ script:
           then:
             - lambda: |-
                 id(music_busy) = true;
+                id(music_control_pending) = false;
                 id(music_command_failed) = false;
             - script.execute: render_music
             # Finish an in-flight poll before changing its selected-room slot.
@@ -377,6 +426,7 @@ script:
           then:
             - lambda: |-
                 id(music_busy) = true;
+                id(music_control_pending) = false;
                 id(music_command_failed) = false;
             - script.execute: render_music
             # Re-read topology before writing; an external regroup cancels the draft.
@@ -422,10 +472,10 @@ script:
           then:
             - lambda: |-
                 id(sonos).capture();
+                id(music_control_pending) = false;
                 id(music_busy) = true;
                 id(music_command_failed) = false;
             - script.execute: render_music
-            - delay: 100ms
             - script.execute: refresh_music
             - script.wait: refresh_music
             - if:
@@ -434,16 +484,17 @@ script:
                 then:
                   - script.execute: sonos_requests
                   - script.wait: sonos_requests
-                  - lambda: id(music_command_failed) = id(sonos).command_failed;
-                  - delay: 2s
-                  - script.execute: refresh_music
-                  - script.wait: refresh_music
                   - lambda: |-
-                      if (!id(sonos).command_confirmed()) id(music_command_failed) = true;
+                      id(music_command_failed) = id(sonos).command_failed;
+                      id(music_control_pending) = !id(music_command_failed);
+                      id(music_control_started) = millis();
                 else:
                   - lambda: id(music_command_failed) = true;
             - lambda: id(music_busy) = false;
             - script.execute: render_music
+            # Update when fresh info arrives. Controls do not wait for this poll;
+            # the next click still waits for any active poll before scope checks.
+            - script.execute: refresh_music
 
   - id: refresh_music_cover
     then:
@@ -467,6 +518,10 @@ script:
             return;
           }
           if (!path.empty()) {
+            if (id(music_page_open) && (lv_obj_is_scrolling(id(music_systems_list)) || lv_obj_is_scrolling(id(music_favorites_grid)))) {
+              id(refresh_music_cover_after_scroll).execute();
+              return;
+            }
             // Finish the foreground climate refresh before starting artwork.
             if (id(favorite_artwork).busy || id(refresh_climate).is_running()) return;
             // Detach both consumers before the decoder mutates its shared buffer.
@@ -479,6 +534,21 @@ script:
             id(music_cover).update();
           }
 
+  - id: refresh_music_cover_after_scroll
+    mode: single
+    then:
+      # Artwork still uses the shared synchronous downloader. Start new cover
+      # connections only after a drag settles; this waiter exists only as needed.
+      - wait_until:
+          lambda: return !id(music_page_open) || (!lv_obj_is_scrolling(id(music_systems_list)) && !lv_obj_is_scrolling(id(music_favorites_grid)));
+      - script.execute: refresh_music_cover
+
+  - id: render_music_after_scroll
+    mode: single
+    then:
+      - wait_until:
+          lambda: return !id(music_page_open) || (!lv_obj_is_scrolling(id(music_systems_list)) && !lv_obj_is_scrolling(id(music_favorites_grid)));
+      - script.execute: render_music
 
   - id: select_detail_tab
     then:
@@ -513,6 +583,12 @@ script:
   - id: render_music
     then:
       - lambda: |-
+          // Keep periodic style/layout work out of a drag, including momentum.
+          // The model keeps receiving replies; render its newest state afterward.
+          if (id(music_page_open) && (lv_obj_is_scrolling(id(music_systems_list)) || lv_obj_is_scrolling(id(music_favorites_grid)))) {
+            id(render_music_after_scroll).execute();
+            return;
+          }
           const auto &s = id(sonos);
           const auto &room = s.current();
           const bool known = room.known();
@@ -700,6 +776,10 @@ script:
     then:
       - lambda: |-
           if (!id(music_page_open) || id(music_content_tab) != 1) return;
+          if (lv_obj_is_scrolling(id(music_systems_list))) {
+            id(render_music_after_scroll).execute();
+            return;
+          }
           auto &s = id(sonos);
           s.sync_group_edit();
           const bool waiting = id(music_busy) || id(music_favorite_pending);
@@ -725,9 +805,11 @@ script:
           // leave a displayed button pointing at another speaker.
           std::vector<std::array<std::string, 3>> rows;
           const energydeck_sonos::Room *polled[] = {&s.rooms[0], &s.rooms[1], &s.current()};
+          const auto order = id(sonos_room_activity).order(s);
           std::string signature = s.systems_known ? "known" : "unknown";
           signature += s.current().uuid + (waiting ? "busy" : "idle") + (valid ? "valid" : "stale");
-          for (const auto &system : s.systems) {
+          for (const auto index : order) {
+            const auto &system = s.systems[index];
             std::string group;
             int members = 0;
             for (const auto &other : s.systems) if (other.coordinator == system.coordinator) {
@@ -743,6 +825,10 @@ script:
                 group = "${music_group_leave}";
             }
             const char *status = "${music_system_detected}";
+            const auto activity = id(sonos_room_activity).transport(system);
+            if (activity == energydeck_sonos::RoomActivity::PLAYING) status = "${music_playing}";
+            else if (activity == energydeck_sonos::RoomActivity::STOPPED) status = "${music_paused}";
+            else if (activity == energydeck_sonos::RoomActivity::TRANSITIONING) status = "${music_waiting}";
             for (const auto *room : polled) if (room->topology && room->coordinator == system.coordinator) {
               status = !room->known() ? "${music_offline}" : room->transitioning ? "${music_waiting}" :
                 room->playing ? (room->tv ? "${music_tv}" : "${music_playing}") : "${music_paused}";
@@ -755,74 +841,107 @@ script:
           static std::string previous_signature;
           if (signature == previous_signature) return;
           previous_signature = signature;
+          static std::vector<std::string> previous_ids, previous_rows;
+          std::vector<std::string> ids;
+          for (const auto index : order) ids.push_back(s.systems[index].uuid);
+          const bool rebuild = ids != previous_ids ||
+            lv_obj_get_child_count(id(music_systems_list)) != (rows.empty() ? 1 : rows.size() * 2);
           const int scroll = lv_obj_get_scroll_y(id(music_systems_list));
-          lv_obj_clean(id(music_systems_list));
+          if (rebuild) {
+            // Only actual inventory/order changes replace widgets. Status,
+            // selection and draft updates must not interrupt an active drag.
+            lv_obj_clean(id(music_systems_list));
+            previous_ids = ids;
+            previous_rows.assign(rows.size(), "");
+          }
           if (rows.empty()) {
-            auto *label = lv_label_create(id(music_systems_list));
-            lv_obj_set_width(label, 432);
-            lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_CENTER, 0);
-            lv_obj_set_style_text_color(label, lv_color_hex(0xA9B8AE), 0);
+            auto *label = rebuild ? lv_label_create(id(music_systems_list)) : lv_obj_get_child(id(music_systems_list), 0);
+            if (rebuild) {
+              lv_obj_set_width(label, 432);
+              lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_CENTER, 0);
+              lv_obj_set_style_text_color(label, lv_color_hex(0xA9B8AE), 0);
+              lv_obj_align(label, LV_ALIGN_TOP_MID, 0, 60);
+            }
             esphome::ui_performance::set_text(label, s.systems_known ? "${music_systems_empty}" : "${music_systems_unavailable}");
-            lv_obj_align(label, LV_ALIGN_TOP_MID, 0, 60);
           }
           for (size_t i = 0; i < rows.size(); ++i) {
-            const auto &system = s.systems[i];
+            const auto &system = s.systems[order[i]];
             const bool selected = system.uuid == s.current().uuid;
             const bool checked = s.group_checked(system.uuid);
-            auto *choose = lv_button_create(id(music_systems_list));
-            auto *membership = lv_button_create(id(music_systems_list));
+            lv_obj_t *choose, *membership;
+            if (rebuild) {
+              choose = lv_button_create(id(music_systems_list));
+              membership = lv_button_create(id(music_systems_list));
+              for (auto *button : {choose, membership}) {
+                lv_obj_remove_style_all(button);
+                lv_obj_set_size(button, button == choose ? 370 : 74, 50);
+                lv_obj_set_pos(button, button == choose ? 0 : 378, i * 56);
+                lv_obj_set_style_radius(button, 6, 0);
+                lv_obj_set_style_bg_opa(button, LV_OPA_COVER, 0);
+                lv_obj_set_style_bg_color(button, lv_color_hex(0x18231E), 0);
+                lv_obj_set_style_bg_color(button, lv_color_hex(0x24583B), LV_STATE_PRESSED);
+                lv_obj_clear_flag(button, LV_OBJ_FLAG_SCROLLABLE);
+              }
+              lv_obj_set_style_border_color(choose, lv_color_hex(0x45BD70), 0);
+              for (int field = 0; field < 3; ++field) {
+                auto *label = lv_label_create(choose);
+                lv_obj_set_pos(label, field == 2 ? 252 : 10, field == 1 ? 28 : 6);
+                lv_obj_set_size(label, field == 0 ? 238 : field == 1 ? 350 : 108, field == 0 ? 18 : 16);
+                lv_label_set_long_mode(label, LV_LABEL_LONG_DOT);
+                lv_obj_set_style_text_font(label, field == 0 ? &lv_font_montserrat_14 : &lv_font_montserrat_12, 0);
+                if (field == 2) lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_RIGHT, 0);
+              }
+              auto *mark = lv_label_create(membership);
+              lv_obj_set_style_text_font(mark, &lv_font_montserrat_12, 0);
+              lv_obj_align(mark, LV_ALIGN_CENTER, 0, 0);
+              // UUID copies and callbacks are recreated together only when the
+              // inventory changes, so a retained row never targets another zone.
+              for (auto *button : {choose, membership}) {
+                auto *uuid = lv_label_create(button);
+                esphome::ui_performance::set_text(uuid, system.uuid.c_str());
+                lv_obj_add_flag(uuid, LV_OBJ_FLAG_HIDDEN);
+              }
+              lv_obj_add_event_cb(choose, [](lv_event_t *event) {
+                auto *button = static_cast<lv_obj_t *>(lv_event_get_target(event));
+                const std::string uuid = lv_label_get_text(lv_obj_get_child(button, 3));
+                id(select_music_system).execute(uuid);
+              }, LV_EVENT_CLICKED, nullptr);
+              lv_obj_add_event_cb(membership, [](lv_event_t *event) {
+                if (id(music_busy) || id(music_favorite_pending)) return;
+                auto *button = static_cast<lv_obj_t *>(lv_event_get_target(event));
+                const std::string uuid = lv_label_get_text(lv_obj_get_child(button, 1));
+                if (id(sonos).toggle_group(uuid)) id(render_music).execute();
+              }, LV_EVENT_CLICKED, nullptr);
+            } else {
+              choose = lv_obj_get_child(id(music_systems_list), i * 2);
+              membership = lv_obj_get_child(id(music_systems_list), i * 2 + 1);
+            }
+            std::string row_key = std::string(waiting ? "busy" : "idle") + (valid ? "valid" : "stale") +
+              (selected ? "selected" : "other") + (checked ? "checked" : "unchecked");
+            for (const auto &value : rows[i]) row_key += std::to_string(value.size()) + ":" + value;
+            if (row_key == previous_rows[i]) continue;
+            previous_rows[i] = row_key;
             for (auto *button : {choose, membership}) {
-              lv_obj_remove_style_all(button);
-              lv_obj_set_size(button, button == choose ? 370 : 74, 50);
-              lv_obj_set_pos(button, button == choose ? 0 : 378, i * 56);
-              lv_obj_set_style_radius(button, 6, 0);
-              lv_obj_set_style_bg_opa(button, LV_OPA_COVER, 0);
-              lv_obj_set_style_bg_color(button, lv_color_hex(0x18231E), 0);
-              lv_obj_set_style_bg_color(button, lv_color_hex(0x24583B), LV_STATE_PRESSED);
-              lv_obj_clear_flag(button, LV_OBJ_FLAG_SCROLLABLE);
               if (waiting || (button == membership && (!valid || selected))) lv_obj_add_state(button, LV_STATE_DISABLED);
+              else lv_obj_clear_state(button, LV_STATE_DISABLED);
             }
             lv_obj_set_style_border_width(choose, selected ? 2 : 0, 0);
-            lv_obj_set_style_border_color(choose, lv_color_hex(0x45BD70), 0);
             for (int field = 0; field < 3; ++field) {
-              auto *label = lv_label_create(choose);
-              lv_obj_set_pos(label, field == 2 ? 252 : 10, field == 1 ? 28 : 6);
-              lv_obj_set_size(label, field == 0 ? 238 : field == 1 ? 350 : 108, field == 0 ? 18 : 16);
-              lv_label_set_long_mode(label, LV_LABEL_LONG_DOT);
-              lv_obj_set_style_text_font(label, field == 0 ? &lv_font_montserrat_14 : &lv_font_montserrat_12, 0);
+              auto *label = lv_obj_get_child(choose, field);
               lv_obj_set_style_text_color(label, lv_color_hex(waiting ? 0x77857C : field == 0 ? 0xEEF6F0 : field == 2 ? 0x7FE0A2 : 0xA9B8AE), 0);
-              if (field == 2) lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_RIGHT, 0);
               esphome::ui_performance::set_text(label, rows[i][field].c_str());
             }
             lv_obj_set_style_bg_color(membership, lv_color_hex(checked ? 0x24583B : 0x18231E), 0);
             lv_obj_set_style_border_width(membership, checked ? 2 : 1, 0);
             lv_obj_set_style_border_color(membership, lv_color_hex(checked ? 0x45BD70 : 0x34463C), 0);
-            auto *mark = lv_label_create(membership);
-            lv_obj_set_style_text_font(mark, &lv_font_montserrat_12, 0);
+            auto *mark = lv_obj_get_child(membership, 0);
             lv_obj_set_style_text_color(mark, lv_color_hex(waiting || !valid ? 0x77857C : 0xEEF6F0), 0);
             esphome::ui_performance::set_text(mark, selected ? "${music_group_leader}" : checked ? LV_SYMBOL_OK : LV_SYMBOL_PLUS);
-            lv_obj_align(mark, LV_ALIGN_CENTER, 0, 0);
-            // Hidden labels own stable UUID copies for the lifetime of each
-            // button; callbacks copy them before a render can destroy the row.
-            for (auto *button : {choose, membership}) {
-              auto *uuid = lv_label_create(button);
-              esphome::ui_performance::set_text(uuid, system.uuid.c_str());
-              lv_obj_add_flag(uuid, LV_OBJ_FLAG_HIDDEN);
-            }
-            lv_obj_add_event_cb(choose, [](lv_event_t *event) {
-              auto *button = static_cast<lv_obj_t *>(lv_event_get_target(event));
-              const std::string uuid = lv_label_get_text(lv_obj_get_child(button, 3));
-              id(select_music_system).execute(uuid);
-            }, LV_EVENT_CLICKED, nullptr);
-            lv_obj_add_event_cb(membership, [](lv_event_t *event) {
-              if (id(music_busy) || id(music_favorite_pending)) return;
-              auto *button = static_cast<lv_obj_t *>(lv_event_get_target(event));
-              const std::string uuid = lv_label_get_text(lv_obj_get_child(button, 1));
-              if (id(sonos).toggle_group(uuid)) id(render_music).execute();
-            }, LV_EVENT_CLICKED, nullptr);
           }
-          lv_obj_update_layout(id(music_systems_list));
-          lv_obj_scroll_to_y(id(music_systems_list), scroll, LV_ANIM_OFF);
+          if (rebuild) {
+            lv_obj_update_layout(id(music_systems_list));
+            lv_obj_scroll_to_y(id(music_systems_list), scroll, LV_ANIM_OFF);
+          }
 
   - id: sonos_favorite_requests
     mode: single
@@ -831,21 +950,16 @@ script:
           condition:
             lambda: return id(sonos_favorites).has_request();
           then:
-            - http_request.post:
-                url: !lambda return id(sonos_favorites).request().url();
-                request_headers:
-                  Content-Type: 'text/xml; charset="utf-8"'
-                  SOAPAction: '"urn:schemas-upnp-org:service:ContentDirectory:1#Browse"'
-                body: !lambda return id(sonos_favorites).request().body();
-                capture_response: true
-                max_response_buffer_size: 65536
-                on_response:
-                  then:
-                    - lambda: id(sonos_favorites).accept(response->status_code, body);
-                on_error:
-                  then:
-                    - lambda: id(sonos_favorites).accept(0, "");
-            - delay: 80ms
+            - wait_until:
+                lambda: return !id(sonos_transport).busy();
+            - lambda: id(sonos_transport).submit(id(sonos_favorites).request());
+            - wait_until:
+                lambda: return id(sonos_transport).ready();
+            - lambda: |-
+                auto reply = id(sonos_transport).take();
+                ESP_LOGD("network_performance", "Sonos Browse: %u ms (background)", static_cast<unsigned>(reply.duration_ms));
+                id(sonos_favorites).accept(reply.status, reply.body);
+            - delay: 10ms
 
   - id: refresh_music_favorites
     mode: single
@@ -979,6 +1093,7 @@ script:
           then:
             - lambda: |-
                 id(music_favorite_copy) = id(sonos_favorites).items[index];
+                id(music_control_pending) = false;
                 id(sonos).capture();
                 id(music_busy) = true;
                 id(music_command_failed) = false;

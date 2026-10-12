@@ -156,6 +156,8 @@ touchscreen:
   - platform: gt911
     id: energydeck_touch
     display: energydeck_display
+    # Track drags at 50 Hz; the default 50 ms polling visibly steps room scrolling.
+    update_interval: 20ms
 
 packages:
   climate: !include packages/climate.yaml

@@ -253,6 +253,8 @@ widgets:
       on_click:
         - lambda: id(music_content_tab) = 0;
         - script.execute: render_music
+        - script.execute: refresh_music_cover
+        - script.execute: refresh_music_favorites
   - button:
       id: music_systems_tab
       x: 166

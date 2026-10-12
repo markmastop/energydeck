@@ -370,6 +370,7 @@ class State {
     }
     requests_.clear(); cursor_ = 0; topology_ok_ = false; commanding_ = false; read_retried_ = false;
     pending_systems_.clear();
+    current_poll_ = -1;
     pending_complete_ = true;
     pending_[2] = Room{};
     if (selected == 2) { pending_[2].uuid = extra_.uuid; pending_[2].host = extra_.host; }
@@ -390,6 +391,7 @@ class State {
     topology_ok_ = systems_known; pending_complete_ = systems_complete;
     pending_systems_ = systems;
     pending_ = {{rooms[0], rooms[1], extra_}};
+    current_poll_ = selected;
     const auto *s = system(current().uuid);
     if (!systems_known || !s) return;
     auto &r = pending_[selected];
@@ -497,16 +499,54 @@ class State {
       }
     }
   }
+  // Transport/media/position arrive before optional action and speaker controls.
+  // Publish that usable snapshot without finishing or mutating the read queue.
+  bool publish_current() {
+    if (current_poll_ < 0) return false;
+    auto r = pending_[current_poll_];
+    if (!r.known() || r.uuid != current().uuid) return false;
+    if (!r.playing || r.tv) { r.title.clear(); r.artist.clear(); r.cover.clear(); }
+    room_cache_[r.uuid] = r;
+    if (selected < 2) rooms[selected] = r; else extra_ = r;
+    return true;
+  }
+  // Publish discovery before unrelated metadata reads finish. Keep valid cached
+  // snapshots, but invalidate controls immediately if a zone moved or vanished.
+  bool publish_discovery() {
+    if (!topology_ok_) return false;
+    systems = pending_systems_;
+    systems_known = true;
+    systems_complete = pending_complete_;
+    for (auto it = room_cache_.begin(); it != room_cache_.end();) {
+      if (!system(it->first)) it = room_cache_.erase(it); else ++it;
+    }
+    for (auto *r : {&rooms[0], &rooms[1], &extra_}) {
+      const auto *s = system(r->uuid);
+      if (s) *r = cached_room(*s);
+      else {
+        const auto uuid = r->uuid, host = r->host;
+        *r = Room{}; r->uuid = uuid; r->host = host; // Retain recovery seeds only.
+      }
+    }
+    return true;
+  }
   void finish() {
     systems = pending_systems_;
     systems_known = topology_ok_;
     systems_complete = topology_ok_ && pending_complete_;
-    for (int i = 1; i < 3; ++i) if (pending_[i].topology) {
-      for (int j = 0; j < i; ++j) if (pending_[j].topology && pending_[j].coordinator == pending_[i].coordinator) {
-        auto identity = pending_[i]; pending_[i] = pending_[j];
+    for (int i = 0; i < 3; ++i) if (pending_[i].topology) {
+      // A selected-only poll is fresher than a cached lower-index group member.
+      // Full polls still use the first member whose coordinator was requested.
+      int source = i;
+      if (current_poll_ >= 0 && pending_[current_poll_].topology &&
+          pending_[current_poll_].coordinator == pending_[i].coordinator) source = current_poll_;
+      else for (int j = 0; j < i; ++j) if (pending_[j].topology && pending_[j].coordinator == pending_[i].coordinator) {
+        source = j; break;
+      }
+      if (source != i) {
+        auto identity = pending_[i]; pending_[i] = pending_[source];
         pending_[i].uuid = identity.uuid; pending_[i].host = identity.host;
         pending_[i].volume = identity.volume; pending_[i].mute = identity.mute;
-        break;
       }
     }
     for (auto &r : pending_) {
@@ -679,6 +719,7 @@ class State {
 
  private:
   std::array<Room, 3> pending_;
+  int current_poll_ = -1;
   Room extra_;
   std::map<std::string, Room> room_cache_;
   const Room &room(int i) const { return i < 2 ? rooms[i] : extra_; }

@@ -26,6 +26,9 @@ globals:
     type: energydeck_sonos::Favorites
   - id: sonos_room_activity
     type: energydeck_sonos::RoomActivity
+  - id: music_refresh_selected_only
+    type: bool
+    initial_value: "false"
   - id: music_room_activity_started
     type: uint32_t
     initial_value: "0"
@@ -302,21 +305,31 @@ script:
     then:
       - while:
           condition:
-            lambda: return id(sonos).has_request();
+            lambda: return id(sonos).has_request() && (!id(music_room_refresh_pending) || id(music_busy));
           then:
             # Playback/status and favorites share one bounded worker. Only the
             # owning script consumes its reply; models and LVGL stay on this loop.
             - wait_until:
                 lambda: return !id(sonos_transport).busy();
-            - lambda: |-
-                const auto &request = id(sonos).request();
-                id(sonos_transport).submit(request, request.action.rfind("Get", 0) == 0 ? 1500 : 8000);
-            - wait_until:
-                lambda: return id(sonos_transport).ready();
-            - lambda: |-
-                auto reply = id(sonos_transport).take();
-                ESP_LOGD("network_performance", "Sonos %s: %u ms (background)", id(sonos).request().action.c_str(), static_cast<unsigned>(reply.duration_ms));
-                id(sonos).accept(reply.status, reply.body);
+            # Recheck after waiting for Browse/activity: a click may have arrived
+            # while another owner still held the worker. Drain only our sent read.
+            - if:
+                condition:
+                  lambda: return !id(music_room_refresh_pending) || id(music_busy);
+                then:
+                  - lambda: |-
+                      const auto &request = id(sonos).request();
+                      id(sonos_transport).submit(request, request.action.rfind("Get", 0) == 0 ? 1500 : 8000);
+                  - wait_until:
+                      lambda: return id(sonos_transport).ready();
+                  - lambda: |-
+                      auto reply = id(sonos_transport).take();
+                      const bool discovery = id(sonos).request().action == "GetZoneGroupState";
+                      ESP_LOGD("network_performance", "Sonos %s: %u ms (background)", id(sonos).request().action.c_str(), static_cast<unsigned>(reply.duration_ms));
+                      id(sonos).accept(reply.status, reply.body);
+                      if (discovery && id(sonos).publish_discovery()) id(render_music_systems).execute();
+                      if (id(music_refresh_selected_only) && !id(music_room_refresh_pending) && id(sonos).publish_current())
+                        id(render_music).execute();
             # The worker already yields during I/O; no 80 ms foreground gap is needed.
             - delay: 10ms
 
@@ -324,14 +337,18 @@ script:
     mode: single
     then:
       - lambda: |-
-          const bool selected_only = id(music_room_refresh_pending) && !id(music_busy);
+          id(music_refresh_selected_only) = id(music_room_refresh_pending) && !id(music_busy);
           id(music_room_refresh_pending) = false;
-          if (selected_only) id(sonos).begin_current();
+          if (id(music_refresh_selected_only)) id(sonos).begin_current();
           else id(sonos).begin("${sonos_living_address}", "${sonos_kitchen_address}");
       - script.execute: sonos_requests
       - script.wait: sonos_requests
       - lambda: |-
+          // A new choice abandons the remaining reads, not the immutable reply.
+          // Publishing that partial poll would erase unrelated cached snapshots.
+          if (id(music_room_refresh_pending) && !id(music_busy)) return;
           id(sonos).finish();
+          if (!id(music_room_refresh_pending)) id(music_selection_loading) = false;
           if (id(music_favorite_pending) && id(sonos).command_confirmed()) {
             id(music_favorite_pending) = false;
             id(music_command_failed) = false;
@@ -349,10 +366,11 @@ script:
           ESP_LOGD("sonos_local", "Direct Sonos: selected=%d grouped=%d known=%d playing=%d tv=%d",
             id(sonos).selected, id(sonos).grouped(), id(sonos).current().known(),
             id(sonos).current().playing, id(sonos).current().tv);
+      - script.execute: render_music
       - if:
           condition:
-            # Publish a clicked room before doing unrelated room activity reads.
-            lambda: return !id(music_busy) && !id(music_room_refresh_pending) && !id(music_selection_loading);
+            # The selected snapshot is already visible; other zones are optional.
+            lambda: return !id(music_refresh_selected_only) && !id(music_busy) && !id(music_room_refresh_pending) && !id(music_selection_loading);
           then:
             - script.execute: refresh_music_room_activity
             - script.wait: refresh_music_room_activity
@@ -384,12 +402,15 @@ script:
           then:
             - lambda: |-
                 id(music_room_refresh_pending) = false;
+                id(music_refresh_selected_only) = true;
                 id(sonos).begin_current();
             - script.execute: sonos_requests
             - script.wait: sonos_requests
             - lambda: |-
-                id(sonos).finish();
-                if (!id(music_room_refresh_pending)) id(music_selection_loading) = false;
+                if (!id(music_room_refresh_pending)) {
+                  id(sonos).finish();
+                  id(music_selection_loading) = false;
+                }
             - script.execute: render_music
       - lambda: |-
           if (!id(music_room_refresh_pending)) id(music_selection_loading) = false;
@@ -410,15 +431,19 @@ script:
           then:
             - wait_until:
                 lambda: return !id(sonos_transport).busy();
-            # Extra rooms are display-only reads; a slow zone must not delay
-            # controls. Bound each read to 1 s and yield to commands between reads.
-            - lambda: id(sonos_transport).submit(id(sonos_room_activity).request(), 1000);
-            - wait_until:
-                lambda: return id(sonos_transport).ready();
-            - lambda: |-
-                auto reply = id(sonos_transport).take();
-                ESP_LOGD("network_performance", "Sonos room activity: %u ms (background)", static_cast<unsigned>(reply.duration_ms));
-                id(sonos_room_activity).accept(reply.status, reply.body);
+            # Waiting for another owner may span a click. Do not start another
+            # display-only read after selection or a command claimed priority.
+            - if:
+                condition:
+                  lambda: return !id(music_busy) && !id(music_room_refresh_pending) && millis() - id(music_room_activity_started) < 4000;
+                then:
+                  - lambda: id(sonos_transport).submit(id(sonos_room_activity).request(), 1000);
+                  - wait_until:
+                      lambda: return id(sonos_transport).ready();
+                  - lambda: |-
+                      auto reply = id(sonos_transport).take();
+                      ESP_LOGD("network_performance", "Sonos room activity: %u ms (background)", static_cast<unsigned>(reply.duration_ms));
+                      id(sonos_room_activity).accept(reply.status, reply.body);
             - delay: 10ms
       - lambda: id(sonos_room_activity).finish();
 
@@ -566,6 +591,9 @@ script:
             return;
           }
           if (!path.empty()) {
+            // Artwork connection/TLS still runs on the display loop. Keep room
+            // browsing and selection free of these foreground connections.
+            if (id(music_page_open) && id(music_content_tab) == 1) return;
             if (id(music_page_open) && (lv_obj_is_scrolling(id(music_systems_list)) || lv_obj_is_scrolling(id(music_favorites_grid)))) {
               id(refresh_music_cover_after_scroll).execute();
               return;
@@ -624,7 +652,7 @@ script:
       - script.execute: refresh_music_cover
       - if:
           condition:
-            lambda: return id(detail_tab) == 1 && !id(sonos_favorites).known && !id(music_favorites_loading);
+            lambda: return id(detail_tab) == 1 && !(id(music_page_open) && id(music_content_tab) == 1) && !id(sonos_favorites).known && !id(music_favorites_loading);
           then:
             - script.execute: refresh_music_favorites
 
@@ -1002,8 +1030,10 @@ script:
             lambda: return id(sonos_favorites).has_request();
           then:
             - wait_until:
-                lambda: return !id(sonos_transport).busy();
-            - lambda: id(sonos_transport).submit(id(sonos_favorites).request());
+                lambda: return !id(sonos_transport).busy() && !id(music_room_refresh_pending) && !id(music_selection_loading);
+            # Browse is a read too: one slow favorites page must not hold the
+            # shared worker for eight seconds after a room was tapped.
+            - lambda: id(sonos_transport).submit(id(sonos_favorites).request(), 1500);
             - wait_until:
                 lambda: return id(sonos_transport).ready();
             - lambda: |-
@@ -1017,7 +1047,7 @@ script:
     then:
       - if:
           condition:
-            lambda: return !id(music_busy) && !id(music_favorite_pending);
+            lambda: return !id(music_busy) && !id(music_favorite_pending) && !(id(music_page_open) && id(music_content_tab) == 1);
           then:
             - lambda: |-
                 id(music_favorites_loading) = true;

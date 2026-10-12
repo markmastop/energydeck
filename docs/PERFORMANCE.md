@@ -69,7 +69,13 @@ scrolling. See [Sonos responsiveness details and tests](SONOS.md).
 
 Homey HTTP and artwork retain their existing synchronous connection/read paths;
 they can still cause their own pauses. New artwork connections are deferred while
-the Sonos lists are scrolling. The full-screen redraw measurements above describe
+the Sonos lists are scrolling and throughout the Rooms tab. Discovery now renders
+the room inventory before the rest of the status cycle, and selecting a room
+abandons unsent older status reads after draining their one in-flight reply.
+The selected title/status render before optional control reads, and favorites
+Browse pages yield to selection with the same 1.5-second read deadline. These
+changes reduce queue delays; they do not measure or guarantee touch latency.
+The full-screen redraw measurements above describe
 the rotation change, not the later background-network changes or command latency.
 
 The 5-inch room-scroll follow-up reproduced a separate input problem in LVGL:

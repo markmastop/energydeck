@@ -48,7 +48,11 @@ The selected tab is retained when leaving and reopening detail. Rooms shows up
 to 32 visible Sonos zones from the existing topology response, with their actual
 zone names and group membership. Hidden bonded/stereo partners are omitted to
 avoid duplicate rooms. Playback status is shown when the zone belongs to a
-polled coordinator. Other visible groups receive one lightweight, read-only
+polled coordinator. The visible inventory is published as soon as the discovery
+reply arrives; it no longer waits for playback, volume or all-room activity reads.
+Matching cached player snapshots remain usable, while changed/removed zones
+immediately lose their stale control state. Other visible groups receive one
+lightweight, read-only
 GetTransportInfo request per coordinator. Rooms are ordered with confirmed
 playing groups first, then alphabetically within both playing and other rooms
 (case-insensitive ASCII names; UUID breaks ties). Unknown activity shows Detected
@@ -122,12 +126,13 @@ from each polled room. The two default rooms remain polled; selecting another
 zone adds just that room and its coordinator, rather than polling the entire
 household. The selected zone also acts as a fallback discovery seed when the
 two defaults are unavailable.
-Requests are sequential with an 80 ms yield for the UI. A slow cycle is not
-overlapped. Each failed read gets at most one retry for a network error, HTTP
+Requests are sequential on the background worker with a 10 ms UI yield. A slow
+cycle is not overlapped. Each failed read gets at most one retry for a network
+error, HTTP
 408/429/500/502/503/504 or a malformed/truncated HTTP 200 reply, before publishing
 the new snapshot. SOAP faults and permanent HTTP errors are not retried. A retry
-uses the same UI yield and existing eight-second request timeout; persistently
-unreachable speakers can therefore extend a cycle. Exhausted retries still show
+uses the same UI yield and 1.5-second read deadline; persistently unreachable
+speakers can therefore extend a cycle. Exhausted retries still show
 offline/missing data rather than keeping stale titles. Writes are never retried
 because a missing response does not prove the speaker ignored the command.
 
@@ -151,9 +156,16 @@ Sonos updates.
   handler. A previously unseen room shows **Updating...** until its first
   snapshot arrives; navigation and further room choices stay available.
   One coalesced flag requests the latest chosen room's six background reads.
-  An existing request is drained safely; rapid choices skip intermediate targets
-  that have not started, and late replies are published by UUID rather than
-  replacing the latest visible room. Unrelated activity reads yield to selection.
+  Only the already-sent request is drained safely; the rest of an older status
+  queue (including retries) is abandoned before fetching the latest choice.
+  Priority is checked again after waiting for another worker owner. Partial
+  abandoned polls never erase unrelated cached player snapshots. The chosen
+  room's transport/media/position publish its title and status before optional
+  action, volume and mute reads finish. Selected-only refreshes skip all-room
+  activity; full refreshes render the player before that scan. Rapid choices
+  skip targets that have not started, and late snapshots remain keyed by UUID.
+  A selected grouped follower supplies the fresh shared metadata, rather than
+  being overwritten by an older cached member of the same group.
   Cached rooms are bounded by the current visible inventory, discarded on
   discovery loss/removal, and invalidated by host/coordinator/membership changes.
   Old artwork is hidden immediately; the click handler opens no HTTP connection.
@@ -203,8 +215,10 @@ SOAP requests, including favorites Browse, run on one sleeping background worker
 with a single request/reply mailbox. Only the owning script consumes a reply.
 The worker never reads/modifies Sonos models, LVGL widgets, the ESPHome scheduler
 or the shared Homey client. Models and UI updates stay on the main thread.
-Replies are limited to 64 KiB; normal status reads have a 1.5-second deadline and
-writes/Browse retain up to eight seconds. The firmware shares one deadline across
+Replies are limited to 64 KiB; status reads and favorites Browse pages have a
+1.5-second deadline, while writes retain up to eight seconds. Browse pages wait
+until pending room choices and their snapshots have finished. The firmware
+shares one deadline across
 connect/send/read, rejects incomplete/oversize bodies, follows no redirects and
 sends no credentials. The simulator uses separate socket timeouts and rejects
 results arriving past its deadline. The inter-request UI yield is 10 ms rather
@@ -216,16 +230,21 @@ rows together with their UUID callbacks and restore scroll position.
 Room buttons disable LVGL's default scroll-on-focus behavior: touching a partly
 visible row must not start a competing scroll-to-view animation before a drag.
 Room selection and membership changes still require an actual click.
-Periodic Sonos style/layout updates and new cover connections are deferred while
-the room or favorite list is scrolling. The GT911 touch interval is 20 ms rather
+Periodic Sonos style/layout updates are deferred while the room or favorite list
+is scrolling. New cover connections are also deferred throughout the Rooms tab,
+so synchronous artwork connection/TLS cannot interrupt room browsing. The cover
+refresh resumes when Favorites is selected or the compact card is shown. The
+GT911 touch interval is 20 ms rather
 than the default 50 ms. Artwork downloading and Homey HTTP still use their
 existing client, so they can produce separate short pauses outside a drag.
 
 ## Sonos favorites
 
-ContentDirectory `Browse` reads `FV:2` in pages of eight when the page opens,
-when the compact Sonos card first needs the list, and every five minutes while
-either Sonos view is selected. There is no section heading or manual refresh
+ContentDirectory `Browse` reads `FV:2` in pages of eight when the page opens on
+Favorites, when Favorites is selected, when the compact Sonos card first needs
+the list, and every five minutes while either Sonos view is selected. Opening
+Rooms skips a new favorites refresh so discovery/room reads get the worker
+first. There is no section heading or manual refresh
 button; the favorite tiles follow the player directly. A complete, consistent
 UpdateID is required; unavailable or malformed data disables favorites rather
 than silently using an outdated list. Collection and payload sizes are bounded.
@@ -487,3 +506,14 @@ past the boot-success window. The 5-inch serial capture confirmed a successful
 boot and recovered usable Sonos status after initial Wi-Fi connection retries,
 with no crash markers. No live playback, queue, grouping, volume or mute commands
 were sent for verification; physical favorite behavior remains user-verifiable.
+
+2026-10-12 room-loading follow-up: simulator compilation, production LVGL
+room-widget/input/priority regression, model/navigation, cover-format, room-order
+and worker-mailbox checks passed. Model and room-order tests also passed
+AddressSanitizer/UBSan. Regressions cover
+publishing discovery after one reply, title/status before optional reads, a
+selection arriving during a failed read or a worker wait, cache preservation,
+regrouping invalidation and fresh selected-follower metadata. The SDL executable
+started, but UI automation could not bind to its native window, so physical
+interaction latency and appearance were not measured. No firmware was uploaded
+and no playback, grouping, volume or charging commands were issued for testing.

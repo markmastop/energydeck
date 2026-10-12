@@ -17,6 +17,11 @@ selection = music.split("  - id: select_music_system\n", 1)[1].split("  - id: ap
 selection_body = selection.split("            - lambda: |-\n", 1)[1].split("            - script.execute: render_music", 1)[0]
 selection_body = "\n".join(line[16:] if line.startswith("                ") else line for line in selection_body.splitlines())
 source = source.replace("// PRODUCTION_ROOM_SELECT", selection_body)
+requests = music.split("  - id: sonos_requests\n", 1)[1].split("  - id: refresh_music\n", 1)[0]
+guards = [line.split("lambda: ", 1)[1] for line in requests.splitlines() if "lambda: return" in line]
+# Evaluate both the loop guard and the guard after waiting for another owner.
+source = source.replace("// PRODUCTION_REQUEST_GUARD", guards[0])
+source = source.replace("// PRODUCTION_SUBMIT_GUARD", guards[2])
 with tempfile.TemporaryDirectory(prefix="energydeck-room-widgets-") as temp:
     cpp = Path(temp) / "room-widgets.cpp"
     # Resolve the model include relative to the checked-in test, not the temp dir.

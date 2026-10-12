@@ -45,6 +45,25 @@ static ScriptProbe select_music_system, render_music, render_music_after_scroll;
 static lv_point_t touch_point;
 static lv_indev_state_t touch_state = LV_INDEV_STATE_RELEASED;
 
+static bool should_request() {
+// PRODUCTION_REQUEST_GUARD
+}
+static bool should_submit_after_wait() {
+// PRODUCTION_SUBMIT_GUARD
+}
+static void test_request_priority() {
+  sonos.begin("http://192.168.1.50:1400", "http://192.168.1.51:1400");
+  assert(should_request() && should_submit_after_wait());
+  // A click arriving during I/O or another owner's worker wait stops the old
+  // queue, even if its failed read would otherwise get a retry.
+  music_room_refresh_pending = true;
+  sonos.accept(0, "");
+  assert(sonos.has_request() && !should_request() && !should_submit_after_wait());
+  music_busy = true;
+  assert(should_request() && should_submit_after_wait()); // Command preflights/writes still drain.
+  music_busy = music_room_refresh_pending = false;
+  sonos = energydeck_sonos::State{};
+}
 static void render_rooms() {
 // PRODUCTION_ROOM_RENDER
 }
@@ -62,6 +81,7 @@ static void update_activity() {
   sonos_room_activity.finish();
 }
 int main() {
+  test_request_priority();
   lv_init();
   auto *display = lv_display_create(480, 800);
   static uint16_t pixels[480 * 40];
@@ -170,6 +190,6 @@ int main() {
   assert(lv_obj_get_scroll_y(music_systems_list) == scroll);
   sonos.systems.clear(); update_activity(); render_rooms();
   assert(lv_obj_get_child_count(music_systems_list) == 1);
-  std::cout << "PASS: production LVGL room selection highlights immediately without locking, hides stale covers, retains scroll and drags/taps correctly\n";
+  std::cout << "PASS: production queue guards prioritize selection; LVGL highlights immediately, hides stale covers, retains scroll and drags/taps correctly\n";
   lv_deinit();
 }

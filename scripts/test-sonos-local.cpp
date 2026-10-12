@@ -322,6 +322,52 @@ void test_dashboard_room_follow() {
   s.begin_current(); assert(poll_requests(s,f) == 12); // One bounded retry per failed read.
   assert(!s.current().known() && !s.can_volume() && !s.can_mute());
 }
+void test_progressive_room_refresh() {
+  Fixture f;
+  f.zones = groups({zone_group(lid, {{lid,living}}), zone_group(kid, {{kid,kitchen}}),
+    zone_group(oid, {{oid,office}})});
+  State s;
+  s.begin(living, kitchen);
+  assert(!s.publish_discovery() && !s.systems_known);
+  s.accept(200, response("GetZoneGroupState", "<ZoneGroupState>" + escape(f.zones) + "</ZoneGroupState>"));
+  const auto next = s.request();
+  assert(s.publish_discovery() && s.systems.size() == 3); // List is ready after one read.
+  assert(s.select_system(oid) && !s.current().known());
+  assert(s.request().action == next.action && s.request().host == next.host); // Queue remains immutable.
+  // The scheduler drains its sent read, then abandons the remaining default reads.
+  s.accept(200, response("GetTransportInfo", "<CurrentTransportState>PLAYING</CurrentTransportState>"));
+  s.begin_current();
+  assert(s.request().host == office && !s.publish_current());
+  s.accept(200, response("GetTransportInfo", "<CurrentTransportState>PLAYING</CurrentTransportState>"));
+  assert(!s.publish_current());
+  s.accept(200, response("GetMediaInfo", "<CurrentURI>x-rincon-queue:office#0</CurrentURI>"));
+  assert(!s.publish_current());
+  s.accept(200, response("GetPositionInfo", "<TrackMetaData>" + escape("<item><title>Early office title</title></item>") + "</TrackMetaData>"));
+  assert(s.publish_current() && s.current().known() && s.current().title == "Early office title");
+  assert(s.has_request() && !s.can_volume()); // Optional controls still load safely.
+  assert(s.select_system(kid) && !s.publish_current()); // Late office replies cannot publish over a newer click.
+  assert(poll_requests(s,f) == 3);
+  assert(s.current().uuid == kid && !s.current().known());
+  assert(s.select_system(oid) && s.current().title == "Early office title");
+
+  poll(s,f);
+  assert(s.select_system(lid) && s.current().known());
+  s.begin(living,kitchen);
+  s.accept(200, response("GetZoneGroupState", "<ZoneGroupState>" + escape(f.zones) + "</ZoneGroupState>"));
+  assert(s.publish_discovery() && s.current().known()); // Same discovery preserves the cached player.
+  f.zones = groups({zone_group(kid, {{lid,living},{kid,kitchen}})});
+  s.begin(living,kitchen);
+  s.accept(200, response("GetZoneGroupState", "<ZoneGroupState>" + escape(f.zones) + "</ZoneGroupState>"));
+  assert(s.publish_discovery() && !s.current().known() && !s.can_volume()); // Regrouping disables stale controls immediately.
+  assert(!s.select_system(oid));
+  poll_requests(s,f);
+  assert(s.select_system(kid));
+  s.begin_current();
+  f.title[1] = "Fresh shared title";
+  assert(poll_requests(s,f) == 6);
+  assert(s.current().title == "Fresh shared title" && s.rooms[0].title == "Fresh shared title");
+  assert(s.rooms[0].volume == f.volume[0] && s.rooms[1].volume == f.volume[1]);
+}
 void test_selection_during_poll() {
   Fixture f;
   f.zones = groups({zone_group(lid, {{lid,living}}), zone_group(kid, {{kid,kitchen}}),
@@ -649,10 +695,10 @@ int main(int argc, char **argv) {
     for(const auto &r:s.rooms) std::cout << "ROOM known=" << r.known() << " playing=" << r.playing << " tv=" << r.tv << " volume=" << r.volume << " title=" << r.title << " artist=" << r.artist << " cover=" << r.cover << std::endl;
     return 0;
   }
-  test_xml(); test_states(); test_controls(); test_read_recovery(); test_system_inventory(); test_room_selection(); test_dashboard_room_follow(); test_selection_during_poll(); test_group_editing(); test_favorites();
+  test_xml(); test_states(); test_controls(); test_read_recovery(); test_system_inventory(); test_room_selection(); test_dashboard_room_follow(); test_selection_during_poll(); test_progressive_room_refresh(); test_group_editing(); test_favorites();
   std::cout << "PASS: favorites preserve default/explicit rooms, existing groups, volume and mute; offline/stale scopes abort" << std::endl;
   std::cout << "PASS: paged favorites, filtering, XML escaping, direct radio, queue append/seek, failed-command abort, mute and skip" << std::endl;
   std::cout << "PASS: Sonos XML, topology/coordinator, visible system inventory, explicit room selection and grouping, solo/group, music/TV priority, selection, offline, artwork and scoped controls" << std::endl;
   std::cout << "PASS: all-room dashboard following, stable targets, detail/control guards, selected-room-only reads and unknown playback edges" << std::endl;
-  std::cout << "PASS: immediate selection during reads, latest-choice publication, UUID cache reuse/invalidation and fresh command routing" << std::endl;
+  std::cout << "PASS: immediate selection during reads, progressive discovery/player publication, UUID cache invalidation and fresh grouped-follower snapshots" << std::endl;
 }

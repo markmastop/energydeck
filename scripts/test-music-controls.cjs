@@ -29,6 +29,17 @@ try {
   if (!select.includes('id(sonos).select_system(uuid)') || !select.includes('id(music_room_refresh_pending) = true') ||
       select.indexOf('script.execute: render_music') > select.indexOf('script.execute: refresh_music'))
     throw new Error('Room selection must publish immediately before a coalesced background refresh');
+  const refresh = music.split('  - id: refresh_music\n')[1].split('  - id: refresh_music_room_activity\n')[0];
+  if (refresh.indexOf('script.execute: render_music') > refresh.indexOf('script.execute: refresh_music_room_activity') ||
+      !refresh.includes('if (id(music_room_refresh_pending) && !id(music_busy)) return;'))
+    throw new Error('Publish the player before activity reads and never finish an abandoned partial poll');
+  const browse = music.split('  - id: sonos_favorite_requests\n')[1].split('  - id: refresh_music_favorites\n')[0];
+  if (!browse.includes('!id(music_room_refresh_pending) && !id(music_selection_loading)') ||
+      !browse.includes('submit(id(sonos_favorites).request(), 1500)'))
+    throw new Error('Favorites Browse must yield to room refreshes with a bounded read deadline');
+  const artwork = music.split('  - id: refresh_music_cover\n')[1].split('  - id: refresh_music_cover_after_scroll\n')[0];
+  if (!artwork.includes('if (id(music_page_open) && id(music_content_tab) == 1) return;'))
+    throw new Error('Room browsing must not start foreground artwork connections');
   for (const page of ['sonos_page', 'energydeck_main_page']) {
     if (!music.includes(`lv_obj_set_parent(id(shared_energy_header), id(${page})->obj)`))
       throw new Error('Both pages must share the live energy header');

@@ -175,8 +175,16 @@ The existing portrait dashboard keeps the same pixel dimensions on this panel.
 
 This target assumes the V1.3/V1.4/V1.5 backlight protocol. V1.0 and V1.2
 require different backlight initialization; a USB chip identification cannot
-determine the board revision. Hardware display and touch operation must still
-be checked after an explicitly requested first upload.
+determine the board revision. On the connected 7-inch unit, the first upload
+completed with a verified flash hash. Boot logs detected the backlight device
+at `0x30` and GT911 touch at `0x5D`, and the user confirmed that the portrait
+dashboard and page navigation work. The exact PCB revision remains unknown,
+but the configured backlight protocol works on this unit.
+
+The deck connected to Wi-Fi and successfully read live Homey data, electricity
+prices and the temperature forecast. Future OTA updates can target
+`energydeck-7.local`; the assigned IP address may change with DHCP. No charging
+Flow was started during this hardware check.
 
 Before that upload, make a full backup using a unique file for this device.
 The connected unit (MAC `14:c1:9f:c3:10:e0`) was detected as ESP32-S3 with

@@ -28,6 +28,8 @@ try {
     throw new Error('Favorite timeout must re-read actual playback after UI-deferred publication');
   if (!music.includes('id(sonos).request_delay_ms()') || !music.includes('Command stopped: %s, HTTP %d, UPnP/readiness %d'))
     throw new Error('Favorites need cooperative readiness waits and actionable failure diagnostics');
+  if (!music.includes('submit(request, id(sonos).request_timeout_ms())'))
+    throw new Error('Favorite source loads must use their bounded worker deadline');
   const select = music.split('  - id: select_music_system\n')[1].split('  - id: apply_music_group\n')[0];
   if (select.includes('script.wait:') || select.includes('id(music_busy) = true') || select.includes('script.execute: refresh_music_cover'))
     throw new Error('Room selection must not wait, lock the UI or connect artwork HTTP');

@@ -28,7 +28,7 @@ struct ScriptProbe {
   std::string uuid;
   int calls{0};
   void execute() { ++calls; }
-  void execute(const std::string &value) { uuid = value; }
+  void execute(const std::string &value) { uuid = value; ++calls; }
 };
 static energydeck_sonos::State sonos;
 static energydeck_sonos::RoomActivity sonos_room_activity;
@@ -36,6 +36,8 @@ static bool music_page_open = true, music_busy = false, music_favorite_pending =
 static int music_content_tab = 1;
 static lv_obj_t *music_systems_list, *music_group_apply, *music_group_reset;
 static ScriptProbe select_music_system, render_music, render_music_after_scroll;
+static lv_point_t touch_point;
+static lv_indev_state_t touch_state = LV_INDEV_STATE_RELEASED;
 
 static void render_rooms() {
 // PRODUCTION_ROOM_RENDER
@@ -56,11 +58,21 @@ int main() {
   static uint16_t pixels[480 * 40];
   lv_display_set_buffers(display, pixels, nullptr, sizeof(pixels), LV_DISPLAY_RENDER_MODE_PARTIAL);
   lv_display_set_flush_cb(display, [](lv_display_t *d, const lv_area_t *, uint8_t *) { lv_display_flush_ready(d); });
+  lv_group_set_default(lv_group_create()); // Production touch also focuses rows.
+  auto *touch = lv_indev_create();
+  lv_indev_set_type(touch, LV_INDEV_TYPE_POINTER);
+  lv_indev_set_mode(touch, LV_INDEV_MODE_EVENT);
+  lv_indev_set_read_cb(touch, [](lv_indev_t *, lv_indev_data_t *data) {
+    data->point = touch_point; data->state = touch_state;
+  });
   music_systems_list = lv_obj_create(lv_screen_active());
   lv_obj_remove_style_all(music_systems_list);
   lv_obj_set_size(music_systems_list, 452, 180);
   music_group_apply = lv_button_create(lv_screen_active());
   music_group_reset = lv_button_create(lv_screen_active());
+  // Keep unrelated controls outside the list, as on the real Sonos page.
+  lv_obj_set_pos(music_group_apply, 0, 200);
+  lv_obj_set_pos(music_group_reset, 200, 200);
   lv_label_create(music_group_apply); lv_label_create(music_group_reset);
   sonos.systems_known = sonos.systems_complete = true;
   for (const auto &name : {"Woonkamer", "Aanbouw", "Bureau", "Keuken", "Slaapkamer", "Zolder"})
@@ -95,6 +107,39 @@ int main() {
   lv_obj_send_event(lv_obj_get_child(music_systems_list, 4), LV_EVENT_CLICKED, nullptr);
   assert(select_music_system.uuid == "Bureau");
 
+  // Touch a partly visible last row before dragging it. Focus must not launch
+  // a competing scroll-to-view animation, and dragging must not choose a room.
+  lv_obj_scroll_to_y(music_systems_list, 0, LV_ANIM_OFF);
+  lv_obj_update_layout(music_systems_list);
+  lv_area_t viewport;
+  lv_obj_get_coords(music_systems_list, &viewport);
+  const auto calls_before_drag = select_music_system.calls;
+  touch_point = {viewport.x1 + 20, viewport.y1 + 174};
+  touch_state = LV_INDEV_STATE_PRESSED;
+  lv_indev_read(touch);
+  assert(!lv_obj_is_scrolling(music_systems_list)); // No focus animation on touch-down.
+  for (int i = 0; i < 5; ++i) {
+    touch_point.y -= 20;
+    lv_tick_inc(20); lv_indev_read(touch);
+  }
+  assert(lv_obj_get_scroll_y(music_systems_list) >= 80);
+  assert(lv_indev_get_scroll_obj(touch) == music_systems_list);
+  touch_state = LV_INDEV_STATE_RELEASED;
+  lv_indev_read(touch);
+  assert(select_music_system.calls == calls_before_drag);
+  for (int i = 0; i < 200 && lv_obj_is_scrolling(music_systems_list); ++i) {
+    lv_tick_inc(20); lv_timer_handler();
+  }
+  assert(!lv_obj_is_scrolling(music_systems_list));
+  lv_obj_stop_scroll_anim(music_systems_list);
+  lv_obj_scroll_to_y(music_systems_list, 0, LV_ANIM_OFF);
+  touch_point = {viewport.x1 + 20, viewport.y1 + 20};
+  touch_state = LV_INDEV_STATE_PRESSED; lv_indev_read(touch);
+  touch_state = LV_INDEV_STATE_RELEASED; lv_indev_read(touch);
+  assert(select_music_system.calls == calls_before_drag + 1);
+  assert(select_music_system.uuid == "Woonkamer"); // A real tap still selects the displayed UUID.
+  lv_obj_scroll_to_y(music_systems_list, 100, LV_ANIM_OFF);
+
   // Playback reordering really moves rows, but every retained/rebuilt callback
   // must select the UUID displayed there. Inventory order is never a room key.
   sonos.rooms[0].playing = false;
@@ -106,6 +151,6 @@ int main() {
   assert(lv_obj_get_scroll_y(music_systems_list) == scroll);
   sonos.systems.clear(); update_activity(); render_rooms();
   assert(lv_obj_get_child_count(music_systems_list) == 1);
-  std::cout << "PASS: production LVGL room renderer retains widgets/scroll, updates labels, sorts playback and keeps UUID callbacks correct\n";
+  std::cout << "PASS: production LVGL room renderer retains widgets/scroll, sorts playback, keeps UUID callbacks and drags without focus animations or clicks\n";
   lv_deinit();
 }

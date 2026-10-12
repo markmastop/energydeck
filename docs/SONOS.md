@@ -201,11 +201,14 @@ than 80 ms; network waiting no longer blocks touch.
 
 Room widgets are reused when status, selection, names or draft membership change;
 only changed rows update. Inventory or presentation-order changes rebuild the
-rows together with their UUID callbacks and restore scroll position. Periodic
-Sonos style/layout updates and new cover connections are deferred while the room
-or favorite list is scrolling. The GT911 touch interval is 20 ms rather than
-the default 50 ms. Artwork downloading and Homey HTTP still use their existing
-client, so they can produce separate short pauses outside a drag.
+rows together with their UUID callbacks and restore scroll position.
+Room buttons disable LVGL's default scroll-on-focus behavior: touching a partly
+visible row must not start a competing scroll-to-view animation before a drag.
+Room selection and membership changes still require an actual click.
+Periodic Sonos style/layout updates and new cover connections are deferred while
+the room or favorite list is scrolling. The GT911 touch interval is 20 ms rather
+than the default 50 ms. Artwork downloading and Homey HTTP still use their
+existing client, so they can produce separate short pauses outside a drag.
 
 ## Sonos favorites
 
@@ -351,7 +354,11 @@ c++ -std=c++17 -Wall -Wextra -Werror -fsanitize=address,undefined \
 Build the simulator before the widget test; it uses that build's actual LVGL
 library and the production render lambda. It verifies retained widgets and scroll
 position, label updates, playing-first sorting, and correct UUID callbacks after
-reordering. The mailbox test covers delayed I/O, immutable snapshots, exclusive
+reordering. A pointer test presses a partly visible row, drags it and releases:
+touch-down must not launch a focus scroll animation, the list follows the drag,
+and no room is selected until a real tap. The same test covers momentum ending
+and correct UUID selection after a tap. The mailbox test covers delayed I/O,
+immutable snapshots, exclusive
 reply ownership, 1,000 cross-thread exchanges and response-size bounds. Activity
 tests cover shared coordinators, read-only discovery, unknown/failed replies,
 unsafe endpoints and stable command identities.
@@ -361,6 +368,17 @@ comparison; `--favorites-probe` emits only Browse requests. Automated/live diagn
 checks must not start favorites, modify queues, change groups, pause music or
 change volume. Compile the simulator and physical
 firmware separately; upload to the deck only when explicitly requested.
+
+2026-10-12 room-focus correction: a production-renderer pointer test reproduced
+an unwanted scroll-to-view animation on touching a partly visible row. It
+failed before disabling scroll-on-focus and passed afterward, including drag
+distance, no accidental room choice, momentum completion and actual tap/UUID
+selection. The simulator and both physical builds passed, as did the Sonos
+model/navigation regression. Both OTA updates succeeded. A 95-second serial
+capture across the 5-inch update confirmed boot success, seven usable Sonos
+status cycles and 129 background replies without crash/error markers. Physical
+scroll feel still awaits user verification. No live speaker or charging commands
+were used for testing.
 
 2026-10-12 dashboard-follow validation: the simulator and both CrowPanel builds
 passed. Sonos model/navigation, all-room following, room ordering and the actual

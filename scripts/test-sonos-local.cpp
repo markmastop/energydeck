@@ -25,6 +25,7 @@ struct Fixture {
   bool grouped = true, living_leader = false, missing_living = false, all_fail = false;
   bool live[3] = {true,true,true}, tv[3] = {false,false,false}, fail[3] = {false,false,false};
   int volume[3] = {5,7,23};
+  int mute[3] = {0,0,0};
   std::string title[3] = {"Living track","Kitchen track","Other track"};
   std::string actions = "Play,Pause,Next,Previous";
   std::string zones;
@@ -50,7 +51,7 @@ int poll_requests(State &s, const Fixture &f, const std::string &failed_once = "
     if (f.radio && q.action == "GetMediaInfo") body += "<CurrentURIMetaData>" + escape("<item><title>Qmusic</title><albumArtURI>https://sali.sonos.superhi.fi/image?w=60&amp;image=logo.png</albumArtURI></item>") + "</CurrentURIMetaData>";
     if (f.radio && q.action == "GetPositionInfo") body = "<TrackMetaData>" + escape("<item><title>stream.mp3?secret=hidden</title><streamContent>Song - Artist</streamContent></item>") + "</TrackMetaData>";
     if(q.action == "GetVolume") body = "<CurrentVolume>" + std::to_string(f.volume[i]) + "</CurrentVolume>";
-    if(q.action == "GetMute") body = "<CurrentMute>0</CurrentMute>";
+    if(q.action == "GetMute") body = "<CurrentMute>" + std::to_string(f.mute[i]) + "</CurrentMute>";
     if(q.action == "GetCurrentTransportActions") body = "<Actions>" + escape(f.actions) + "</Actions>";
     s.accept(200,response(q.action,body));
   }
@@ -404,13 +405,13 @@ void test_room_selection() {
   s.capture(); poll(s,f); assert(s.prepare_command(2));
   s.accept(200,response("SetVolume","")); f.volume[2] = 25; poll(s,f);
   assert(s.command_confirmed() && s.rooms[0].volume == 5 && s.rooms[1].volume == 7);
-  s.capture(); assert(s.prepare_favorite_setup() && !s.has_request() && s.favorite_setup_confirmed());
+  assert(s.can_favorite() && !s.has_request());
   // A selected speaker can supply discovery even if both default seeds fail.
   f.fail[0] = f.fail[1] = true; poll(s,f);
   assert(s.current().known() && s.can_favorite() && s.selected == 2);
   f.fail[0] = f.fail[1] = false;
   s.capture(); f.zones = groups({zone_group(kid, {{lid,living},{kid,kitchen}}), zone_group(oid, {{oid,office}}), zone_group(tid, {{tid,study}})});
-  poll(s,f); assert(!s.prepare_command(0) && !s.prepare_favorite_setup());
+  poll(s,f); assert(!s.prepare_command(0));
   assert(!s.has_request()); // External regrouping cancels captured commands.
   assert(s.select_system(kid)); poll(s,f);
   assert(s.selected == 1 && !s.uses_pair_controls());
@@ -565,8 +566,7 @@ void test_favorites() {
   poll(chosen,household); assert(chosen.select_system(oid)); poll(chosen,household);
   for (const auto &item : {radio, music}) {
     chosen.capture(); poll(chosen,household);
-    assert(chosen.prepare_favorite_setup() && !chosen.has_request());
-    assert(chosen.favorite_setup_confirmed() && chosen.prepare_favorite(item));
+    assert(chosen.can_favorite() && chosen.prepare_favorite(item));
     std::vector<std::string> actions;
     while (chosen.has_request()) {
       const auto q = chosen.request(); actions.push_back(q.action);
@@ -583,46 +583,46 @@ void test_favorites() {
     assert(chosen.rooms[0].volume == 5 && chosen.rooms[1].volume == 7);
   }
 }
-void test_favorite_setup() {
-  for (bool grouped : {false, true}) for (int offline : {-1, 0, 1, 2}) {
-    State s; Fixture f; f.grouped = grouped; f.volume[0] = f.volume[1] = 5;
-    f.fail[0] = offline == 0 || offline == 2;
-    f.fail[1] = offline == 1 || offline == 2;
-    poll(s, f);
-    assert(s.prepare_favorite_setup() == (offline != 2));
-    int volumes = 0, joins = 0, detach = 0;
-    while (s.has_request()) {
-      auto q = s.request();
-      assert(!f.fail[q.host == living ? 0 : 1]);
-      assert(q.action != "Play" && q.action != "AddURIToQueue");
-      if (q.action == "SetVolume") {
-        ++volumes;
-        assert(q.arguments.find("<DesiredVolume>7</DesiredVolume>") != std::string::npos);
+void test_favorite_preserves_rooms() {
+  // Cover both default selection (no click) and explicitly selected rooms.
+  for (bool grouped : {false, true}) for (int choice : {-1, 0, 1})
+    for (int offline : {-1, 0, 1, 2}) for (bool radio : {false, true}) {
+      State s; Fixture f; f.grouped = grouped; f.mute[0] = f.mute[1] = 1;
+      poll(s, f);
+      if (choice >= 0) assert(s.select_system(choice == 0 ? lid : kid));
+      f.fail[0] = offline == 0 || offline == 2;
+      f.fail[1] = offline == 1 || offline == 2;
+      poll(s, f);
+      const bool known = s.current().known();
+      assert(s.can_favorite() == known);
+      const auto selected = s.selected;
+      const auto coordinator = s.current().coordinator_host;
+      const auto scope = s.scope();
+      const auto volumes = std::array<int, 2>{{s.rooms[0].volume, s.rooms[1].volume}};
+      const auto mutes = std::array<int, 2>{{s.rooms[0].mute, s.rooms[1].mute}};
+      s.capture(); poll(s, f);
+      assert(s.prepare_favorite(favorite(radio)) == known);
+      std::vector<std::string> actions;
+      while (s.has_request()) {
+        const auto q = s.request(); actions.push_back(q.action);
+        assert(q.room == selected && q.host == coordinator && q.service == "AVTransport");
+        assert(q.arguments.find("<CurrentURI>x-rincon:") == std::string::npos);
+        if (q.action == "AddURIToQueue")
+          s.accept(200, response(q.action, "<FirstTrackNumberEnqueued>17</FirstTrackNumberEnqueued><NumTracksAdded>1</NumTracksAdded>"));
+        else s.accept(200, response(q.action, ""));
       }
-      if (q.action == "SetAVTransportURI") {
-        ++joins; assert(q.arguments.find("x-rincon:" + lid) != std::string::npos);
-      }
-      if (q.action == "BecomeCoordinatorOfStandaloneGroup") ++detach;
-      s.accept(200, response(q.action, ""));
+      const auto expected = radio ? std::vector<std::string>{"SetAVTransportURI", "Play"} :
+        std::vector<std::string>{"AddURIToQueue", "SetAVTransportURI", "Seek", "Play"};
+      assert(actions == (known ? expected : std::vector<std::string>{}));
+      assert(s.selected == selected && s.scope() == scope);
+      for (int i = 0; i < 2; ++i) assert(s.rooms[i].volume == volumes[i] && s.rooms[i].mute == mutes[i]);
     }
-    assert(volumes == (offline == 2 ? 0 : offline == -1 ? 2 : 1));
-    assert(joins == (!grouped && offline == -1 ? 1 : 0));
-    assert(detach == (grouped && offline == 1 ? 1 : 0));
-    if (offline == 2) continue;
-    assert(!s.favorite_setup_confirmed()); // Old volume/group is insufficient.
-    f.grouped = offline == -1; f.living_leader = !grouped;
-    f.volume[0] = f.volume[1] = 7;
-    poll(s, f);
-    assert(s.favorite_setup_confirmed());
-    assert(s.prepare_favorite(favorite(true, "FV:2/test")));
-  }
   State s; Fixture f; f.grouped = false; poll(s, f);
-  assert(s.prepare_favorite_setup());
-  s.accept(500, "<Fault/>");
-  assert(s.command_failed && !s.has_request()); // Failed join cannot start music.
+  s.capture(); f.grouped = true; poll(s, f);
+  assert(!s.prepare_favorite(favorite(true)) && !s.has_request()); // Stale scope must never play in a new group.
 }
 int main(int argc, char **argv) {
-  test_favorite_setup();
+  test_favorite_preserves_rooms();
   if(argc > 1 && std::string(argv[1]) == "--favorites-probe") {
     Favorites f; f.begin(kitchen);
     while(f.has_request()) {
@@ -650,6 +650,7 @@ int main(int argc, char **argv) {
     return 0;
   }
   test_xml(); test_states(); test_controls(); test_read_recovery(); test_system_inventory(); test_room_selection(); test_dashboard_room_follow(); test_selection_during_poll(); test_group_editing(); test_favorites();
+  std::cout << "PASS: favorites preserve default/explicit rooms, existing groups, volume and mute; offline/stale scopes abort" << std::endl;
   std::cout << "PASS: paged favorites, filtering, XML escaping, direct radio, queue append/seek, failed-command abort, mute and skip" << std::endl;
   std::cout << "PASS: Sonos XML, topology/coordinator, visible system inventory, explicit room selection and grouping, solo/group, music/TV priority, selection, offline, artwork and scoped controls" << std::endl;
   std::cout << "PASS: all-room dashboard following, stable targets, detail/control guards, selected-room-only reads and unknown playback edges" << std::endl;

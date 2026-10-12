@@ -1155,19 +1155,7 @@ script:
             - script.wait: refresh_music
             - if:
                 condition:
-                  lambda: return id(sonos).prepare_favorite_setup();
-                then:
-                  - script.execute: sonos_requests
-                  - script.wait: sonos_requests
-                  - lambda: id(music_command_failed) = id(sonos).command_failed;
-                  - delay: 1s
-                  - script.execute: refresh_music
-                  - script.wait: refresh_music
-                else:
-                  - lambda: id(music_command_failed) = true;
-            - if:
-                condition:
-                  lambda: return !id(music_command_failed) && id(sonos).favorite_setup_confirmed() && id(sonos).prepare_favorite(id(music_favorite_copy));
+                  lambda: return !id(music_command_failed) && id(sonos).prepare_favorite(id(music_favorite_copy));
                 then:
                   - script.execute: sonos_requests
                   - script.wait: sonos_requests

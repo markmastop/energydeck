@@ -97,17 +97,15 @@ in a scrollable five-column icon grid (ten visible tiles). The room label uses t
 full card width while favorites are shown.
 Compact tiles keep a 44×44 px touch target around the 32×32 artwork or fallback
 icon, with 10 px horizontal and 4 px vertical gaps. Names remain visible in Detail.
-After an explicit room choice or group edit, favorites play on the selected
-room's current coordinator and group, preserving volume, mute and membership.
-Fresh topology must still match the displayed scope before playback.
-Before any explicit choice, starting a favorite checks both configured speakers
-using fresh individual volume/mute replies, groups reachable Woonkamer and Keuken
-if needed, sets each
-to absolute volume **7/100**, and unmutes them before playback. If only one is
-reachable, it is used alone; a reachable follower detaches from an unavailable
-coordinator first. An existing healthy Woonkamer/Keuken coordinator is retained.
-The setup is read back before any favorite URI or queue command is sent. A failed
-setup stops the sequence and reports an error; it never retries queue insertion.
+Favorites always play on the displayed room's current coordinator and existing
+group, including before any explicit room choice. They preserve volume, mute and
+membership; they never automatically group Woonkamer and Keuken, detach speakers,
+or set a startup volume. Joining or removing rooms requires an explicit group
+edit. Fresh topology must still match the displayed scope before playback; an
+unavailable coordinator disables favorites rather than regrouping speakers.
+The favorite path uses one fresh preflight and sends only its playback/queue
+commands, without the former setup writes, one-second setup delay or second
+preflight. A failed command stops the sequence and never retries queue insertion.
 No power outlets are switched. This applies to favorites in both views.
 
 ## Why not read playback metadata from Homey?
@@ -234,7 +232,7 @@ than silently using an outdated list. Collection and payload sizes are bounded.
 Entries without playable URI/metadata (such as pinned discovery shortcuts) are
 omitted. Tiles show title and a radio/music icon, not remote thumbnail downloads.
 
-- First verify grouping, volume 7 and unmuted state as described above.
+- First verify fresh status and the displayed room/group scope without changing membership, volume or mute.
 - Radio: set the favorite URI with its original metadata, then Play.
 - Playlist/album/track: append to the existing queue, select that queue, seek to
   the first newly added track, then Play. The old queue is never cleared.
@@ -335,15 +333,17 @@ detail/control selection guards, coordinator/volume routing, six-read target
 loading and unknown/incomplete/transitioning playback edges. Transitioning
 transport does not confirm a pause. Favorites
 tests cover pagination, invalid/stale pages, filtering, radio, queue append/seek,
-failure aborts, mute, skip and read-back confirmation. Setup tests cover both
-speakers, either speaker offline, both offline, stale groups with an offline
-coordinator, grouping failures, and volume/group read-back before playback.
+failure aborts, mute, skip and read-back confirmation. Favorite-scope tests cover
+default and explicit room choices, separate and existing groups, either/both
+speakers offline, unavailable coordinators and stale scope cancellation. They
+assert that radio and queued favorites issue only playback/queue commands and
+preserve room selection, membership, volume and mute.
 System-list tests cover hidden/duplicate members, XML-decoded names, additional
 zones, unsafe origins, missing names, the 32-zone limit and offline recovery,
 while ensuring inventory discovery alone adds no requests to other speakers.
 Selection tests cover extra-room polling, coordinator routing, paused/offline
 selection persistence, default-seed failure, individual volume/mute, preserving
-favorite setup and scope cancellation. Concurrent-selection tests switch rooms
+favorite state and scope cancellation. Concurrent-selection tests switch rooms
 while full and selected-only reads are pending, reuse each UUID's cached labels,
 discard late responses for display purposes, and invalidate caches after
 regrouping, read failures and removal. Group tests cover local drafts, anchor
@@ -474,3 +474,16 @@ was restricted to Sonos TCP port 1400, blocking unrelated weather/Homey requests
 No live playback, queue, mute, volume or grouping changes were used for testing;
 command behavior was verified with synthetic replies. No firmware upload was
 performed.
+
+### Favorite scope correction (2026-10-12)
+
+Removed the implicit Woonkamer/Keuken startup group, volume 7 and unmute sequence.
+Both default and explicit selections now retain the displayed room's existing
+coordinator/group and settings. Radio and queue favorites, offline coordinators
+and stale scope cancellation passed synthetic regression tests with ASan/UBSan.
+The simulator, both hardware builds and production LVGL room-widget tests
+passed. OTA uploads to the 5-inch and 7-inch succeeded, and both were reachable
+past the boot-success window. The 5-inch serial capture confirmed a successful
+boot and recovered usable Sonos status after initial Wi-Fi connection retries,
+with no crash markers. No live playback, queue, grouping, volume or mute commands
+were sent for verification; physical favorite behavior remains user-verifiable.

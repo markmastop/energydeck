@@ -562,59 +562,9 @@ class State {
     }
     return true;
   }
-  // Rendering replies prove the individual speaker is reachable even when its
-  // old coordinator is offline and shared transport reads therefore fail.
-  bool favorite_reachable(int i) const {
-    return rooms[i].topology && rooms[i].volume >= 0 && rooms[i].mute >= 0;
-  }
-  bool can_favorite() const {
-    return explicitly_selected() ? current().known() : favorite_reachable(0) || favorite_reachable(1);
-  }
-  bool prepare_favorite_setup() {
-    command_failed = false; requests_.clear(); cursor_ = 0; commanding_ = true;
-    favorite_custom_ = explicitly_selected();
-    if (favorite_custom_) {
-      selected = captured_room_; favorite_leader_ = selected;
-      // Explicit room choice keeps its current group, volume and mute state.
-      return current().known() && !captured_scope_.empty() && captured_scope_ == scope();
-    }
-    favorite_targets_ = {{favorite_reachable(0), favorite_reachable(1)}};
-    if (!favorite_targets_[0] && !favorite_targets_[1]) return false;
-    selected = favorite_targets_[0] ? 0 : 1;
-    // Keep a healthy existing coordinator; otherwise form a group led by the
-    // reachable living-room speaker (or kitchen when living is unavailable).
-    if (favorite_targets_[0] && favorite_targets_[1] && grouped() &&
-        (rooms[0].coordinator == rooms[0].uuid || rooms[0].coordinator == rooms[1].uuid))
-      selected = rooms[0].coordinator == rooms[0].uuid ? 0 : 1;
-    favorite_leader_ = selected;
-    auto &leader = rooms[selected];
-    if (leader.coordinator != leader.uuid)
-      requests_.push_back({leader.host, "AVTransport", "BecomeCoordinatorOfStandaloneGroup", "<InstanceID>0</InstanceID>", selected});
-    const int other = 1 - selected;
-    if (favorite_targets_[other] && rooms[other].coordinator != leader.uuid)
-      requests_.push_back({rooms[other].host, "AVTransport", "SetAVTransportURI",
-        "<InstanceID>0</InstanceID><CurrentURI>x-rincon:" + xml_escape(leader.uuid) +
-        "</CurrentURI><CurrentURIMetaData></CurrentURIMetaData>", other});
-    for (int i = 0; i < 2; ++i) if (favorite_targets_[i]) {
-      // Sonos volume is an absolute percentage, not a relative step.
-      requests_.push_back({rooms[i].host, "RenderingControl", "SetVolume",
-        "<InstanceID>0</InstanceID><Channel>Master</Channel><DesiredVolume>7</DesiredVolume>", i});
-      requests_.push_back({rooms[i].host, "RenderingControl", "SetMute",
-        "<InstanceID>0</InstanceID><Channel>Master</Channel><DesiredMute>0</DesiredMute>", i});
-    }
-    return true;
-  }
-  bool favorite_setup_confirmed() {
-    if (command_failed || has_request()) return false;
-    selected = favorite_leader_;
-    if (favorite_custom_) return current().known() && captured_scope_ == scope();
-    for (int i = 0; i < 2; ++i) if (favorite_targets_[i]) {
-      const auto &r = rooms[i];
-      if (!r.known() || r.coordinator != current().uuid || r.volume != 7 || r.mute != 0) return false;
-    }
-    capture(); // Playback is scoped to the freshly verified group, not the old one.
-    return favorite_targets_[selected];
-  }
+  // A favorite uses the displayed room's existing coordinator. Never create a
+  // default group or change volume/mute merely because no room was clicked.
+  bool can_favorite() const { return current().known(); }
   bool prepare_favorite(const Favorite &favorite) {
     selected = captured_room_;
     command_failed = false; requests_.clear(); cursor_ = 0; commanding_ = true;
@@ -736,7 +686,7 @@ class State {
   std::vector<Request> requests_;
   size_t cursor_ = 0;
   bool topology_ok_ = false, manual_ = false, commanding_ = false, target_playing_ = false;
-  bool compact_playing_ = false, read_retried_ = false, target_pair_ = false, favorite_custom_ = false;
+  bool compact_playing_ = false, read_retried_ = false, target_pair_ = false;
   bool system_playing_ = false, system_stopped_ = true;
   bool pending_complete_ = true;
   std::string explicit_uuid_, explicit_name_;
@@ -744,8 +694,6 @@ class State {
   std::string group_anchor_, group_baseline_;
   std::vector<std::string> group_choices_;
   std::vector<std::pair<std::string, std::string>> group_expected_;
-  std::array<bool, 2> favorite_targets_{{false, false}};
-  int favorite_leader_ = 0;
   int captured_room_ = 0, target_room_ = 0, target_action_ = 0;
   std::string captured_scope_, target_scope_;
   std::string target_track_uri_, favorite_uri_;

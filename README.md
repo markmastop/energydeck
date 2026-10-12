@@ -164,6 +164,45 @@ containing spaces or special characters are supported. Pass a different serial
 port as the first argument when necessary, for example
 `./flash.sh /dev/cu.wchusbserial210`.
 
+## CrowPanel Advance 7.0
+
+The 7-inch ESP32-S3 model (DIS02170A, 800 x 480) has a separate build target:
+`esphome/energydeck-crowpanel-7.yaml`. It reuses the dashboard and the 5-inch
+RGB pin mapping, display timings and GT911 touch bus. These match ELECROW's
+[official V1.3/V1.4/V1.5 ESPHome example](https://github.com/Elecrow-RD/CrowPanel-Advance-7-HMI-ESP32-S3-AI-Powered-IPS-Touch-Screen-800x480/blob/master/example/V1.3_and_V1.4_and_V1.5/ESPHome/Code/advance-hmi-7inch.yaml).
+Its network name is `energydeck-7.local`, allowing both decks to coexist.
+The existing portrait dashboard keeps the same pixel dimensions on this panel.
+
+This target assumes the V1.3/V1.4/V1.5 backlight protocol. V1.0 and V1.2
+require different backlight initialization; a USB chip identification cannot
+determine the board revision. Hardware display and touch operation must still
+be checked after an explicitly requested first upload.
+
+Before that upload, make a full backup using a unique file for this device.
+The connected unit (MAC `14:c1:9f:c3:10:e0`) was detected as ESP32-S3 with
+8 MB PSRAM and 16 MB flash. A 64 KB read succeeded at 115200 baud; reads at
+460800 baud failed, so use 115200 for its backup:
+
+```sh
+./.venv/bin/python scripts/backup_factory_flash.py \
+  --port /dev/cu.wchusbserial110 --baud 115200 \
+  --output backups/crowpanel-7-14c19fc310e0-original-16mb.bin
+```
+
+This device's original backup completed successfully at 115200 baud with
+16,777,216 bytes. Its SHA-256 is:
+
+```text
+f5a11f3c5a099a384f01836c836a4baef5cbd43fe11ed02f4889ab20c03ee1d8
+```
+
+Keep this backup separate from the 5-inch unit's backup. Neither image is
+committed to Git.
+
+Use the same local environment variables as the 5-inch build to compile this
+target with `esphome compile esphome/energydeck-crowpanel-7.yaml`. Compilation
+does not upload firmware. Keep the 5-inch `flash.sh` target unchanged.
+
 ## Simulator
 
 Requirements on macOS:

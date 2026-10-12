@@ -1,0 +1,10 @@
+# CrowPanel Advance 7.0 V1.3/V1.4/V1.5 (DIS02170A).
+# ELECROW's official 7-inch ESPHome example uses the same RGB pins, timings,
+# GT911 I2C bus and backlight protocol as our 5-inch configuration.
+# Keep a separate hostname so both physical decks can coexist on the network.
+packages:
+  crowpanel_base: !include energydeck-crowpanel.yaml
+
+esphome:
+  name: energydeck-7
+  friendly_name: EnergyDeck 7

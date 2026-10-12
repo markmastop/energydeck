@@ -1,7 +1,7 @@
 #pragma once
 
-#include "download_buffer.h"
-#include "esphome/components/http_request/http_request.h"
+#include "worker_image.h"
+#include "esphome/components/background_http/background_http.h"
 #include "esphome/components/runtime_image/runtime_image.h"
 #include "esphome/core/automation.h"
 #include "esphome/core/component.h"
@@ -14,12 +14,6 @@
 
 namespace esphome::online_image {
 
-using t_http_codes = enum {
-  HTTP_CODE_OK = 200,
-  HTTP_CODE_NOT_MODIFIED = 304,
-  HTTP_CODE_NOT_FOUND = 404,
-};
-
 /**
  * @brief Download an image from a given URL, and decode it using the specified decoder.
  * The image will then be stored in a buffer, so that it can be re-displayed without the
@@ -27,7 +21,7 @@ using t_http_codes = enum {
  */
 class OnlineImage final : public PollingComponent,
                           public runtime_image::RuntimeImage,
-                          public Parented<esphome::http_request::HttpRequestComponent> {
+                          public Parented<esphome::background_http::BackgroundHttp> {
  public:
   /**
    * @brief Construct a new OnlineImage object.
@@ -39,7 +33,7 @@ class OnlineImage final : public PollingComponent,
    * @param type The pixel format for the image.
    * @param transparency The transparency type for the image.
    * @param placeholder Optional placeholder image to show while loading.
-   * @param buffer_size Size of the buffer used to download the image.
+   * @param buffer_size Retained schema compatibility; complete responses are bounded to 512 KiB.
    * @param is_big_endian Whether the image is stored in big-endian format.
    */
   OnlineImage(const std::string &url, int width, int height, runtime_image::ImageFormat format, image::ImageType type,
@@ -47,12 +41,17 @@ class OnlineImage final : public PollingComponent,
               bool is_big_endian = false);
 
   void update() override;
-  void loop() override;
-  runtime_image::ImageFormat get_format() const { return png_response_ ? runtime_image::PNG : RuntimeImage::get_format(); }
+  bool is_pending() const { return pending_; }
+  bool is_loaded() const { return data_start_ != nullptr; }
 
   /** Set the URL to download the image from. */
   void set_url(const std::string &url) {
     if (this->validate_url_(url)) {
+      if (url != this->url_) {
+        ++generation_;
+        pending_ = false;
+        if (cancelled_) cancelled_->store(true, std::memory_order_release);
+      }
       this->url_ = url;
     }
     this->etag_ = "";
@@ -78,21 +77,13 @@ class OnlineImage final : public PollingComponent,
   }
 
  protected:
-  bool png_response_{false};
   bool validate_url_(const std::string &url);
-  void end_connection_();
-
+  bool pending_{false};
+  uint32_t generation_{0};
+  std::shared_ptr<WorkerImage> published_;
+  std::shared_ptr<std::atomic<bool>> cancelled_;
   CallbackManager<void(bool)> download_finished_callback_{};
   CallbackManager<void()> download_error_callback_{};
-
-  std::shared_ptr<http_request::HttpContainer> downloader_{nullptr};
-  DownloadBuffer download_buffer_;
-  /**
-   * This is the *initial* size of the download buffer, not the current size.
-   * The download buffer can be resized at runtime; the download_buffer_initial_size_
-   * will *not* change even if the download buffer has been resized.
-   */
-  size_t download_buffer_initial_size_;
 
   std::string url_;
 
@@ -107,7 +98,6 @@ class OnlineImage final : public PollingComponent,
    */
   std::string last_modified_;
 
-  uint32_t start_time_{0};
 };
 
 template<typename... Ts> class OnlineImageSetUrlAction final : public Action<Ts...> {

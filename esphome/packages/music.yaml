@@ -3,7 +3,7 @@ external_components:
   - source:
       type: local
       path: components
-    components: [online_image, sonos_local, sonos_http, ui_performance]
+    components: [online_image, sonos_local, sonos_http, ui_performance, background_http]
 
 ui_performance:
 
@@ -321,7 +321,7 @@ script:
                       const auto &request = id(sonos).request();
                       id(sonos_transport).submit(request, request.action.rfind("Get", 0) == 0 ? 1500 : 8000);
                   - wait_until:
-                      lambda: return id(sonos_transport).ready();
+                      lambda: return id(sonos_transport).ready() && esphome::ui_performance::background_allowed();
                   - lambda: |-
                       auto reply = id(sonos_transport).take();
                       const bool discovery = id(sonos).request().action == "GetZoneGroupState";
@@ -439,7 +439,7 @@ script:
                 then:
                   - lambda: id(sonos_transport).submit(id(sonos_room_activity).request(), 1000);
                   - wait_until:
-                      lambda: return id(sonos_transport).ready();
+                      lambda: return id(sonos_transport).ready() && esphome::ui_performance::background_allowed();
                   - lambda: |-
                       auto reply = id(sonos_transport).take();
                       ESP_LOGD("network_performance", "Sonos room activity: %u ms (background)", static_cast<unsigned>(reply.duration_ms));
@@ -1035,7 +1035,7 @@ script:
             # shared worker for eight seconds after a room was tapped.
             - lambda: id(sonos_transport).submit(id(sonos_favorites).request(), 1500);
             - wait_until:
-                lambda: return id(sonos_transport).ready();
+                lambda: return id(sonos_transport).ready() && esphome::ui_performance::background_allowed();
             - lambda: |-
                 auto reply = id(sonos_transport).take();
                 ESP_LOGD("network_performance", "Sonos Browse: %u ms (background)", static_cast<unsigned>(reply.duration_ms));

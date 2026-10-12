@@ -6,6 +6,11 @@
 #include "lvgl.h"
 #include "esphome/components/lvgl/lvgl_esphome.h"
 #include "portrait_rotation.h"
+#include "ui_priority.h"
+#ifdef USE_ESP32
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#endif
 #include <array>
 #include <cstring>
 
@@ -24,6 +29,11 @@ class UiPerformance : public Component {
   void set_display(display::Display *panel, bool tiled) { this->panel_ = panel; this->tiled_ = tiled; }
   float get_setup_priority() const override { return setup_priority::LATE; }
   void setup() override {
+#ifdef USE_ESP32
+    // ESPHome's loop normally shares priority 1 with network workers. Touch,
+    // drawing and callbacks must preempt our lower-priority background tasks.
+    vTaskPrioritySet(nullptr, 2);
+#endif
     auto *display = lv_display_get_default();
     if (display == nullptr) { this->mark_failed(); return; }
     lv_display_add_event_cb(display, event_callback_, LV_EVENT_ALL, this);

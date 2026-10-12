@@ -1,9 +1,14 @@
 # Live Homey data for the simulator and, later, the physical display.
+# ESPHome provides HTTPS libraries/certificate configuration; no foreground requests.
 http_request:
-  id: homey_http
+  id: http_runtime
   timeout: 8s
   # Use final URLs; never forward authenticated requests through redirects.
   follow_redirects: false
+
+background_http:
+  id: homey_http
+  timeout: 8s
 
 globals:
   - id: prices_calendar_day
@@ -164,7 +169,7 @@ script:
   - id: trigger_charge_advanced_flow
     mode: single
     then:
-      - http_request.post:
+      - background_http.post:
           url: "${homey_address}/api/manager/flow/advancedflow/${homey_charge_flow_id}/trigger"
           request_headers:
             Authorization: "Bearer ${homey_token}"
@@ -199,7 +204,7 @@ script:
   - id: trigger_charge_regular_flow
     mode: single
     then:
-      - http_request.post:
+      - background_http.post:
           url: "${homey_address}/api/manager/flow/flow/${homey_charge_flow_id}/trigger"
           request_headers:
             Authorization: "Bearer ${homey_token}"
@@ -287,7 +292,7 @@ script:
                 level: WARN
                 format: "Price refresh deferred: waiting for time synchronization"
             - script.stop: refresh_homey_prices
-      - http_request.get:
+      - background_http.get:
           url: "${homey_address}/api/manager/logic/variable/${homey_prices_variable_id}"
           request_headers:
             Authorization: "Bearer ${homey_token}"
@@ -604,7 +609,7 @@ script:
   - id: refresh_homey_sessy
     mode: restart
     then:
-      - http_request.get:
+      - background_http.get:
           url: "${homey_address}/api/manager/devices/device/${homey_sessy_device_id}"
           request_headers:
             Authorization: "Bearer ${homey_token}"
@@ -680,7 +685,7 @@ script:
   - id: refresh_homey_charger
     mode: restart
     then:
-      - http_request.get:
+      - background_http.get:
           url: "${homey_address}/api/manager/devices/device/${homey_charger_device_id}"
           request_headers:
             Authorization: "Bearer ${homey_token}"
@@ -810,7 +815,7 @@ script:
   - id: refresh_homey_electricity_now
     mode: restart
     then:
-      - http_request.get:
+      - background_http.get:
           url: "${homey_address}/api/manager/devices/device/${homey_homewizard_device_id}"
           request_headers:
             Authorization: "Bearer ${homey_token}"
@@ -878,7 +883,7 @@ script:
   - id: refresh_homey_electricity_day
     mode: restart
     then:
-      - http_request.get:
+      - background_http.get:
           url: "${homey_address}/api/manager/devices/device/${homey_electricity_summary_device_id}"
           request_headers:
             Authorization: "Bearer ${homey_token}"
@@ -941,7 +946,7 @@ script:
   - id: refresh_homey_solar_now
     mode: restart
     then:
-      - http_request.get:
+      - background_http.get:
           url: "${homey_address}/api/manager/devices/device/${homey_solar_device_id}"
           request_headers:
             Authorization: "Bearer ${homey_token}"
@@ -986,7 +991,7 @@ script:
   - id: refresh_homey_solar_day
     mode: restart
     then:
-      - http_request.get:
+      - background_http.get:
           url: "${homey_address}/api/manager/devices/device/${homey_solar_summary_device_id}"
           request_headers:
             Authorization: "Bearer ${homey_token}"
@@ -1024,7 +1029,7 @@ script:
   - id: refresh_homey_gas
     mode: restart
     then:
-      - http_request.get:
+      - background_http.get:
           url: "${homey_address}/api/manager/devices/device/${homey_gas_summary_device_id}"
           request_headers:
             Authorization: "Bearer ${homey_token}"
@@ -1088,7 +1093,7 @@ script:
   - id: refresh_homey_weather
     mode: restart
     then:
-      - http_request.get:
+      - background_http.get:
           url: "${homey_address}/api/manager/weather/weather"
           request_headers:
             Authorization: "Bearer ${homey_token}"

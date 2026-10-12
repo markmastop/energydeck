@@ -370,9 +370,10 @@ successfully over OTA. A 95-second serial capture across the 5-inch update
 confirmed boot success, seven usable status cycles and 126 background replies
 (12–973 ms), without crash/error markers. The native SDL preview was not exposed
 to the UI automation tool. Automatic switching was tested with synthetic SOAP
-replies; visual behavior on the physical main screen still needs user
-confirmation. No live playback, queue, volume, mute, grouping or charging
-commands were sent for testing.
+replies. The user also confirmed correct image and touch on the 5-inch and that
+the main screen follows a playing room outside Woonkamer/Keuken. The 7-inch
+visual behavior has not yet been confirmed. The agent sent no live playback,
+queue, volume, mute, grouping or charging commands for testing.
 
 2026-10-12 responsiveness validation: simulator and both CrowPanel builds passed,
 as did Sonos model/navigation, cover-format, room-order and actual LVGL room-widget

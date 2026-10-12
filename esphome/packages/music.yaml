@@ -901,6 +901,9 @@ script:
                 lv_obj_set_style_bg_color(button, lv_color_hex(0x18231E), 0);
                 lv_obj_set_style_bg_color(button, lv_color_hex(0x24583B), LV_STATE_PRESSED);
                 lv_obj_clear_flag(button, LV_OBJ_FLAG_SCROLLABLE);
+                // LVGL buttons scroll themselves into view when touch focuses
+                // them. A partly visible row then animates against the drag.
+                lv_obj_clear_flag(button, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
               }
               lv_obj_set_style_border_color(choose, lv_color_hex(0x45BD70), 0);
               for (int field = 0; field < 3; ++field) {

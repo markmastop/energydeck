@@ -35,8 +35,10 @@ latencies or guaranteed durations for every page.
 Medians are calculated independently per column, so they need not add exactly.
 The total redraw improved by approximately 79%. The user confirmed that page
 navigation feels clearly faster and that the display, colors and touch work.
-Only the 7-inch device was uploaded; the 5-inch target receives the shared code
-but needs its own hardware check after an explicitly requested upload.
+The initial rotation optimization was uploaded to the 7-inch device only. Both
+devices were subsequently updated on 2026-10-12 with the background Sonos
+transport and dashboard-follow changes. The user confirmed image, touch and
+automatic room following on the 5-inch.
 
 ## Diagnostics and reproduction
 
@@ -69,6 +71,19 @@ Homey HTTP and artwork retain their existing synchronous connection/read paths;
 they can still cause their own pauses. New artwork connections are deferred while
 the Sonos lists are scrolling. The full-screen redraw measurements above describe
 the rotation change, not the later background-network changes or command latency.
+
+The 5-inch room-scroll follow-up reproduced a separate input problem in LVGL:
+its default button scroll-on-focus starts an automatic scroll-to-view animation
+when a partly visible row is touched, competing with the subsequent drag.
+Room-choice and membership buttons now disable that flag. A regression using
+the production renderer and a pointer device fails before the fix and verifies
+that touch-down starts no animation, dragging moves the list without selecting
+a room, momentum ends, and an actual tap still selects the correct UUID. This
+changes input behavior without adding redraws, polling or network requests.
+The accompanying 150-second physical baseline captured no renders exceeding
+100 ms, but did capture 34 foreground operations exceeding 50 ms, including a
+1,743 ms rain refresh. Those existing synchronous network pauses remain a
+separate limitation; they are not proof of the room-focus issue's latency.
 
 Verify the rotation mapping, including partial tiles and nonzero origins:
 

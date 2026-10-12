@@ -29,6 +29,8 @@ struct Fixture {
   std::string title[3] = {"Living track","Kitchen track","Other track"};
   std::string actions = "Play,Pause,Next,Previous";
   std::string zones;
+  std::string uri[3];
+  int track[3] = {-1, -1, -1};
 };
 int poll_requests(State &s, const Fixture &f, const std::string &failed_once = "", int failure_status = 0) {
   int requests = 0; bool injected = false;
@@ -45,9 +47,10 @@ int poll_requests(State &s, const Fixture &f, const std::string &failed_once = "
     std::string body;
     if(q.action == "GetZoneGroupState") body = "<ZoneGroupState>" + escape(f.zones.empty() ? topology(f.grouped,f.living_leader,f.missing_living) : f.zones) + "</ZoneGroupState>";
     if(q.action == "GetTransportInfo") body = std::string("<CurrentTransportState>") + (f.live[i] ? "PLAYING" : "PAUSED_PLAYBACK") + "</CurrentTransportState>";
-    if(q.action == "GetMediaInfo") body = std::string("<CurrentURI>") + (f.tv[i] ? "x-sonos-htastream:RINCON_foo:spdif" : "x-rincon-queue:foo#0") + "</CurrentURI>";
+    if(q.action == "GetMediaInfo") body = std::string("<CurrentURI>") + (!f.uri[i].empty() ? escape(f.uri[i]) : f.tv[i] ? "x-sonos-htastream:RINCON_foo:spdif" : "x-rincon-queue:foo#0") + "</CurrentURI>";
     if(q.action == "GetPositionInfo") body = "<TrackMetaData>" + escape("<DIDL-Lite><item><dc:title>" + escape(f.title[i]) +
       "</dc:title><dc:creator>Artist &amp; guest</dc:creator><upnp:albumArtURI>/getaa?s=1&amp;u=track</upnp:albumArtURI></item></DIDL-Lite>") + "</TrackMetaData>";
+    if (q.action == "GetPositionInfo" && f.track[i] >= 0) body += "<Track>" + std::to_string(f.track[i]) + "</Track>";
     if (f.radio && q.action == "GetMediaInfo") body += "<CurrentURIMetaData>" + escape("<item><title>Qmusic</title><albumArtURI>https://sali.sonos.superhi.fi/image?w=60&amp;image=logo.png</albumArtURI></item>") + "</CurrentURIMetaData>";
     if (f.radio && q.action == "GetPositionInfo") body = "<TrackMetaData>" + escape("<item><title>stream.mp3?secret=hidden</title><streamContent>Song - Artist</streamContent></item>") + "</TrackMetaData>";
     if(q.action == "GetVolume") body = "<CurrentVolume>" + std::to_string(f.volume[i]) + "</CurrentVolume>";
@@ -540,6 +543,22 @@ std::string favorite_page(const std::vector<Favorite> &items, int total, std::st
   return response("Browse", "<Result>" + escape(didl) + "</Result><NumberReturned>" + std::to_string(items.size()) +
     "</NumberReturned><TotalMatches>" + std::to_string(total) + "</TotalMatches><UpdateID>" + version + "</UpdateID>");
 }
+void accept_favorite_read(State &s, const Request &q, const Favorite &favorite, int track = 17) {
+  assert(q.action.rfind("Get", 0) == 0 && s.request_delay_ms() == 200);
+  if (q.action == "GetMediaInfo") {
+    const auto uri = favorite.radio ? favorite.uri : "x-rincon-queue:" + s.current().coordinator + "#0";
+    s.accept(200, response(q.action, "<CurrentURI>" + escape(uri) + "</CurrentURI>"));
+  } else if (q.action == "GetTransportInfo")
+    s.accept(200, response(q.action, "<CurrentTransportState>STOPPED</CurrentTransportState><CurrentTransportStatus>OK</CurrentTransportStatus>"));
+  else {
+    assert(q.action == "GetPositionInfo");
+    s.accept(200, response(q.action, "<Track>" + std::to_string(track) + "</Track>"));
+  }
+}
+void settle_favorite_source(State &s, const Favorite &favorite) {
+  assert(s.request().action == "GetMediaInfo"); accept_favorite_read(s, s.request(), favorite);
+  assert(s.request().action == "GetTransportInfo"); accept_favorite_read(s, s.request(), favorite);
+}
 void test_favorites() {
   {
     Favorites covers; auto item = favorite(); item.cover = "https://i.scdn.co/image/abc";
@@ -579,7 +598,8 @@ void test_favorites() {
   s.capture(); poll(s,fixture); assert(s.prepare_favorite(radio));
   assert(s.request().action == "SetAVTransportURI" && s.request().host == kitchen);
   assert(s.request().arguments.find("sid=1&amp;flags=2") != std::string::npos);
-  s.accept(200,response("SetAVTransportURI","")); assert(s.request().action == "Play");
+  s.accept(200,response("SetAVTransportURI","")); settle_favorite_source(s, radio);
+  assert(s.request().action == "Play");
   s.accept(200,response("Play","")); assert(!s.has_request() && !s.command_failed);
   assert(!s.command_confirmed()); // Old playing track is not confirmation.
   s.rooms[1].uri = radio.uri; assert(s.command_confirmed());
@@ -587,8 +607,11 @@ void test_favorites() {
   assert(s.request().action == "AddURIToQueue" && s.request().arguments.find("<EnqueueAsNext>0</EnqueueAsNext>") != std::string::npos);
   s.accept(200,response("AddURIToQueue","<FirstTrackNumberEnqueued>17</FirstTrackNumberEnqueued><NumTracksAdded>20</NumTracksAdded>"));
   assert(s.request().action == "SetAVTransportURI"); s.accept(200,response("SetAVTransportURI",""));
+  settle_favorite_source(s, music);
   assert(s.request().action == "Seek" && s.request().arguments.find("<Target>17</Target>") != std::string::npos);
-  s.accept(200,response("Seek","")); assert(s.request().action == "Play"); s.accept(200,response("Play",""));
+  s.accept(200,response("Seek",""));
+  assert(s.request().action == "GetPositionInfo"); accept_favorite_read(s, s.request(), music);
+  assert(s.request().action == "Play"); s.accept(200,response("Play",""));
   assert(!s.has_request()); s.rooms[1].uri = "x-rincon-queue:" + kid + "#0"; s.rooms[1].track = 17; assert(s.command_confirmed());
   for (int failure : {0,500}) {
     s.capture(); poll(s,fixture); assert(s.prepare_favorite(music)); s.accept(failure,"<Fault/>");
@@ -615,8 +638,10 @@ void test_favorites() {
     assert(chosen.can_favorite() && chosen.prepare_favorite(item));
     std::vector<std::string> actions;
     while (chosen.has_request()) {
-      const auto q = chosen.request(); actions.push_back(q.action);
+      const auto q = chosen.request();
       assert(q.host == study && q.room == 2 && q.service == "AVTransport");
+      if (q.action.rfind("Get", 0) == 0) { accept_favorite_read(chosen, q, item); continue; }
+      actions.push_back(q.action);
       if (q.action == "AddURIToQueue") chosen.accept(200,response(q.action,"<FirstTrackNumberEnqueued>17</FirstTrackNumberEnqueued><NumTracksAdded>20</NumTracksAdded>"));
       else {
         if (!item.radio && q.action == "SetAVTransportURI") assert(q.arguments.find("x-rincon-queue:" + tid + "#0") != std::string::npos);
@@ -628,6 +653,64 @@ void test_favorites() {
     assert(chosen.current().volume == 23 && chosen.current().mute == 0);
     assert(chosen.rooms[0].volume == 5 && chosen.rooms[1].volume == 7);
   }
+}
+void test_favorite_readiness() {
+  State s; Fixture f; auto radio = favorite(true), playlist = favorite();
+  poll(s, f); s.capture(); assert(s.prepare_favorite(radio));
+  s.accept(200, response("SetAVTransportURI", ""));
+  for (int i = 0; i < 2; ++i) {
+    s.accept(200, response("GetMediaInfo", "<CurrentURI>old-source</CurrentURI>"));
+    assert(s.has_request() && s.request().action == "GetMediaInfo" && !s.command_failed);
+  }
+  accept_favorite_read(s, s.request(), radio);
+  s.accept(0, ""); // Retry a lost readiness read, never its successful preceding write.
+  assert(s.request().action == "GetTransportInfo");
+  s.accept(200, response("GetTransportInfo", "<CurrentTransportState>TRANSITIONING</CurrentTransportState>"));
+  assert(s.request().action == "GetTransportInfo" && s.request_delay_ms() == 200);
+  accept_favorite_read(s, s.request(), radio);
+  assert(s.request().action == "Play" && s.request_delay_ms() == 10);
+  s.accept(500, "<s:Envelope><s:Body><s:Fault><errorCode>701</errorCode></s:Fault></s:Body></s:Envelope>");
+  assert(s.command_failed && s.command_error == 701 && !s.has_request());
+
+  // Radio source never settles: bounded read-only checks, no Play of the old station.
+  poll(s, f); s.capture(); assert(s.prepare_favorite(radio)); s.accept(200, response("SetAVTransportURI", ""));
+  for (unsigned i = 0; i < State::MAX_FAVORITE_SETTLE_READS; ++i) {
+    assert(s.request().action == "GetMediaInfo");
+    s.accept(200, response("GetMediaInfo", "<CurrentURI>old-source</CurrentURI>"));
+  }
+  assert(s.command_failed && s.command_error == -1 && !s.has_request());
+  poll(s, f); s.capture(); assert(s.prepare_favorite(radio)); s.accept(0, "");
+  assert(s.command_failed && !s.has_request()); // Lost SetURI never causes a retry or Play.
+  f.uri[1] = radio.uri; poll(s, f);
+  assert(s.command_confirmed()); // Fresh actual playback resolves an ambiguous acknowledgement.
+  f.uri[1] = "other-station"; poll(s, f); assert(!s.command_confirmed());
+  f.uri[1].clear();
+
+  poll(s, f); s.capture(); assert(s.prepare_favorite(playlist));
+  s.accept(200, response("AddURIToQueue", "<FirstTrackNumberEnqueued>17</FirstTrackNumberEnqueued><NumTracksAdded>3</NumTracksAdded>"));
+  s.accept(200, response("SetAVTransportURI", "")); settle_favorite_source(s, playlist);
+  assert(s.request().action == "Seek"); s.accept(200, response("Seek", ""));
+  s.accept(200, response("GetPositionInfo", "<Track>2</Track>"));
+  assert(s.request().action == "GetPositionInfo"); // Do not play an old queue position.
+  accept_favorite_read(s, s.request(), playlist);
+  assert(s.request().action == "Play"); s.accept(200, response("Play", ""));
+  s.rooms[s.selected].uri = "x-rincon-queue:" + s.current().coordinator + "#0";
+  for (int track : {17, 18, 19}) { s.rooms[s.selected].track = track; assert(s.command_confirmed()); }
+  for (int track : {-1, 16, 20}) { s.rooms[s.selected].track = track; assert(!s.command_confirmed()); }
+  f.grouped = false; poll(s, f); s.capture(); assert(s.prepare_favorite(radio));
+  while (s.has_request()) {
+    const auto q = s.request();
+    if (q.action.rfind("Get", 0) == 0) accept_favorite_read(s, q, radio);
+    else s.accept(200, response(q.action, ""));
+  }
+  poll(s, f); s.reset_group_edit(); assert(s.toggle_group(kid) && s.prepare_group());
+  while (s.has_request()) {
+    const auto q = s.request();
+    assert(q.action.rfind("Get", 0) != 0 && s.request_delay_ms() == 10);
+    s.accept(200, response(q.action, ""));
+  }
+  assert(!s.command_failed); // Group SetURI does not inherit prior favorite readiness.
+
 }
 void test_favorite_preserves_rooms() {
   // Cover both default selection (no click) and explicitly selected rooms.
@@ -650,8 +733,10 @@ void test_favorite_preserves_rooms() {
       assert(s.prepare_favorite(favorite(radio)) == known);
       std::vector<std::string> actions;
       while (s.has_request()) {
-        const auto q = s.request(); actions.push_back(q.action);
+        const auto q = s.request();
         assert(q.room == selected && q.host == coordinator && q.service == "AVTransport");
+        if (q.action.rfind("Get", 0) == 0) { accept_favorite_read(s, q, favorite(radio)); continue; }
+        actions.push_back(q.action);
         assert(q.arguments.find("<CurrentURI>x-rincon:") == std::string::npos);
         if (q.action == "AddURIToQueue")
           s.accept(200, response(q.action, "<FirstTrackNumberEnqueued>17</FirstTrackNumberEnqueued><NumTracksAdded>1</NumTracksAdded>"));
@@ -695,8 +780,9 @@ int main(int argc, char **argv) {
     for(const auto &r:s.rooms) std::cout << "ROOM known=" << r.known() << " playing=" << r.playing << " tv=" << r.tv << " volume=" << r.volume << " title=" << r.title << " artist=" << r.artist << " cover=" << r.cover << std::endl;
     return 0;
   }
-  test_xml(); test_states(); test_controls(); test_read_recovery(); test_system_inventory(); test_room_selection(); test_dashboard_room_follow(); test_selection_during_poll(); test_progressive_room_refresh(); test_group_editing(); test_favorites();
+  test_xml(); test_states(); test_controls(); test_read_recovery(); test_system_inventory(); test_room_selection(); test_dashboard_room_follow(); test_selection_during_poll(); test_progressive_room_refresh(); test_group_editing(); test_favorites(); test_favorite_readiness();
   std::cout << "PASS: favorites preserve default/explicit rooms, existing groups, volume and mute; offline/stale scopes abort" << std::endl;
+  std::cout << "PASS: favorites wait for source/transport/seek readiness, bound read retries, never retry writes and confirm the added track range or fresh playback after a lost acknowledgement" << std::endl;
   std::cout << "PASS: paged favorites, filtering, XML escaping, direct radio, queue append/seek, failed-command abort, mute and skip" << std::endl;
   std::cout << "PASS: Sonos XML, topology/coordinator, visible system inventory, explicit room selection and grouping, solo/group, music/TV priority, selection, offline, artwork and scoped controls" << std::endl;
   std::cout << "PASS: all-room dashboard following, stable targets, detail/control guards, selected-room-only reads and unknown playback edges" << std::endl;

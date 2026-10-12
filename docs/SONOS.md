@@ -92,7 +92,8 @@ and volume controls sit in a slim column to its right, with only Play/Pause fill
 Title and artist sit below the cover. The back arrow and Sonos heading form a
 single navigation row, with the group name underneath as borderless text. Unavailable
 controls use muted icons rather than grey rectangles. Tapping the room/group
-heading opens the Rooms tab in either player. Favorites show a small type
+heading opens the Rooms tab in either player. Single-room headings show only
+the room name, without a trailing `>`; the name remains clickable. Favorites show a small type
 icon and up to two title lines, with six tiles visible before scrolling. Missing
 font glyphs are omitted from display only; playback metadata remains untouched.
 Favorites come directly from Sonos; no Homey Flow is involved. When the dashboard
@@ -255,14 +256,30 @@ Entries without playable URI/metadata (such as pinned discovery shortcuts) are
 omitted. Tiles show title and a radio/music icon, not remote thumbnail downloads.
 
 - First verify fresh status and the displayed room/group scope without changing membership, volume or mute.
-- Radio: set the favorite URI with its original metadata, then Play.
-- Playlist/album/track: append to the existing queue, select that queue, seek to
-  the first newly added track, then Play. The old queue is never cleared.
-- A failed command stops the remaining sequence. There is no automatic retry.
-- Waiting appears immediately; fresh playback URI (and queue track when relevant)
-  must confirm the selection within 30 seconds. Existing unrelated playback is
-  not sufficient confirmation. A timeout reports an unconfirmed action, not proof
-  that the speaker did nothing; check before retrying to avoid duplicate entries.
+- Radio: set the favorite URI with its original metadata, verify that the new
+  source is visible and the transport has settled, then Play.
+- Playlist/album/track: append to the existing queue, select that queue, verify
+  source/transport readiness, seek to the first newly added track, verify its
+  position, then Play. The old queue is never cleared.
+- Readiness checks yield 200 ms between requests and repeat only reads, up to ten
+  attempts per stage. A missing source, transition, old queue position, invalid
+  response or failed readiness check cannot advance to the next write.
+- A failed command stops the remaining sequence. Each write is sent at most once.
+  A fresh playback read may confirm an applied command despite a lost response;
+  there is no automatic write retry or duplicate enqueue.
+- Waiting appears immediately; fresh playback URI (and a track inside the newly
+  added range for a playlist) confirms the selection. Advancing to the next added
+  track does not falsely leave a successfully started playlist unconfirmed.
+  After 30 seconds, one final fresh status cycle runs before declaring playback
+  unconfirmed, including when touch deferred earlier reply publication. Existing
+  unrelated playback is insufficient. An unconfirmed action does not prove the
+  speaker did nothing; check before retrying to avoid duplicate queue entries.
+
+Start diagnostics name the clicked favorite and displayed room. A stopped
+sequence logs its action, HTTP status and UPnP error code; internal readiness
+exhaustion uses -1 and an invalid enqueue result uses -2. Preflight rejection and
+final playback-confirmation failures have separate log messages. No metadata,
+service credentials or response bodies are logged.
 
 The original Sonos favorite metadata is preserved and XML-escaped when sent.
 No music-service credentials are stored on the deck. Availability still depends
@@ -521,3 +538,24 @@ regrouping invalidation and fresh selected-follower metadata. The SDL executable
 started, but UI automation could not bind to its native window, so physical
 interaction latency and appearance were not measured. No firmware was uploaded
 and no playback, grouping, volume or charging commands were issued for testing.
+
+## Favorite readiness follow-up (2026-10-12)
+
+Qmusic and Deep House Relax were reported to frequently fail to start and show
+"Unconfirmed". Read-only Browse confirmed Qmusic as an audio broadcast and Deep
+House Relax as a playlist container. Live playback commands were not used to
+reproduce the report. The old sequence issued Seek/Play immediately after SetURI
+and required exactly the first enqueued track for confirmation. The sequence now
+checks readiness and the added track range, reads back after a failed command,
+and performs a final fresh check after the confirmation timer. Tests cover delayed
+source changes, transitioning transport, old seek positions, transient read
+failures, bounded exhaustion, rejected/lost writes and actual-playback read-back.
+The physical cause of the reported attempts remains unproven; the diagnostics
+allow a subsequent attempt to identify a specific Sonos rejection or timeout.
+The simulator, 5-inch and 7-inch builds and model/room-widget/artwork/UI-priority
+regressions passed. The 5-inch build from `2026-10-12 18:34:09 +0200` was uploaded
+successfully over OTA. A subsequent 95-second serial capture confirmed the
+boot-success check and nine status cycles without crash/watchdog/error markers;
+OTA remained reachable afterward. No new favorite start was recorded during
+that capture, so physical Qmusic/Deep House Relax playback remains unverified.
+The 7-inch was compiled but not updated.

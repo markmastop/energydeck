@@ -326,12 +326,18 @@ script:
                       auto reply = id(sonos_transport).take();
                       const bool discovery = id(sonos).request().action == "GetZoneGroupState";
                       ESP_LOGD("network_performance", "Sonos %s: %u ms (background)", id(sonos).request().action.c_str(), static_cast<unsigned>(reply.duration_ms));
+                      const auto action = id(sonos).request().action;
+                      const bool command = id(sonos).command_active();
                       id(sonos).accept(reply.status, reply.body);
+                      if (command && id(sonos).command_failed)
+                        ESP_LOGW("sonos_local", "Command stopped: %s, HTTP %d, UPnP/readiness %d",
+                          action.c_str(), reply.status, id(sonos).command_error);
                       if (discovery && id(sonos).publish_discovery()) id(render_music_systems).execute();
                       if (id(music_refresh_selected_only) && !id(music_room_refresh_pending) && id(sonos).publish_current())
                         id(render_music).execute();
-            # The worker already yields during I/O; no 80 ms foreground gap is needed.
-            - delay: 10ms
+            # Readiness polls yield cooperatively while Sonos changes source.
+            # Ordinary requests retain their short yield; no write is retried.
+            - delay: !lambda return id(sonos).request_delay_ms();
 
   - id: refresh_music
     mode: single
@@ -677,7 +683,7 @@ script:
           esphome::ui_performance::set_text(id(music_status), status);
           lv_obj_set_style_text_color(id(music_status),
             lv_color_hex(id(music_command_failed) || !known ? 0xEA665F : 0x7FE0A2), 0);
-          const std::string room_heading = s.explicitly_selected() ? s.current_name() + " >" :
+          const std::string room_heading = s.explicitly_selected() ? s.current_name() :
             s.grouped() ? "${music_rooms}" : s.selected == 0 ? "${music_living_select}" : "${music_kitchen_select}";
           esphome::ui_performance::set_text(lv_obj_get_child(id(music_room_select), 0), room_heading.c_str());
           if (waiting) lv_obj_add_state(id(music_room_select), LV_STATE_DISABLED);
@@ -1174,6 +1180,8 @@ script:
           then:
             - lambda: |-
                 id(music_favorite_copy) = id(sonos_favorites).items[index];
+                ESP_LOGI("sonos_local", "Favorite start: %s, room: %s",
+                  id(music_favorite_copy).title.c_str(), id(sonos).current_name().c_str());
                 id(music_control_pending) = false;
                 id(sonos).capture();
                 id(music_busy) = true;
@@ -1192,8 +1200,23 @@ script:
                   - lambda: |-
                       id(music_command_failed) = id(sonos).command_failed;
                       id(music_favorite_pending) = !id(music_command_failed);
+                  - if:
+                      condition:
+                        lambda: return id(music_command_failed);
+                      then:
+                        # A missing acknowledgement does not prove Sonos ignored
+                        # the write. Read actual playback once; never send it again.
+                        - script.execute: refresh_music
+                        - script.wait: refresh_music
+                        - lambda: |-
+                            if (id(sonos).command_confirmed()) {
+                              id(music_command_failed) = false;
+                              ESP_LOGI("sonos_local", "Favorite confirmed by fresh playback after command failure");
+                            }
                 else:
-                  - lambda: id(music_command_failed) = true;
+                  - lambda: |-
+                      id(music_command_failed) = true;
+                      ESP_LOGW("sonos_local", "Favorite preflight rejected: target unavailable or scope changed");
             - lambda: id(music_busy) = false;
             - script.execute: render_music
             - if:
@@ -1208,7 +1231,14 @@ script:
     mode: restart
     then:
       - delay: 30s
+      # Touch can intentionally defer reply publication. Take one fresh read
+      # after any existing poll before declaring acknowledged playback unconfirmed.
+      - script.wait: refresh_music
+      - script.execute: refresh_music
+      - script.wait: refresh_music
       - lambda: |-
+          if (!id(music_favorite_pending)) return;
           id(music_favorite_pending) = false;
           id(music_command_failed) = true;
+          ESP_LOGW("sonos_local", "Favorite playback not confirmed after final read-back; no command repeated");
       - script.execute: render_music

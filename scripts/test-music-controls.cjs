@@ -20,9 +20,14 @@ try {
     throw new Error('Polling must follow playback in the compact card');
   const favorite = music.split('  - id: play_music_favorite\n')[1].split('  - id: music_favorite_timeout\n')[0];
   if (favorite.includes('prepare_favorite_setup') || favorite.includes('favorite_setup_confirmed') ||
-      (favorite.match(/script.execute: refresh_music\n/g) || []).length !== 2 ||
+      (favorite.match(/script.execute: refresh_music\n/g) || []).length !== 3 ||
       !favorite.includes('id(sonos).prepare_favorite(id(music_favorite_copy))'))
-    throw new Error('Favorites must use the displayed scope without setup writes or a second preflight');
+    throw new Error('Favorites must use the displayed scope without setup writes or a second preflight, with read-back after a failed write');
+  const favoriteTimeout = music.split('  - id: music_favorite_timeout\n')[1];
+  if (!favoriteTimeout.includes('script.execute: refresh_music') || !favoriteTimeout.includes('if (!id(music_favorite_pending)) return;'))
+    throw new Error('Favorite timeout must re-read actual playback after UI-deferred publication');
+  if (!music.includes('id(sonos).request_delay_ms()') || !music.includes('Command stopped: %s, HTTP %d, UPnP/readiness %d'))
+    throw new Error('Favorites need cooperative readiness waits and actionable failure diagnostics');
   const select = music.split('  - id: select_music_system\n')[1].split('  - id: apply_music_group\n')[0];
   if (select.includes('script.wait:') || select.includes('id(music_busy) = true') || select.includes('script.execute: refresh_music_cover'))
     throw new Error('Room selection must not wait, lock the UI or connect artwork HTTP');

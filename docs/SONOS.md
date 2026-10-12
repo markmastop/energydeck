@@ -148,6 +148,17 @@ Sonos updates.
   choice in the full Sonos page persists across pause, regrouping and offline
   recovery. Editing group membership also pins the displayed anchor, even
   without first tapping its row.
+- Room choice updates the heading, selection highlight and cached information
+  immediately, without a busy lock, a full system poll or waiting in the click
+  handler. A previously unseen room shows **Updating...** until its first
+  snapshot arrives; navigation and further room choices stay available.
+  One coalesced flag requests the latest chosen room's six background reads.
+  An existing request is drained safely; rapid choices skip intermediate targets
+  that have not started, and late replies are published by UUID rather than
+  replacing the latest visible room. Unrelated activity reads yield to selection.
+  Cached rooms are bounded by the current visible inventory, discarded on
+  discovery loss/removal, and invalidated by host/coordinator/membership changes.
+  Old artwork is hidden immediately; the click handler opens no HTTP connection.
 - On the dashboard, the compact player follows playback in every discovered
   room, including rooms outside Woonkamer/Keuken. Keep the displayed room while
   it plays; otherwise choose the first playing room in the Rooms list's
@@ -186,7 +197,9 @@ its result; subsequent status snapshots confirm the latest command. An
 unconfirmed action is reported after 15 seconds as observed by a completed poll.
 There is no fixed two-second post-command delay and no automatic write retry.
 Fresh room/scope checks before writes and the existing stricter favorites and
-grouping confirmation safeguards remain in place.
+grouping confirmation safeguards remain in place. With concurrent room choice,
+commands first drain any earlier display poll and then start their own fresh
+topology/volume preflight; a cached snapshot alone never authorizes a write.
 
 SOAP requests, including favorites Browse, run on one sleeping background worker
 with a single request/reply mailbox. Only the owning script consumes a reply.
@@ -330,7 +343,10 @@ zones, unsafe origins, missing names, the 32-zone limit and offline recovery,
 while ensuring inventory discovery alone adds no requests to other speakers.
 Selection tests cover extra-room polling, coordinator routing, paused/offline
 selection persistence, default-seed failure, individual volume/mute, preserving
-favorite setup and scope cancellation. Group tests cover local drafts, anchor
+favorite setup and scope cancellation. Concurrent-selection tests switch rooms
+while full and selected-only reads are pending, reuse each UUID's cached labels,
+discard late responses for display purposes, and invalidate caches after
+regrouping, read failures and removal. Group tests cover local drafts, anchor
 protection, stale/incomplete topology, promotion without clearing the source,
 unchecked followers of a moving coordinator, follower-before-leader ordering,
 topology confirmation and stopping after an unacknowledged write.
@@ -352,7 +368,8 @@ c++ -std=c++17 -Wall -Wextra -Werror -fsanitize=address,undefined \
 ```
 
 Build the simulator before the widget test; it uses that build's actual LVGL
-library and the production render lambda. It verifies retained widgets and scroll
+library and the production selection/render lambdas. It verifies immediate
+selection highlighting, no busy lock, invalidation of old artwork, retained widgets and scroll
 position, label updates, playing-first sorting, and correct UUID callbacks after
 reordering. A pointer test presses a partly visible row, drags it and releases:
 touch-down must not launch a focus scroll animation, the list follows the drag,
@@ -368,6 +385,18 @@ comparison; `--favorites-probe` emits only Browse requests. Automated/live diagn
 checks must not start favorites, modify queues, change groups, pause music or
 change volume. Compile the simulator and physical
 firmware separately; upload to the deck only when explicitly requested.
+
+2026-10-12 immediate-selection validation: simulator and both CrowPanel builds
+passed. Model/navigation and production LVGL selection/drag/tap tests passed;
+the model and room-order tests also passed AddressSanitizer/UBSan. Concurrent
+model tests kept the latest selected UUID visible through old default-room and
+extra-room replies, reused each room's own cached snapshot, and checked
+regrouping/failure/removal invalidation and fresh command routing. Both OTA
+updates succeeded. A 95-second serial capture across the 5-inch update confirmed
+boot success, eight usable status cycles and 149 background replies without
+crash/error markers. Physical rapid-selection feel awaits user verification.
+No live speaker playback, queue, volume, mute, grouping or charging commands
+were used for testing.
 
 2026-10-12 room-focus correction: a production-renderer pointer test reproduced
 an unwanted scroll-to-view animation on touching a partly visible row. It

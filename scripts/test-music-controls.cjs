@@ -18,6 +18,12 @@ try {
   if (poll.includes('close_music_page')) throw new Error('Polling must keep explicitly opened detail available');
   if (!poll.includes('follow_compact_tab(id(detail_tab))') || !poll.includes('script.execute: select_detail_tab'))
     throw new Error('Polling must follow playback in the compact card');
+  const select = music.split('  - id: select_music_system\n')[1].split('  - id: apply_music_group\n')[0];
+  if (select.includes('script.wait:') || select.includes('id(music_busy) = true') || select.includes('script.execute: refresh_music_cover'))
+    throw new Error('Room selection must not wait, lock the UI or connect artwork HTTP');
+  if (!select.includes('id(sonos).select_system(uuid)') || !select.includes('id(music_room_refresh_pending) = true') ||
+      select.indexOf('script.execute: render_music') > select.indexOf('script.execute: refresh_music'))
+    throw new Error('Room selection must publish immediately before a coalesced background refresh');
   for (const page of ['sonos_page', 'energydeck_main_page']) {
     if (!music.includes(`lv_obj_set_parent(id(shared_energy_header), id(${page})->obj)`))
       throw new Error('Both pages must share the live energy header');

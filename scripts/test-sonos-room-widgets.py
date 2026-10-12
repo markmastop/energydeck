@@ -13,6 +13,10 @@ section = music.split("  - id: render_music_systems\n", 1)[1].split("  - id: son
 body = section.split("      - lambda: |-\n", 1)[1]
 body = "\n".join(line[10:] if line.startswith("          ") else line for line in body.splitlines())
 source = (root / "scripts/test-sonos-room-widgets.cpp").read_text().replace("// PRODUCTION_ROOM_RENDER", body)
+selection = music.split("  - id: select_music_system\n", 1)[1].split("  - id: apply_music_group\n", 1)[0]
+selection_body = selection.split("            - lambda: |-\n", 1)[1].split("            - script.execute: render_music", 1)[0]
+selection_body = "\n".join(line[16:] if line.startswith("                ") else line for line in selection_body.splitlines())
+source = source.replace("// PRODUCTION_ROOM_SELECT", selection_body)
 with tempfile.TemporaryDirectory(prefix="energydeck-room-widgets-") as temp:
     cpp = Path(temp) / "room-widgets.cpp"
     # Resolve the model include relative to the checked-in test, not the temp dir.

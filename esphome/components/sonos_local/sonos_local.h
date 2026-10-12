@@ -323,9 +323,7 @@ class State {
     explicit_uuid_ = uuid;
     explicit_name_ = s->name;
     selected = uuid == rooms[0].uuid ? 0 : uuid == rooms[1].uuid ? 1 : 2;
-    if (selected == 2) {
-      extra_ = Room{}; extra_.uuid = uuid; extra_.host = s->host;
-    }
+    if (selected == 2) extra_ = cached_room(*s);
     group_dirty_ = false;
     return true;
   }
@@ -515,7 +513,21 @@ class State {
       if (!r.known() || !r.playing || r.tv) { r.title.clear(); r.artist.clear(); r.cover.clear(); }
     }
     const auto old_scope = scope();
-    rooms[0] = pending_[0]; rooms[1] = pending_[1]; extra_ = pending_[2];
+    // A click may change the visible room while this immutable poll finishes.
+    // Publish by UUID, then restore the latest choice rather than its old slot.
+    for (const auto &r : pending_) if (!r.uuid.empty()) room_cache_[r.uuid] = r;
+    for (auto it = room_cache_.begin(); it != room_cache_.end();) {
+      if (!system(it->first)) it = room_cache_.erase(it); else ++it;
+    }
+    rooms[0] = pending_[0]; rooms[1] = pending_[1];
+    if (selected == 2) {
+      const auto *s = system(explicit_uuid_);
+      if (systems_known && s) extra_ = cached_room(*s);
+      else {
+        const auto host = extra_.host;  // Keep a discovery seed for recovery.
+        extra_ = Room{}; extra_.uuid = explicit_uuid_; extra_.host = host;
+      }
+    }
     if (old_scope != scope()) manual_ = false;
     if (manual_ && !current().playing) manual_ = false;
     if (!manual_ && !explicitly_selected()) {
@@ -718,6 +730,7 @@ class State {
  private:
   std::array<Room, 3> pending_;
   Room extra_;
+  std::map<std::string, Room> room_cache_;
   const Room &room(int i) const { return i < 2 ? rooms[i] : extra_; }
   std::vector<System> pending_systems_;
   std::vector<Request> requests_;
@@ -741,6 +754,19 @@ class State {
   const System *system(const std::string &uuid) const {
     for (const auto &s : systems) if (s.uuid == uuid) return &s;
     return nullptr;
+  }
+  Room cached_room(const System &s) const {
+    const auto found = room_cache_.find(s.uuid);
+    if (found != room_cache_.end()) {
+      const auto &r = found->second;
+      // Cached labels are useful immediately, but regrouping/address changes
+      // must invalidate their transport and per-speaker control state.
+      if (r.topology && r.host == s.host && r.coordinator == s.coordinator &&
+          r.coordinator_host == s.coordinator_host && r.members == s.members) return r;
+    }
+    Room r; r.uuid = s.uuid; r.host = s.host; r.topology = true;
+    r.coordinator = s.coordinator; r.coordinator_host = s.coordinator_host; r.members = s.members;
+    return r;
   }
   std::string inventory_scope() const {
     std::string scope;

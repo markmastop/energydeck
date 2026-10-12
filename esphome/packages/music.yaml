@@ -43,6 +43,12 @@ globals:
   - id: music_busy
     type: bool
     initial_value: "false"
+  - id: music_room_refresh_pending
+    type: bool
+    initial_value: "false"
+  - id: music_selection_loading
+    type: bool
+    initial_value: "false"
   - id: music_command_failed
     type: bool
     initial_value: "false"
@@ -317,7 +323,11 @@ script:
   - id: refresh_music
     mode: single
     then:
-      - lambda: id(sonos).begin("${sonos_living_address}", "${sonos_kitchen_address}");
+      - lambda: |-
+          const bool selected_only = id(music_room_refresh_pending) && !id(music_busy);
+          id(music_room_refresh_pending) = false;
+          if (selected_only) id(sonos).begin_current();
+          else id(sonos).begin("${sonos_living_address}", "${sonos_kitchen_address}");
       - script.execute: sonos_requests
       - script.wait: sonos_requests
       - lambda: |-
@@ -341,7 +351,8 @@ script:
             id(sonos).current().playing, id(sonos).current().tv);
       - if:
           condition:
-            lambda: return !id(music_busy);
+            # Publish a clicked room before doing unrelated room activity reads.
+            lambda: return !id(music_busy) && !id(music_room_refresh_pending) && !id(music_selection_loading);
           then:
             - script.execute: refresh_music_room_activity
             - script.wait: refresh_music_room_activity
@@ -350,6 +361,7 @@ script:
             lambda: |-
               return id(sonos_room_activity).follow_dashboard(id(sonos),
                 !id(music_page_open) && !id(music_busy) &&
+                !id(music_selection_loading) && !id(music_room_refresh_pending) &&
                 !id(music_favorite_pending) && !id(music_control_pending));
           then:
             - lambda: |-
@@ -364,7 +376,23 @@ script:
                   - script.execute: sonos_requests
                   - script.wait: sonos_requests
                   - lambda: id(sonos).finish();
+      # A click only changes the visible choice and this coalesced refresh flag.
+      # Drain old replies safely, then fetch the latest choice without UI locks.
+      - while:
+          condition:
+            lambda: return id(music_room_refresh_pending) && !id(music_busy) && !id(music_favorite_pending);
+          then:
+            - lambda: |-
+                id(music_room_refresh_pending) = false;
+                id(sonos).begin_current();
+            - script.execute: sonos_requests
+            - script.wait: sonos_requests
+            - lambda: |-
+                id(sonos).finish();
+                if (!id(music_room_refresh_pending)) id(music_selection_loading) = false;
+            - script.execute: render_music
       - lambda: |-
+          if (!id(music_room_refresh_pending)) id(music_selection_loading) = false;
           // All-room activity must be available before consuming playback edges.
           // Explicit detail navigation stays open during pause and recovery.
           id(detail_tab) = id(sonos).follow_compact_tab(id(detail_tab));
@@ -378,7 +406,7 @@ script:
           id(music_room_activity_started) = millis();
       - while:
           condition:
-            lambda: return id(sonos_room_activity).has_request() && !id(music_busy) && millis() - id(music_room_activity_started) < 4000;
+            lambda: return id(sonos_room_activity).has_request() && !id(music_busy) && !id(music_room_refresh_pending) && millis() - id(music_room_activity_started) < 4000;
           then:
             - wait_until:
                 lambda: return !id(sonos_transport).busy();
@@ -419,23 +447,19 @@ script:
             lambda: return !id(music_busy) && !id(music_favorite_pending);
           then:
             - lambda: |-
-                id(music_busy) = true;
+                if (!id(sonos).select_system(uuid)) return;
                 id(music_control_pending) = false;
                 id(music_command_failed) = false;
-            - script.execute: render_music
-            # Finish an in-flight poll before changing its selected-room slot.
-            - script.wait: refresh_music
-            - if:
-                condition:
-                  lambda: return id(sonos).select_system(uuid);
-                then:
-                  - script.execute: refresh_music
-                  - script.wait: refresh_music
-            - lambda: |-
-                id(music_busy) = false;
+                id(music_room_refresh_pending) = true;
+                id(music_selection_loading) = true;
                 id(sonos).reset_group_edit();
+                // Invalidate the old cover immediately; never connect HTTP in
+                // this click handler or let its late image appear for a new room.
+                id(music_cover_key).clear();
+                lv_obj_add_flag(id(music_cover_widget), LV_OBJ_FLAG_HIDDEN);
+                lv_obj_add_flag(id(small_music_cover_widget), LV_OBJ_FLAG_HIDDEN);
             - script.execute: render_music
-            - script.execute: refresh_music_cover
+            - script.execute: refresh_music
 
   - id: apply_music_group
     mode: single
@@ -450,6 +474,7 @@ script:
                 id(music_command_failed) = false;
             - script.execute: render_music
             # Re-read topology before writing; an external regroup cancels the draft.
+            - script.wait: refresh_music
             - script.execute: refresh_music
             - script.wait: refresh_music
             - if:
@@ -496,6 +521,9 @@ script:
                 id(music_busy) = true;
                 id(music_command_failed) = false;
             - script.execute: render_music
+            # An existing poll may belong to the previously displayed room.
+            # Start our own fresh preflight after it finishes, before any write.
+            - script.wait: refresh_music
             - script.execute: refresh_music
             - script.wait: refresh_music
             - if:
@@ -617,7 +645,7 @@ script:
           const char *status = waiting ? "${music_button_wait}" :
             id(music_command_failed) ? "${music_control_failed}" :
             s.group_dirty() && !s.group_edit_valid() ? "${music_group_changed}" :
-            !known ? "${music_offline}" : playing ? "" : "${music_paused}";
+            !known ? (id(music_selection_loading) ? "${music_updating}" : "${music_offline}") : playing ? "" : "${music_paused}";
           esphome::ui_performance::set_text(id(music_status), status);
           lv_obj_set_style_text_color(id(music_status),
             lv_color_hex(id(music_command_failed) || !known ? 0xEA665F : 0x7FE0A2), 0);
@@ -635,7 +663,7 @@ script:
           lv_obj_align(lv_obj_get_child(id(music_room_select), 0), LV_ALIGN_LEFT_MID, 0, 0);
           lv_obj_set_style_bg_opa(id(music_room_select), LV_OPA_TRANSP, lv_obj_get_state(id(music_room_select)));
           lv_obj_set_style_border_width(id(music_room_select), 0, lv_obj_get_state(id(music_room_select)));
-          esphome::ui_performance::set_text(id(music_title), !known ? "${music_offline}" :
+          esphome::ui_performance::set_text(id(music_title), !known ? (id(music_selection_loading) ? "${music_updating}" : "${music_offline}") :
             playing && room.tv ? "${music_tv}" :
             playing && !room.title.empty() ? room.title.c_str() :
             playing ? "${music_playing}" : "${music_ready}");
@@ -1122,6 +1150,7 @@ script:
                 id(music_command_failed) = false;
             - script.execute: render_music
             - delay: 100ms
+            - script.wait: refresh_music
             - script.execute: refresh_music
             - script.wait: refresh_music
             - if:

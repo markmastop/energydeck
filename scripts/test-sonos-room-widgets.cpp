@@ -5,6 +5,7 @@
 #include <cstring>
 #include <cstdlib>
 #include <iostream>
+#include <functional>
 #define id(value) (value)
 
 // The simulator config delegates LVGL allocation to ESPHome. Use the same
@@ -27,20 +28,28 @@ inline void set_text(lv_obj_t *label, const char *text) {
 struct ScriptProbe {
   std::string uuid;
   int calls{0};
+  std::function<void(const std::string &)> on_select;
   void execute() { ++calls; }
-  void execute(const std::string &value) { uuid = value; ++calls; }
+  void execute(const std::string &value) { uuid = value; ++calls; if (on_select) on_select(value); }
 };
 static energydeck_sonos::State sonos;
 static energydeck_sonos::RoomActivity sonos_room_activity;
 static bool music_page_open = true, music_busy = false, music_favorite_pending = false;
 static int music_content_tab = 1;
 static lv_obj_t *music_systems_list, *music_group_apply, *music_group_reset;
+static lv_obj_t *music_cover_widget, *small_music_cover_widget;
+static bool music_control_pending = true, music_command_failed = true;
+static bool music_room_refresh_pending = false, music_selection_loading = false;
+static std::string music_cover_key = "previous room";
 static ScriptProbe select_music_system, render_music, render_music_after_scroll;
 static lv_point_t touch_point;
 static lv_indev_state_t touch_state = LV_INDEV_STATE_RELEASED;
 
 static void render_rooms() {
 // PRODUCTION_ROOM_RENDER
+}
+static void select_room(const std::string &uuid) {
+// PRODUCTION_ROOM_SELECT
 }
 
 static std::string row_uuid(size_t row) {
@@ -70,6 +79,9 @@ int main() {
   lv_obj_set_size(music_systems_list, 452, 180);
   music_group_apply = lv_button_create(lv_screen_active());
   music_group_reset = lv_button_create(lv_screen_active());
+  music_cover_widget = lv_image_create(lv_screen_active());
+  small_music_cover_widget = lv_image_create(lv_screen_active());
+  select_music_system.on_select = [](const std::string &uuid) { select_room(uuid); render_rooms(); };
   // Keep unrelated controls outside the list, as on the real Sonos page.
   lv_obj_set_pos(music_group_apply, 0, 200);
   lv_obj_set_pos(music_group_reset, 200, 200);
@@ -106,6 +118,13 @@ int main() {
   assert(std::string(lv_label_get_text(lv_obj_get_child(lv_obj_get_child(music_systems_list, 4), 0))) == "BUREAU");
   lv_obj_send_event(lv_obj_get_child(music_systems_list, 4), LV_EVENT_CLICKED, nullptr);
   assert(select_music_system.uuid == "Bureau");
+  assert(sonos.current().uuid == "Bureau" && !music_busy);
+  assert(music_room_refresh_pending && music_selection_loading);
+  assert(!music_control_pending && !music_command_failed && music_cover_key.empty());
+  assert(lv_obj_has_flag(music_cover_widget, LV_OBJ_FLAG_HIDDEN));
+  assert(lv_obj_has_flag(small_music_cover_widget, LV_OBJ_FLAG_HIDDEN));
+  assert(lv_obj_get_style_border_width(lv_obj_get_child(music_systems_list, 4), LV_PART_MAIN) == 2);
+  assert(!lv_obj_has_state(lv_obj_get_child(music_systems_list, 0), LV_STATE_DISABLED));
 
   // Touch a partly visible last row before dragging it. Focus must not launch
   // a competing scroll-to-view animation, and dragging must not choose a room.
@@ -151,6 +170,6 @@ int main() {
   assert(lv_obj_get_scroll_y(music_systems_list) == scroll);
   sonos.systems.clear(); update_activity(); render_rooms();
   assert(lv_obj_get_child_count(music_systems_list) == 1);
-  std::cout << "PASS: production LVGL room renderer retains widgets/scroll, sorts playback, keeps UUID callbacks and drags without focus animations or clicks\n";
+  std::cout << "PASS: production LVGL room selection highlights immediately without locking, hides stale covers, retains scroll and drags/taps correctly\n";
   lv_deinit();
 }

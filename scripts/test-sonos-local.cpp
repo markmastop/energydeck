@@ -321,6 +321,57 @@ void test_dashboard_room_follow() {
   s.begin_current(); assert(poll_requests(s,f) == 12); // One bounded retry per failed read.
   assert(!s.current().known() && !s.can_volume() && !s.can_mute());
 }
+void test_selection_during_poll() {
+  Fixture f;
+  f.zones = groups({zone_group(lid, {{lid,living}}), zone_group(kid, {{kid,kitchen}}),
+    zone_group(oid, {{oid,office}}), zone_group(tid, {{tid,study}})});
+  State s; poll(s,f);
+  s.begin(living,kitchen);
+  const auto first = s.request();
+  assert(s.select_system(oid) && s.current().uuid == oid && !s.current().known());
+  assert(s.request().host == first.host && s.request().action == first.action);
+  poll_requests(s,f);
+  assert(s.current().uuid == oid && !s.current().known()); // Old default poll cannot overwrite the click.
+
+  s.begin_current();
+  const auto office_read = s.request();
+  assert(office_read.host == office);
+  assert(s.select_system(tid)); assert(s.select_system(oid)); assert(s.select_system(tid));
+  assert(s.current().uuid == tid && s.request().host == office_read.host);
+  f.title[2] = "Office snapshot";
+  assert(poll_requests(s,f) == 6);
+  assert(s.current().uuid == tid && !s.current().known() && s.current().title.empty());
+  assert(s.select_system(oid) && s.current().known() && s.current().title == "Office snapshot");
+
+  assert(s.select_system(tid)); s.begin_current();
+  assert(s.select_system(oid) && s.current().title == "Office snapshot");
+  f.title[2] = "Study snapshot";
+  assert(poll_requests(s,f) == 6);
+  assert(s.current().uuid == oid && s.current().title == "Office snapshot");
+  assert(s.select_system(tid) && s.current().known() && s.current().title == "Study snapshot");
+  assert(s.current().host == study && s.current().coordinator_host == study);
+  assert(s.select_system(lid)); assert(s.select_system(tid));
+  assert(s.current().title == "Study snapshot"); // Previously visited rooms render without I/O.
+
+  f.zones = groups({zone_group(lid, {{lid,living}}), zone_group(kid, {{kid,kitchen}}),
+    zone_group(tid, {{oid,office},{tid,study}})});
+  poll(s,f);
+  assert(s.select_system(oid) && !s.current().known()); // Changed group invalidates its cached controls.
+  assert(s.current().coordinator == tid && s.current().coordinator_host == study);
+  s.capture(); poll(s,f); assert(s.prepare_command(2));
+  assert(s.request().host == office && s.request().action == "SetVolume");
+  s.accept(200, response("SetVolume", ""));
+  assert(!s.has_request());
+  f.fail[2] = true; s.begin_current(); poll_requests(s,f);
+  assert(!s.current().known() && !s.can_volume() && !s.can_mute());
+  assert(s.select_system(lid) && s.select_system(oid) && !s.current().known());
+  f.fail[2] = false;
+  f.zones = groups({zone_group(lid, {{lid,living}}), zone_group(kid, {{kid,kitchen}}), zone_group(tid, {{tid,study}})});
+  poll(s,f);
+  assert(!s.select_system(oid) && !s.current().known()); // Removed rooms cannot recover old cached data.
+  assert(s.select_system(tid)); s.begin_current(); poll_requests(s,f);
+  assert(s.current().known() && s.current().uuid == tid);
+}
 std::vector<Request> complete_writes(State &s) {
   std::vector<Request> writes;
   while (s.has_request()) {
@@ -598,8 +649,9 @@ int main(int argc, char **argv) {
     for(const auto &r:s.rooms) std::cout << "ROOM known=" << r.known() << " playing=" << r.playing << " tv=" << r.tv << " volume=" << r.volume << " title=" << r.title << " artist=" << r.artist << " cover=" << r.cover << std::endl;
     return 0;
   }
-  test_xml(); test_states(); test_controls(); test_read_recovery(); test_system_inventory(); test_room_selection(); test_dashboard_room_follow(); test_group_editing(); test_favorites();
+  test_xml(); test_states(); test_controls(); test_read_recovery(); test_system_inventory(); test_room_selection(); test_dashboard_room_follow(); test_selection_during_poll(); test_group_editing(); test_favorites();
   std::cout << "PASS: paged favorites, filtering, XML escaping, direct radio, queue append/seek, failed-command abort, mute and skip" << std::endl;
   std::cout << "PASS: Sonos XML, topology/coordinator, visible system inventory, explicit room selection and grouping, solo/group, music/TV priority, selection, offline, artwork and scoped controls" << std::endl;
   std::cout << "PASS: all-room dashboard following, stable targets, detail/control guards, selected-room-only reads and unknown playback edges" << std::endl;
+  std::cout << "PASS: immediate selection during reads, latest-choice publication, UUID cache reuse/invalidation and fresh command routing" << std::endl;
 }

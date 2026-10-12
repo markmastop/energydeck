@@ -773,4 +773,82 @@ class State {
     pending_ = result; return true;
   }
 };
+// Lightweight room-list activity: existing polled coordinators are reused;
+// each remaining coordinator gets one read-only transport request per cycle.
+// Group followers share their coordinator's activity, never separate requests.
+class RoomActivity {
+ public:
+  enum Transport { UNKNOWN, STOPPED, PLAYING, TRANSITIONING };
+  void begin(const State &state) {
+    pending_.clear(); requests_.clear(); coordinators_.clear(); cursor_ = 0;
+    const Room *polled[] = {&state.rooms[0], &state.rooms[1], &state.current()};
+    for (const auto &system : state.systems) {
+      if (pending_.count(system.coordinator)) continue;
+      pending_[system.coordinator] = UNKNOWN;
+      bool already_polled = false;
+      for (const auto *room : polled) {
+        if (!room->topology || room->coordinator != system.coordinator) continue;
+        already_polled = true;
+        if (room->transport) pending_[system.coordinator] = room->transitioning ? TRANSITIONING : room->playing ? PLAYING : STOPPED;
+        break;
+      }
+      if (!already_polled && !system.coordinator.empty() && !system.coordinator_host.empty() &&
+          origin(system.coordinator_host) == system.coordinator_host) {
+        coordinators_.push_back(system.coordinator);
+        requests_.push_back({system.coordinator_host, "AVTransport", "GetTransportInfo", "<InstanceID>0</InstanceID>"});
+      }
+    }
+    // A bounded scan may stop early for touch commands or slow/offline groups.
+    // Rotate its starting point so later zones still get turns on future polls.
+    if (!requests_.empty()) {
+      const size_t start = cycle_++ % requests_.size();
+      std::rotate(requests_.begin(), requests_.begin() + start, requests_.end());
+      std::rotate(coordinators_.begin(), coordinators_.begin() + start, coordinators_.end());
+    }
+  }
+  bool has_request() const { return cursor_ < requests_.size(); }
+  const Request &request() const { return requests_[cursor_]; }
+  void accept(int status, const std::string &body) {
+    if (!has_request()) return;
+    Xml xml(body);
+    if (status == 200 && xml.valid && xml.has("GetTransportInfoResponse") && !xml.has("Fault")) {
+      const auto transport = xml.text("CurrentTransportState");
+      pending_[coordinators_[cursor_]] = transport == "PLAYING" ? PLAYING : transport == "TRANSITIONING" ? TRANSITIONING :
+        transport == "STOPPED" || transport == "PAUSED_PLAYBACK" || transport == "NO_MEDIA_PRESENT" ? STOPPED : UNKNOWN;
+    }
+    ++cursor_;
+  }
+  void finish() { activity_ = pending_; }
+  Transport transport(const System &system) const {
+    const auto found = activity_.find(system.coordinator);
+    return found == activity_.end() ? UNKNOWN : found->second;
+  }
+  std::vector<size_t> order(const State &state) const {
+    std::vector<size_t> indices;
+    std::vector<std::string> names;
+    for (size_t i = 0; i < state.systems.size(); ++i) {
+      indices.push_back(i);
+      std::string name = state.systems[i].name;
+      // ASCII case folding matches the configured Dutch room names and avoids
+      // locale-dependent ordering on the ESP32. Preserve the original UI text.
+      for (char &c : name) if (c >= 'A' && c <= 'Z') c += 'a' - 'A';
+      names.push_back(std::move(name));
+    }
+    std::sort(indices.begin(), indices.end(), [&](size_t a, size_t b) {
+      const bool playing_a = this->transport(state.systems[a]) == PLAYING;
+      const bool playing_b = this->transport(state.systems[b]) == PLAYING;
+      if (playing_a != playing_b) return playing_a;
+      if (names[a] != names[b]) return names[a] < names[b];
+      return state.systems[a].uuid < state.systems[b].uuid;
+    });
+    return indices;
+  }
+
+ private:
+  size_t cursor_{0};
+  size_t cycle_{0};
+  std::vector<Request> requests_;
+  std::vector<std::string> coordinators_;
+  std::map<std::string, Transport> pending_, activity_;
+};
 }  // namespace energydeck_sonos

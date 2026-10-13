@@ -1,8 +1,18 @@
 # Sonos: dedicated local player and favorites
 
-An explicitly opened Sonos detail page stays open when playback pauses/stops,
-transitions or becomes unavailable. The back arrow returns to the compact Sonos
-card, so favorites and extra controls remain accessible after pausing.
+Both the compact Sonos card and the detail page return to the home dashboard's
+Gas card when previously playing music pauses/stops in all rooms. Detail stays
+open during transitions, unavailable/incomplete status and pending commands or
+room selections. Opening detail while already idle keeps it open for favorites
+and controls. The back arrow returns to the compact Sonos card.
+
+2026-10-13 navigation validation: the production navigation lambda passed
+synthetic stop/pause, idle reopening, manual Climate selection, unknown and
+transitioning activity, other-room playback and pending-operation regressions.
+The simulator build and production LVGL room-widget/input checks passed. The
+SDL executable started, but its native window was not exposed to UI automation,
+so visual navigation and physical behavior remain unverified. No firmware was
+uploaded and no playback/grouping/volume or charging commands were issued.
 
 The dashboard's right-hand **Sonos** button opens the full player directly,
 including while idle, offline or waiting for a command. Tapping the compact

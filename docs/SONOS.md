@@ -735,3 +735,20 @@ errors, crashes or watchdog events. No local-logo publication was captured;
 physical 7-inch logo appearance and interaction responsiveness remain unverified.
 Existing startup/component/script warnings and UI publication samples up to
 110 ms remain. This observation does not measure long-term reliability.
+
+## 7-inch playback-stop navigation rollout (2026-10-13)
+
+The 7-inch target containing `0b56d14` compiled successfully and was uploaded
+over OTA to `energydeck-7.local`. The serial boot log confirmed hostname
+`energydeck-7`, build timestamp `2026-10-13 07:23:16 +0200` and the boot-success
+check. OTA remained reachable after the boot-success window. The 5-inch was not
+updated.
+
+A 120-second serial capture spanning the update recorded ten known selected-room
+Sonos status cycles after boot, all stopped. One GetCurrentTransportActions read
+timed out during headers; status recovered and no crash/watchdog/error markers
+were captured. No playback/grouping/volume or charging commands were issued.
+The navigation/model regressions, simulator build and LVGL room-widget/input
+checks passed before this rollout. An actual playing-to-stopped UI transition
+was not triggered on the physical display, so physical automatic return from
+detail and the compact player remains user-verifiable.

@@ -14,10 +14,24 @@ try {
   if (/Authorization:/.test(image)) throw new Error('Homey credentials must never be sent to Sonos artwork');
   if (music.includes('advancedflow/') || music.includes('Authorization:')) throw new Error('The Sonos page must not depend on Homey');
   const poll = music.split('  - id: refresh_music\n')[1].split('  - id: switch_music_room')[0];
-  if (poll.includes('lvgl.page.show') || poll.includes('open_music_page')) throw new Error('Polling must not navigate pages');
-  if (poll.includes('close_music_page')) throw new Error('Polling must keep explicitly opened detail available');
+  if (poll.includes('lvgl.page.show') || poll.includes('open_music_page')) throw new Error('Polling must not open detail automatically');
+  if (!poll.includes('id(music_page_open) && id(sonos).playback_stopped()'))
+    throw new Error('A confirmed playback stop must also return from detail');
   if (!poll.includes('follow_compact_tab(id(detail_tab))') || !poll.includes('script.execute: select_detail_tab'))
     throw new Error('Polling must follow playback in the compact card');
+  // Compile the actual navigation lambda, so guard/order regressions exercise
+  // the same code as ESPHome without any live playback or network commands.
+  const refreshNavigation = music.split('  - id: refresh_music\n')[1].split('  - id: refresh_music_room_activity\n')[0];
+  const navigation = refreshNavigation.slice(refreshNavigation.lastIndexOf('      - lambda: |-\n'))
+    .split('      - script.execute: select_detail_tab')[0].split('\n').slice(1)
+    .map(line => line.slice(10)).join('\n');
+  const navigationSource = fs.readFileSync(path.join(__dirname, 'test-sonos-navigation.cpp'), 'utf8')
+    .replace('../esphome/components/sonos_local/sonos_local.h', path.join(__dirname, '../esphome/components/sonos_local/sonos_local.h'))
+    .replace('// PRODUCTION_NAVIGATION', navigation);
+  const navigationPath = path.join(temp, 'navigation.cpp');
+  fs.writeFileSync(navigationPath, navigationSource);
+  execFileSync('c++', ['-std=c++17', '-Wall', '-Wextra', '-Werror', navigationPath, '-o', binary], {stdio: 'inherit'});
+  execFileSync(binary, [], {stdio: 'inherit'});
   const favorite = music.split('  - id: play_music_favorite\n')[1].split('  - id: music_favorite_timeout\n')[0];
   if (favorite.includes('prepare_favorite_setup') || favorite.includes('favorite_setup_confirmed') ||
       (favorite.match(/script.execute: refresh_music\n/g) || []).length !== 3 ||

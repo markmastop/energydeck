@@ -420,8 +420,13 @@ script:
             - script.execute: render_music
       - lambda: |-
           if (!id(music_room_refresh_pending)) id(music_selection_loading) = false;
+          // Do not consume playback edges while a command/selection is settling.
+          // A favorite's temporary STOPPED state must not dismiss its player.
+          if (id(music_busy) || id(music_favorite_pending) || id(music_control_pending) ||
+              id(music_selection_loading) || id(music_room_refresh_pending)) return;
           // All-room activity must be available before consuming playback edges.
-          // Explicit detail navigation stays open during pause and recovery.
+          // Close first: Back selects Sonos, then the stop edge selects home/Gas.
+          if (id(music_page_open) && id(sonos).playback_stopped()) id(close_music_page).execute();
           id(detail_tab) = id(sonos).follow_compact_tab(id(detail_tab));
       - script.execute: select_detail_tab
 

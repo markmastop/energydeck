@@ -93,11 +93,12 @@ void test_xml() {
     "https://sali.sonos.superhi.fi/image?image=https%3A%2F%2Fcdn-profiles.tunein.com%2Fs106736%2Fimages%2Flogog.jpg",
     "https://sali.sonos.radio/image?image=https://cdn-profiles.tunein.com/s106736/images/logod.jpg?t=1",
     "https://sali.sonos.radio/image?image=https%3a%2f%2fcdn-profiles.tunein.com%2fs106736%2fimages%2flogog.jpg",
+    "https://cdn-profiles.tunein.com/s106736/images/logog.jpg",
     "/getaa?u=https%3A%2F%2Fcdn-profiles.tunein.com%2Fs106736%2Fimages%2Flogog.jpg"})
     assert(artwork_url(path, living) == radionl);
+  assert(artwork_url("https://cdn-profiles.tunein.com/s307829/images/logoq.png?t=1694204996000", living) == "energydeck://artwork/joe-v1");
   for (auto path : {
     "https://evil.example/image?image=https://cdn-profiles.tunein.com/s106736/images/logog.jpg",
-    "https://cdn-profiles.tunein.com/s106736/images/logog.jpg",
     "energydeck://artwork/unregistered",
     "energydeck://artwork/radionl-west-brabant-v1"}) assert(artwork_url(path, living).empty());
   for (auto path : {
@@ -130,7 +131,7 @@ void test_xml() {
             assert(artwork_url(std::string(proxy) + resource + ".evil", living) == std::string(proxy) + resource + ".evil");
           }
           assert(artwork_url("/getaa?u=" + encode_uri(resource), living) == station.cover);
-          assert(artwork_url(resource, living).empty()); // Outer origin rules still apply.
+          assert(artwork_url(resource, living) == station.cover);
         }
       }
     }

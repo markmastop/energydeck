@@ -156,7 +156,9 @@ inline std::string artwork_url(const std::string &path, const std::string &host)
   if (!host.empty() && origin(path) == host) return energydeck_artwork::station_cover(path);
   for (const auto *proxy : {"https://sali.sonos.superhi.fi/", "https://sali.sonos.radio/",
       "https://i.scdn.co/", "https://image-cdn-ak.spotifycdn.com/",
-      "https://image-cdn-fa.spotifycdn.com/", "https://seed-mix-image.spotifycdn.com/"})
+      "https://image-cdn-fa.spotifycdn.com/", "https://seed-mix-image.spotifycdn.com/",
+      "https://cdn-profiles.tunein.com/", "http://cdn-profiles.tunein.com/",
+      "https://cdn-radiotime-logos.tunein.com/", "http://cdn-radiotime-logos.tunein.com/"})
     if (path.rfind(proxy, 0) == 0) return energydeck_artwork::station_cover(path);
   return {};
 }

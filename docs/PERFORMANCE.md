@@ -9,6 +9,13 @@ The 5-inch and 7-inch CrowPanel Advance targets share these optimizations:
   buffer rather than strided writes into a full PSRAM rotation buffer;
 - one Sonos render/cover update per completed poll, unchanged-text and tab-style
   checks, and battery-header updates on Sessy responses or page transitions;
+- global unchanged-value guards across all packages (`set_text`, `set_text_fmt`,
+  `set_bar_value`, `set_arc_value`, `set_style_text_color`, `set_style_bg_color`,
+  `set_style_border_color`, `set_style_border_width`, `set_pos`, and `set_size`)
+  so routine read-only sensor and price polls do not trigger redundant LVGL
+  layout recalculations or invalidate unchanged widgets;
+- compiler execution speed optimization (`CONFIG_COMPILER_OPTIMIZATION_PERF: y`, `-O3`)
+  and inner loop hoisting in tiled portrait rotation;
 - a brief cooperative delay before opening-page network requests so the page
   can draw first. Polling frequency and charging commands are unchanged.
 
@@ -17,6 +24,11 @@ driver. Touch transforms, colors, page lifecycle and paused-display handling
 remain with ESPHome/LVGL. Other rotations and color formats use ESPHome's
 original flush callback. The fast path is restricted to the CrowPanel's
 `rpi_dpi_rgb` display and its unrotated native 800 x 480 framebuffer.
+Although ESPHome emits a generic deprecation warning suggesting `mipi_rgb`,
+`rpi_dpi_rgb` is intentionally retained: `mipi_rgb` allocates 32 KiB of internal
+DMA SRAM for bounce buffers, whereas `rpi_dpi_rgb` directly reads from the 120 MHz
+Octal PSRAM with zero internal DMA overhead, preserving essential internal RAM
+headroom for Wi-Fi and TLS network buffers.
 
 ## Hardware measurements
 

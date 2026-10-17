@@ -18,12 +18,12 @@ script:
     then:
       - lambda: |-
           lv_obj_add_flag(id(rain_plot), LV_OBJ_FLAG_HIDDEN);
-          lv_label_set_text(id(weather_rain_label), "${weather_rain_unknown}");
-          lv_obj_set_style_text_color(id(weather_rain_label), lv_color_hex(0x82958A), 0);
-          lv_label_set_text(id(rain_scale), "");
-          lv_label_set_text(id(rain_times), "--:--");
-          lv_label_set_text(id(rain_end_time), "--:--");
-          lv_label_set_text(id(rain_mid_time), "--:--");
+          esphome::ui_performance::set_text(id(weather_rain_label), "${weather_rain_unknown}");
+          esphome::ui_performance::set_style_text_color(id(weather_rain_label), lv_color_hex(0x82958A), LV_PART_MAIN);
+          esphome::ui_performance::set_text(id(rain_scale), "");
+          esphome::ui_performance::set_text(id(rain_times), "--:--");
+          esphome::ui_performance::set_text(id(rain_end_time), "--:--");
+          esphome::ui_performance::set_text(id(rain_mid_time), "--:--");
 
   - id: refresh_rain
     mode: single
@@ -125,23 +125,23 @@ script:
                       2.0f + std::min(1.0f, (value - 7.5f) / 12.5f);
                     const int height = value < 0.1f ? 1 :
                       std::max(2, std::min(30, (int)roundf(level * 10)));
-                    lv_obj_set_pos(bar, i * 7, 30 - height);
-                    lv_obj_set_size(bar, 6, height);
-                    lv_obj_set_style_bg_color(bar, lv_color_hex(values[i] >= 0.1f ? 0x3AA7D8 : 0x344F48), 0);
+                    esphome::ui_performance::set_pos(bar, i * 7, 30 - height);
+                    esphome::ui_performance::set_size(bar, 6, height);
+                    esphome::ui_performance::set_style_bg_color(bar, lv_color_hex(values[i] >= 0.1f ? 0x3AA7D8 : 0x344F48), LV_PART_MAIN);
                   }
                   lv_obj_remove_flag(plot, LV_OBJ_FLAG_HIDDEN);
-                  lv_label_set_text(id(rain_scale), "${rain_intensity_scale}");
+                  esphome::ui_performance::set_text(id(rain_scale), "${rain_intensity_scale}");
                   const int finish = (minutes[visible - 1] + 5) % 1440;
                   const int middle = (minutes[0] + ((finish - minutes[0] + 1440) % 1440) / 2) % 1440;
-                  lv_label_set_text_fmt(id(rain_mid_time), "%02d:%02d", middle / 60, middle % 60);
+                  esphome::ui_performance::set_text_fmt(id(rain_mid_time), "%02d:%02d", middle / 60, middle % 60);
                   // Separate anchors: spaces in a right-aligned label moved the
                   // start time into the middle, making future rain look historical.
-                  lv_label_set_text_fmt(id(rain_times), "%02d:%02d", minutes[0] / 60, minutes[0] % 60);
-                  lv_label_set_text_fmt(id(rain_end_time), "%02d:%02d", finish / 60, finish % 60);
-                  if (first_rain < 0) lv_label_set_text(id(weather_rain_label), "${rain_dry_visible}");
-                  else if (first_rain == 0) lv_label_set_text(id(weather_rain_label), "${rain_now}");
-                  else lv_label_set_text_fmt(id(weather_rain_label), "${rain_at}",
+                  esphome::ui_performance::set_text_fmt(id(rain_times), "%02d:%02d", minutes[0] / 60, minutes[0] % 60);
+                  esphome::ui_performance::set_text_fmt(id(rain_end_time), "%02d:%02d", finish / 60, finish % 60);
+                  if (first_rain < 0) esphome::ui_performance::set_text(id(weather_rain_label), "${rain_dry_visible}");
+                  else if (first_rain == 0) esphome::ui_performance::set_text(id(weather_rain_label), "${rain_now}");
+                  else esphome::ui_performance::set_text_fmt(id(weather_rain_label), "${rain_at}",
                     minutes[first_rain] / 60, minutes[first_rain] % 60);
-                  lv_obj_set_style_text_color(id(weather_rain_label),
-                    lv_color_hex(first_rain < 0 ? 0x62D98A : 0x3AA7D8), 0);
+                  esphome::ui_performance::set_style_text_color(id(weather_rain_label),
+                    lv_color_hex(first_rain < 0 ? 0x62D98A : 0x3AA7D8), LV_PART_MAIN);
                   ESP_LOGI("rain", "Loaded %d five-minute samples; peak %.2f mm/h", count, maximum);

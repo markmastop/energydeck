@@ -713,12 +713,12 @@ script:
             else snprintf(v, 12, "--");
           }
           const std::string selected_volume = known && room.volume >= 0 ? std::to_string(room.volume) + "%" : "--";
-          if (s.uses_pair_controls()) lv_label_set_text_fmt(id(music_volume), "${music_volume_format}", a, b);
-          else lv_label_set_text_fmt(id(music_volume), "${music_single_volume_format}", selected_volume.c_str());
+          if (s.uses_pair_controls()) esphome::ui_performance::set_text_fmt(id(music_volume), "${music_volume_format}", a, b);
+          else esphome::ui_performance::set_text_fmt(id(music_volume), "${music_single_volume_format}", selected_volume.c_str());
           esphome::ui_performance::set_text(lv_obj_get_child(id(music_play), 0),
             waiting ? LV_SYMBOL_REFRESH : room.tv ? "${music_tv}" : playing ? LV_SYMBOL_PAUSE : LV_SYMBOL_PLAY);
           esphome::ui_performance::set_text(lv_obj_get_child(id(music_mute), 0), s.muted() ? "${music_unmute}" : "${music_mute}");
-          lv_obj_set_style_bg_color(id(music_mute), lv_color_hex(s.muted() ? 0x66512A : 0x18231E), 0);
+          esphome::ui_performance::set_style_bg_color(id(music_mute), lv_color_hex(s.muted() ? 0x66512A : 0x18231E), LV_PART_MAIN);
           for (auto *button : {id(music_play), id(music_minus), id(music_plus), id(music_previous), id(music_next), id(music_mute)}) {
             bool unavailable = !known;
             if (button == id(music_play)) unavailable |= room.tv;
@@ -836,8 +836,8 @@ script:
             waiting ? "${music_button_wait}" : room.tv ? "${music_tv}" : playing ? "${music_pause}" : "${music_resume}");
           if (s.uses_pair_controls()) {
             // Compact percentages follow the room heading's living/kitchen order.
-            lv_label_set_text_fmt(id(small_music_volume), "${music_compact_pair_volume_format}", a, b);
-            lv_label_set_text_fmt(id(music_volume), "${music_volume_side_format}", a, b);
+            esphome::ui_performance::set_text_fmt(id(small_music_volume), "${music_compact_pair_volume_format}", a, b);
+            esphome::ui_performance::set_text_fmt(id(music_volume), "${music_volume_side_format}", a, b);
           }
           // Explicit combined-state styling prevents the LVGL disabled theme
           // from reintroducing filled rectangles around secondary controls.

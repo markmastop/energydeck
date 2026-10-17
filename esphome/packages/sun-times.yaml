@@ -11,7 +11,7 @@ text_sensor:
     on_value:
       then:
         - lambda: |-
-            lv_label_set_text_fmt(id(sunrise_label), "${sunrise_format}", x.c_str());
+            esphome::ui_performance::set_text_fmt(id(sunrise_label), "${sunrise_format}", x.c_str());
   - platform: sun
     id: energydeck_sunset
     type: sunset
@@ -19,4 +19,4 @@ text_sensor:
     on_value:
       then:
         - lambda: |-
-            lv_label_set_text_fmt(id(sunset_label), "${sunset_format}", x.c_str());
+            esphome::ui_performance::set_text_fmt(id(sunset_label), "${sunset_format}", x.c_str());

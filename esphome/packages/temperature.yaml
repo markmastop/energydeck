@@ -53,7 +53,7 @@ script:
                         if (std::string("${temperature_trend_format}").find("Over") == 0) {
                           for (char *p = text; *p; ++p) if (*p == '.') *p = ',';
                         }
-                        lv_label_set_text(id(temperature_trend_label), text);
+                        esphome::ui_performance::set_text(id(temperature_trend_label), text);
                         valid = true;
                         ESP_LOGI("temperature", "Three-hour forecast: %.1f C", forecast);
                         return true;
@@ -61,4 +61,4 @@ script:
                       return false;
                     });
                   }
-                  if (!valid) lv_label_set_text(id(temperature_trend_label), "${temperature_trend_unknown}");
+                  if (!valid) esphome::ui_performance::set_text(id(temperature_trend_label), "${temperature_trend_unknown}");

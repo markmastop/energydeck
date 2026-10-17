@@ -76,6 +76,31 @@ inline void set_style_arc_color(lv_obj_t *obj, lv_color_t color, lv_part_t part 
     lv_obj_set_style_arc_color(obj, color, part);
 }
 
+inline void set_style_border_color(lv_obj_t *obj, lv_color_t color, lv_part_t part = LV_PART_MAIN) {
+  if (obj == nullptr) return;
+  lv_color_t curr = lv_obj_get_style_border_color(obj, part);
+  if (!lv_color_eq(curr, color))
+    lv_obj_set_style_border_color(obj, color, part);
+}
+
+inline void set_style_border_width(lv_obj_t *obj, int32_t width, lv_part_t part = LV_PART_MAIN) {
+  if (obj == nullptr) return;
+  if (lv_obj_get_style_border_width(obj, part) != width)
+    lv_obj_set_style_border_width(obj, width, part);
+}
+
+inline void set_pos(lv_obj_t *obj, int32_t x, int32_t y) {
+  if (obj == nullptr) return;
+  if (lv_obj_get_x(obj) != x || lv_obj_get_y(obj) != y)
+    lv_obj_set_pos(obj, x, y);
+}
+
+inline void set_size(lv_obj_t *obj, int32_t w, int32_t h) {
+  if (obj == nullptr) return;
+  if (lv_obj_get_width(obj) != w || lv_obj_get_height(obj) != h)
+    lv_obj_set_size(obj, w, h);
+}
+
 class UiPerformance : public Component {
  public:
   void set_benchmark_redraws(uint8_t count) { this->benchmark_left_ = count; }

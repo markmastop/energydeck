@@ -48,8 +48,8 @@ esphome:
       - script.execute: refresh_homey_charger
       - script.wait: refresh_homey_charger
       - lambda: |-
-          lv_label_set_text(id(homey_status_label), "${homey_status}");
-          lv_obj_set_style_text_color(id(homey_status_label), lv_color_hex(0x62D98A), LV_PART_MAIN);
+          esphome::ui_performance::set_text(id(homey_status_label), "${homey_status}");
+          esphome::ui_performance::set_style_text_color(id(homey_status_label), lv_color_hex(0x62D98A), LV_PART_MAIN);
       - delay: 500ms
       - script.execute: refresh_homey_electricity_now
       - script.wait: refresh_homey_electricity_now
@@ -113,27 +113,27 @@ script:
           lv_obj_clear_flag(id(price_source_warning), LV_OBJ_FLAG_HIDDEN);
           lv_obj_clear_flag(id(tomorrow_source_warning), LV_OBJ_FLAG_HIDDEN);
           id(show_tomorrow_prices) = false;
-          lv_label_set_text(id(price_now_label), "--");
-          lv_label_set_text(id(current_price_source_label), "${price_source_unavailable}");
-          lv_obj_set_style_text_color(id(current_price_source_label), lv_color_hex(0xE8B94C), 0);
-          lv_label_set_text(id(price_period_label), "${prices_unavailable}");
-          lv_label_set_text(id(tomorrow_average_label), "${prices_stale}");
-          lv_obj_set_style_text_color(id(tomorrow_average_label), lv_color_hex(0xEA665F), 0);
-          lv_label_set_text(id(price_range_label), "--");
-          lv_label_set_text(id(price_scale_max_label), "--");
-          lv_label_set_text(id(price_scale_mid_label), "--");
-          lv_label_set_text(id(price_scale_min_label), "--");
-          lv_label_set_text(id(cheapest_period_label), "");
+          esphome::ui_performance::set_text(id(price_now_label), "--");
+          esphome::ui_performance::set_text(id(current_price_source_label), "${price_source_unavailable}");
+          esphome::ui_performance::set_style_text_color(id(current_price_source_label), lv_color_hex(0xE8B94C), LV_PART_MAIN);
+          esphome::ui_performance::set_text(id(price_period_label), "${prices_unavailable}");
+          esphome::ui_performance::set_text(id(tomorrow_average_label), "${prices_stale}");
+          esphome::ui_performance::set_style_text_color(id(tomorrow_average_label), lv_color_hex(0xEA665F), LV_PART_MAIN);
+          esphome::ui_performance::set_text(id(price_range_label), "--");
+          esphome::ui_performance::set_text(id(price_scale_max_label), "--");
+          esphome::ui_performance::set_text(id(price_scale_mid_label), "--");
+          esphome::ui_performance::set_text(id(price_scale_min_label), "--");
+          esphome::ui_performance::set_text(id(cheapest_period_label), "");
           lv_obj_add_flag(id(price_current_marker), LV_OBJ_FLAG_HIDDEN);
           lv_obj_add_state(id(tomorrow_prices_button), LV_STATE_DISABLED);
-          lv_label_set_text(id(tomorrow_tab_label), "${tomorrow_unavailable}");
-          lv_obj_set_style_text_color(id(tomorrow_tab_label), lv_color_hex(0x82958A), 0);
-          lv_obj_set_style_bg_color(id(today_prices_button), lv_color_hex(0x24583B), 0);
-          lv_obj_set_style_bg_color(id(tomorrow_prices_button), lv_color_hex(0x1C271F), 0);
+          esphome::ui_performance::set_text(id(tomorrow_tab_label), "${tomorrow_unavailable}");
+          esphome::ui_performance::set_style_text_color(id(tomorrow_tab_label), lv_color_hex(0x82958A), LV_PART_MAIN);
+          esphome::ui_performance::set_style_bg_color(id(today_prices_button), lv_color_hex(0x24583B), LV_PART_MAIN);
+          esphome::ui_performance::set_style_bg_color(id(tomorrow_prices_button), lv_color_hex(0x1C271F), LV_PART_MAIN);
           lv_obj_t *bars[96] = { id(price_bar_00), id(price_bar_01), id(price_bar_02), id(price_bar_03), id(price_bar_04), id(price_bar_05), id(price_bar_06), id(price_bar_07), id(price_bar_08), id(price_bar_09), id(price_bar_10), id(price_bar_11), id(price_bar_12), id(price_bar_13), id(price_bar_14), id(price_bar_15), id(price_bar_16), id(price_bar_17), id(price_bar_18), id(price_bar_19), id(price_bar_20), id(price_bar_21), id(price_bar_22), id(price_bar_23), id(price_bar_24), id(price_bar_25), id(price_bar_26), id(price_bar_27), id(price_bar_28), id(price_bar_29), id(price_bar_30), id(price_bar_31), id(price_bar_32), id(price_bar_33), id(price_bar_34), id(price_bar_35), id(price_bar_36), id(price_bar_37), id(price_bar_38), id(price_bar_39), id(price_bar_40), id(price_bar_41), id(price_bar_42), id(price_bar_43), id(price_bar_44), id(price_bar_45), id(price_bar_46), id(price_bar_47), id(price_bar_48), id(price_bar_49), id(price_bar_50), id(price_bar_51), id(price_bar_52), id(price_bar_53), id(price_bar_54), id(price_bar_55), id(price_bar_56), id(price_bar_57), id(price_bar_58), id(price_bar_59), id(price_bar_60), id(price_bar_61), id(price_bar_62), id(price_bar_63), id(price_bar_64), id(price_bar_65), id(price_bar_66), id(price_bar_67), id(price_bar_68), id(price_bar_69), id(price_bar_70), id(price_bar_71), id(price_bar_72), id(price_bar_73), id(price_bar_74), id(price_bar_75), id(price_bar_76), id(price_bar_77), id(price_bar_78), id(price_bar_79), id(price_bar_80), id(price_bar_81), id(price_bar_82), id(price_bar_83), id(price_bar_84), id(price_bar_85), id(price_bar_86), id(price_bar_87), id(price_bar_88), id(price_bar_89), id(price_bar_90), id(price_bar_91), id(price_bar_92), id(price_bar_93), id(price_bar_94), id(price_bar_95) };
           for (auto *bar : bars) {
-            lv_bar_set_value(bar, 0, LV_ANIM_OFF);
-            lv_obj_set_style_border_width(bar, 0, LV_PART_INDICATOR);
+            esphome::ui_performance::set_bar_value(bar, 0, LV_ANIM_OFF);
+            esphome::ui_performance::set_style_border_width(bar, 0, LV_PART_INDICATOR);
           }
 
   - id: charge_wait_timeout
@@ -160,7 +160,7 @@ script:
       - lambda: |-
           auto now = id(energydeck_time).now();
           if (now.is_valid()) {
-            lv_label_set_text_fmt(id(clock_label), "%02d:%02d  EnergyDeck", now.hour, now.minute);
+            esphome::ui_performance::set_text_fmt(id(clock_label), "%02d:%02d  EnergyDeck", now.hour, now.minute);
           }
 
   # Homey has separate trigger endpoints for Advanced and regular Flows. Try
@@ -272,8 +272,8 @@ script:
       - script.execute: refresh_homey_charger
       - script.wait: refresh_homey_charger
       - lambda: |-
-          lv_label_set_text(id(homey_status_label), "${homey_status}");
-          lv_obj_set_style_text_color(id(homey_status_label), lv_color_hex(0x62D98A), LV_PART_MAIN);
+          esphome::ui_performance::set_text(id(homey_status_label), "${homey_status}");
+          esphome::ui_performance::set_style_text_color(id(homey_status_label), lv_color_hex(0x62D98A), LV_PART_MAIN);
 
   - id: refresh_homey_prices
     # SNTP and boot can request prices together. Keep one pending refresh,
@@ -304,8 +304,8 @@ script:
               - lambda: |-
                   if (response->status_code != 200) {
                     id(invalidate_prices).execute();
-                    lv_label_set_text(id(homey_status_label), "${homey_offline}");
-                    lv_obj_set_style_text_color(id(homey_status_label), lv_color_hex(0xEA665F), LV_PART_MAIN);
+                    esphome::ui_performance::set_text(id(homey_status_label), "${homey_offline}");
+                    esphome::ui_performance::set_style_text_color(id(homey_status_label), lv_color_hex(0xEA665F), LV_PART_MAIN);
                     ESP_LOGW("homey", "Price request returned HTTP %d", response->status_code);
                     return;
                   }
@@ -338,7 +338,7 @@ script:
                       if (*p != (i == 95 ? ']' : ',')) return false;
                       ++p;
                     }
-                    lv_label_set_text(id(tomorrow_average_label), "");
+                    esphome::ui_performance::set_text(id(tomorrow_average_label), "");
 
                     // A full array must belong to tomorrow's actual local date.
                     // Labels such as "tomorrow" alone can be stale after midnight.
@@ -385,14 +385,14 @@ script:
                       lv_obj_add_state(id(tomorrow_prices_button), LV_STATE_DISABLED);
                       id(show_tomorrow_prices) = false;
                     }
-                    lv_label_set_text(id(tomorrow_tab_label),
+                    esphome::ui_performance::set_text(id(tomorrow_tab_label),
                       tomorrow_available ? "${tomorrow}" : "${tomorrow_unavailable}");
-                    lv_obj_set_style_text_color(id(tomorrow_tab_label),
-                      lv_color_hex(tomorrow_available ? 0xEEF6F0 : 0x82958A), 0);
-                    lv_obj_set_style_bg_color(id(today_prices_button),
-                      lv_color_hex(id(show_tomorrow_prices) ? 0x1C271F : 0x24583B), 0);
-                    lv_obj_set_style_bg_color(id(tomorrow_prices_button),
-                      lv_color_hex(id(show_tomorrow_prices) ? 0x294E77 : 0x1C271F), 0);
+                    esphome::ui_performance::set_style_text_color(id(tomorrow_tab_label),
+                      lv_color_hex(tomorrow_available ? 0xEEF6F0 : 0x82958A), LV_PART_MAIN);
+                    esphome::ui_performance::set_style_bg_color(id(today_prices_button),
+                      lv_color_hex(id(show_tomorrow_prices) ? 0x1C271F : 0x24583B), LV_PART_MAIN);
+                    esphome::ui_performance::set_style_bg_color(id(tomorrow_prices_button),
+                      lv_color_hex(id(show_tomorrow_prices) ? 0x294E77 : 0x1C271F), LV_PART_MAIN);
 
                     // Version 2 stores compact numeric arrays for both days.
                     const char *day_start = strstr(encoded, id(show_tomorrow_prices) ? "\"tomorrow\"" : "\"today\"");
@@ -443,7 +443,7 @@ script:
                         minimum = std::min(minimum, prices[i]);
                         maximum = std::max(maximum, prices[i]);
                       }
-                      lv_label_set_text(id(price_chart_title_label), rolling ? "${price_chart_rolling}" : "${price_chart_title}");
+                      esphome::ui_performance::set_text(id(price_chart_title_label), rolling ? "${price_chart_rolling}" : "${price_chart_title}");
                       // Recognize both per-day source and the older date-keyed sources map.
                       // Unknown provenance must never be presented as a confirmed fallback.
                       auto price_source_for = [&](const char *key) -> int {
@@ -469,8 +469,8 @@ script:
                       };
                       const int today_source = price_source_for("\"today\"");
                       // The headline is today's current price even while tomorrow's chart is selected.
-                      lv_label_set_text(id(current_price_source_label), today_source == 1 ? "${price_source_homey}" : today_source == 2 ? "${price_source_epex}" : "${price_source_unknown}");
-                      lv_obj_set_style_text_color(id(current_price_source_label), lv_color_hex(today_source == 1 ? 0x93A097 : 0xE8B94C), 0);
+                      esphome::ui_performance::set_text(id(current_price_source_label), today_source == 1 ? "${price_source_homey}" : today_source == 2 ? "${price_source_epex}" : "${price_source_unknown}");
+                      esphome::ui_performance::set_style_text_color(id(current_price_source_label), lv_color_hex(today_source == 1 ? 0x93A097 : 0xE8B94C), LV_PART_MAIN);
                       if (today_source == 1) lv_obj_add_flag(id(price_source_warning), LV_OBJ_FLAG_HIDDEN);
                       else lv_obj_clear_flag(id(price_source_warning), LV_OBJ_FLAG_HIDDEN);
                       if (tomorrow_available && price_source_for("\"tomorrow\"") == 1) lv_obj_add_flag(id(tomorrow_source_warning), LV_OBJ_FLAG_HIDDEN);
@@ -478,7 +478,7 @@ script:
                       lv_obj_t *ticks[] = {id(price_tick_0), id(price_tick_1), id(price_tick_2), id(price_tick_3), id(price_tick_4), id(price_tick_5), id(price_tick_6), id(price_tick_7), id(price_tick_8)};
                       for (int i = 0; i < 9; i++) {
                         const int hour = (i == 8 ? 23 : i * 3) + window_offset / 4;
-                        lv_label_set_text_fmt(ticks[i], "%02d", hour % 24);
+                        esphome::ui_performance::set_text_fmt(ticks[i], "%02d", hour % 24);
                       }
 
                       // Compare complete all-in day averages. This deliberately
@@ -507,14 +507,14 @@ script:
                           day_average("\"tomorrow\"", tomorrow_average)) {
                         const float difference_ct = (tomorrow_average - today_average) * 100.0f;
                         if (difference_ct < -0.05f) {
-                          lv_label_set_text_fmt(id(tomorrow_average_label), "${tomorrow_cheaper_format}", -difference_ct);
-                          lv_obj_set_style_text_color(id(tomorrow_average_label), lv_color_hex(0x7FE0A2), LV_PART_MAIN);
+                          esphome::ui_performance::set_text_fmt(id(tomorrow_average_label), "${tomorrow_cheaper_format}", -difference_ct);
+                          esphome::ui_performance::set_style_text_color(id(tomorrow_average_label), lv_color_hex(0x7FE0A2), LV_PART_MAIN);
                         } else if (difference_ct > 0.05f) {
-                          lv_label_set_text_fmt(id(tomorrow_average_label), "${tomorrow_dearer_format}", difference_ct);
-                          lv_obj_set_style_text_color(id(tomorrow_average_label), lv_color_hex(0xEA665F), LV_PART_MAIN);
+                          esphome::ui_performance::set_text_fmt(id(tomorrow_average_label), "${tomorrow_dearer_format}", difference_ct);
+                          esphome::ui_performance::set_style_text_color(id(tomorrow_average_label), lv_color_hex(0xEA665F), LV_PART_MAIN);
                         } else {
-                          lv_label_set_text(id(tomorrow_average_label), "${tomorrow_same_price}");
-                          lv_obj_set_style_text_color(id(tomorrow_average_label), lv_color_hex(0xA9B8AE), LV_PART_MAIN);
+                          esphome::ui_performance::set_text(id(tomorrow_average_label), "${tomorrow_same_price}");
+                          esphome::ui_performance::set_style_text_color(id(tomorrow_average_label), lv_color_hex(0xA9B8AE), LV_PART_MAIN);
                         }
                       }
 
@@ -524,9 +524,9 @@ script:
                         const uint32_t color = prices[i] <= minimum + span * 0.33f
                           ? 0x45BD70
                           : prices[i] >= minimum + span * 0.66f ? 0xEA665F : 0xE8B94C;
-                        lv_bar_set_value(bars[i], height, LV_ANIM_OFF);
-                        lv_obj_set_style_bg_color(bars[i], lv_color_hex(color), LV_PART_INDICATOR);
-                        lv_obj_set_style_border_width(bars[i], 0, LV_PART_INDICATOR);
+                        esphome::ui_performance::set_bar_value(bars[i], height, LV_ANIM_OFF);
+                        esphome::ui_performance::set_style_bg_color(bars[i], lv_color_hex(color), LV_PART_INDICATOR);
+                        esphome::ui_performance::set_style_border_width(bars[i], 0, LV_PART_INDICATOR);
                       }
 
                       auto now = id(energydeck_time).now();
@@ -537,16 +537,18 @@ script:
                       } else {
                         const int visible_current = current - window_offset;
                         lv_obj_clear_flag(id(price_current_marker), LV_OBJ_FLAG_HIDDEN);
-                        lv_obj_set_x(id(price_current_marker), 46 + visible_current * 4);
-                        lv_obj_set_style_bg_color(bars[visible_current], lv_color_hex(0xF7FFF9), LV_PART_INDICATOR);
-                        lv_obj_set_style_border_color(bars[visible_current], lv_color_hex(0xF7FFF9), LV_PART_INDICATOR);
-                        lv_obj_set_style_border_width(bars[visible_current], 1, LV_PART_INDICATOR);
-                        lv_label_set_text_fmt(id(price_now_label), "%.1f", prices[visible_current] * 100.0f);
+                        if (lv_obj_get_x(id(price_current_marker)) != 46 + visible_current * 4) {
+                          lv_obj_set_x(id(price_current_marker), 46 + visible_current * 4);
+                        }
+                        esphome::ui_performance::set_style_bg_color(bars[visible_current], lv_color_hex(0xF7FFF9), LV_PART_INDICATOR);
+                        esphome::ui_performance::set_style_border_color(bars[visible_current], lv_color_hex(0xF7FFF9), LV_PART_INDICATOR);
+                        esphome::ui_performance::set_style_border_width(bars[visible_current], 1, LV_PART_INDICATOR);
+                        esphome::ui_performance::set_text_fmt(id(price_now_label), "%.1f", prices[visible_current] * 100.0f);
                       }
 
                       const int start_minutes = current * 15;
                       const int end_minutes = start_minutes + 15;
-                      lv_label_set_text_fmt(
+                      esphome::ui_performance::set_text_fmt(
                         id(price_period_label),
                         "${price_period_format}",
                         start_minutes / 60,
@@ -554,15 +556,15 @@ script:
                         end_minutes / 60,
                         end_minutes % 60
                       );
-                      lv_label_set_text_fmt(
+                      esphome::ui_performance::set_text_fmt(
                         id(price_range_label),
                         "${price_range_format}",
                         minimum * 100.0f,
                         maximum * 100.0f
                       );
-                      lv_label_set_text_fmt(id(price_scale_max_label), "%.1f", maximum * 100.0f);
-                      lv_label_set_text_fmt(id(price_scale_mid_label), "%.1f", ((minimum + maximum) * 0.5f) * 100.0f);
-                      lv_label_set_text_fmt(id(price_scale_min_label), "%.1f", minimum * 100.0f);
+                      esphome::ui_performance::set_text_fmt(id(price_scale_max_label), "%.1f", maximum * 100.0f);
+                      esphome::ui_performance::set_text_fmt(id(price_scale_mid_label), "%.1f", ((minimum + maximum) * 0.5f) * 100.0f);
+                      esphome::ui_performance::set_text_fmt(id(price_scale_min_label), "%.1f", minimum * 100.0f);
 
                       int cheapest_start = 0;
                       float cheapest_sum = 1000000.0f;
@@ -576,7 +578,7 @@ script:
                       }
                       const int cheap_start_minutes = (cheapest_start + window_offset) * 15;
                       const int cheap_end_minutes = cheap_start_minutes + 180;
-                      lv_label_set_text_fmt(
+                      esphome::ui_performance::set_text_fmt(
                         id(cheapest_period_label),
                         "${cheapest_period_format}",
                         (cheap_start_minutes / 60) % 24,
@@ -585,8 +587,8 @@ script:
                         cheap_end_minutes % 60
                       );
 
-                      lv_label_set_text(id(homey_status_label), "${homey_status}");
-                      lv_obj_set_style_text_color(id(homey_status_label), lv_color_hex(0x62D98A), LV_PART_MAIN);
+                      esphome::ui_performance::set_text(id(homey_status_label), "${homey_status}");
+                      esphome::ui_performance::set_style_text_color(id(homey_status_label), lv_color_hex(0x62D98A), LV_PART_MAIN);
                       ESP_LOGI("homey", "Prices: 96 %s intervals loaded", rolling ? "today noon to tomorrow noon" : (id(show_tomorrow_prices) ? "tomorrow" : "today"));
                       id(prices_calendar_day) = price_now.year * 10000 + price_now.month * 100 + price_now.day_of_month;
                       return true;
@@ -594,8 +596,8 @@ script:
 
                   if (!parsed) {
                     id(invalidate_prices).execute();
-                    lv_label_set_text(id(homey_status_label), "${homey_data_error}");
-                    lv_obj_set_style_text_color(id(homey_status_label), lv_color_hex(0xEA665F), LV_PART_MAIN);
+                    esphome::ui_performance::set_text(id(homey_status_label), "${homey_data_error}");
+                    esphome::ui_performance::set_style_text_color(id(homey_status_label), lv_color_hex(0xEA665F), LV_PART_MAIN);
                     ESP_LOGW("homey", "Could not parse the EnergyDeck Prices variable");
                   }
           on_error:

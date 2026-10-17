@@ -1559,7 +1559,7 @@ lvgl:
                     - lambda: |-
                         id(charge_pending) = true;
                         id(charge_target) = !id(charger_is_charging);
-                        lv_label_set_text(id(ev_detail_label), "${charge_starting}");
+                        esphome::ui_performance::set_text(id(ev_detail_label), "${charge_starting}");
                     - script.execute: charge_wait_timeout
                     - lvgl.button.update:
                         id: force_charge_button

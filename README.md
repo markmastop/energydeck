@@ -16,15 +16,15 @@ It connects directly over your local network to Homey and Sonos to provide a rea
 
 ## Features
 
-- ⚡ **Dynamic Electricity Prices:** 96 quarter-hour price bars for today and tomorrow, daily minimum and maximum, and automatic identification of the cheapest consecutive 3-hour window. Calculates all-in household electricity prices (energy tax, VAT, and supplier fee).
-- ☀️ **Solar & Net Power:** Live solar generation, net grid import/export power with direction indicators, and daily solar peak and total yield.
-- 🔋 **Home Battery (Sessy):** Live state of charge (SoC %), charge/discharge power, and operational status.
-- 🚗 **EV Smart Charging:** Real-time go-eCharger connection and charging status, with one-touch button to trigger your Homey smart charging Flow.
-- 🎵 **Direct Local Sonos Player:** Zero-cloud UPnP control on port 1400 directly to Sonos speakers. Features both a compact dashboard card and a full-screen player page with embedded high-resolution station artwork (e.g. Joe, Qmusic, Sky Radio, Radio 538, NPO Radio 2), volume controls, household room grouping, and a 4-row favorites grid.
-- 🌡️ **Multi-room Climate:** Up to 6 room temperature sensor cards with color-coded comfort badges.
-- 🌧️ **Local Weather & Rain Radar:** 2-hour Buienradar precipitation graph and 3-hour Open-Meteo temperature outlook.
-- 🌙 **Automatic Night Dimming:** Time-based backlight dimming (e.g. 23:00 to 07:00) with instant touch-to-wake.
-- 💻 **Desktop Simulator:** Test and preview the exact UI on macOS or Linux with live data before touching hardware.
+- **Dynamic Electricity Prices:** 96 quarter-hour price bars for today and tomorrow, daily minimum and maximum, and automatic identification of the cheapest consecutive 3-hour window. Calculates all-in household electricity prices (energy tax, VAT, and supplier fee).
+- **Solar & Net Power:** Live solar generation, net grid import/export power with direction indicators, and daily solar peak and total yield.
+- **Home Battery (Sessy):** Live state of charge (SoC %), charge/discharge power, and operational status.
+- **EV Smart Charging:** Real-time go-eCharger connection and charging status, with one-touch button to trigger your Homey smart charging Flow.
+- **Direct Local Sonos Player:** Zero-cloud UPnP control on port 1400 directly to Sonos speakers. Features both a compact dashboard card and a full-screen player page with embedded high-resolution station artwork (e.g. Joe, Qmusic, Sky Radio, Radio 538, NPO Radio 2), volume controls, household room grouping, and a 4-row favorites grid.
+- **Multi-room Climate:** Up to 6 room temperature sensor cards with color-coded comfort badges.
+- **Local Weather & Rain Radar:** 2-hour Buienradar precipitation graph and 3-hour Open-Meteo temperature outlook.
+- **Automatic Night Dimming:** Time-based backlight dimming (e.g. 23:00 to 07:00) with instant touch-to-wake.
+- **Desktop Simulator:** Test and preview the exact UI on macOS or Linux with live data before touching hardware.
 
 ---
 
@@ -148,13 +148,13 @@ Before flashing for the first time, create a full 16 MB flash backup of your fac
 
 Run the flash script matching your display size:
 
-#### 🔹 For the 5-inch Display:
+#### For the 5-inch Display:
 ```sh
 ./flash.sh
 ```
 *(Optionally specify a custom serial port: `./flash.sh /dev/cu.wchusbserial110`)*
 
-#### 🔹 For the 7-inch Display:
+#### For the 7-inch Display:
 ```sh
 ./flash.sh 7
 ```

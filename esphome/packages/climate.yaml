@@ -1,5 +1,11 @@
 # Read-only room temperatures. Heating status is unknown: current Homey
 # thermostats expose a setpoint, but no confirmed heating capability.
+esphome:
+  on_boot:
+    priority: -100
+    then:
+      - script.execute: layout_climate_sensors
+
 interval:
   - interval: 60s
     startup_delay: 20s
@@ -7,174 +13,287 @@ interval:
       - script.execute: refresh_climate
 
 script:
+  - id: layout_climate_sensors
+    then:
+      - lambda: |-
+          const char *device_ids[6] = {
+            "${homey_climate_sensor_1_device_id}",
+            "${homey_climate_sensor_2_device_id}",
+            "${homey_climate_sensor_3_device_id}",
+            "${homey_climate_sensor_4_device_id}",
+            "${homey_climate_sensor_5_device_id}",
+            "${homey_climate_sensor_6_device_id}"
+          };
+          lv_obj_t *slots[6] = {
+            id(climate_sensor_1_slot),
+            id(climate_sensor_2_slot),
+            id(climate_sensor_3_slot),
+            id(climate_sensor_4_slot),
+            id(climate_sensor_5_slot),
+            id(climate_sensor_6_slot)
+          };
+          lv_obj_t *active_slots[6];
+          int num_active = 0;
+          for (int i = 0; i < 6; ++i) {
+            const char *id_str = device_ids[i];
+            const bool valid = (id_str != nullptr && strlen(id_str) > 0 &&
+                                strcmp(id_str, "none") != 0 && strcmp(id_str, "\"\"") != 0);
+            if (valid) {
+              active_slots[num_active++] = slots[i];
+              lv_obj_clear_flag(slots[i], LV_OBJ_FLAG_HIDDEN);
+            } else {
+              lv_obj_add_flag(slots[i], LV_OBJ_FLAG_HIDDEN);
+            }
+          }
+          if (num_active == 0) {
+            lv_obj_clear_flag(id(climate_no_sensors_label), LV_OBJ_FLAG_HIDDEN);
+            return;
+          }
+          lv_obj_add_flag(id(climate_no_sensors_label), LV_OBJ_FLAG_HIDDEN);
+
+          switch (num_active) {
+            case 1:
+              lv_obj_set_pos(active_slots[0], 84, 57);
+              break;
+            case 2:
+              lv_obj_set_pos(active_slots[0], 16, 57);
+              lv_obj_set_pos(active_slots[1], 153, 57);
+              break;
+            case 3:
+              lv_obj_set_pos(active_slots[0], 16, 36);
+              lv_obj_set_pos(active_slots[1], 153, 36);
+              lv_obj_set_pos(active_slots[2], 84, 74);
+              break;
+            case 4:
+              for (int k = 0; k < 4; ++k) {
+                int col = k % 2;
+                int row = k / 2;
+                lv_obj_set_pos(active_slots[k], (col == 0) ? 16 : 153, 36 + row * 38);
+              }
+              break;
+            case 5:
+              for (int k = 0; k < 4; ++k) {
+                int col = k % 2;
+                int row = k / 2;
+                lv_obj_set_pos(active_slots[k], (col == 0) ? 16 : 153, 27 + row * 30);
+              }
+              lv_obj_set_pos(active_slots[4], 84, 87);
+              break;
+            case 6:
+            default:
+              for (int k = 0; k < num_active && k < 6; ++k) {
+                int col = k % 2;
+                int row = k / 2;
+                lv_obj_set_pos(active_slots[k], (col == 0) ? 16 : 153, 27 + row * 30);
+              }
+              break;
+          }
+
   - id: refresh_climate
     # Opening the tab also starts this script; single mode coalesces repeat taps.
     mode: single
     then:
-      - background_http.get:
-          url: "${homey_address}/api/manager/devices/device/${homey_climate_sensor_1_device_id}"
-          request_headers:
-            Authorization: "Bearer ${homey_token}"
-            Accept: "application/json"
-          capture_response: true
-          max_response_buffer_size: 16384
-          on_response:
-            then:
-              - lambda: |-
-                  lv_label_set_text(id(climate_sensor_1_value), "-- °C");
-                  if (response->status_code != 200) return;
-                  json::parse_json(body, [](JsonObject device) -> bool {
-                    if (device["available"].is<bool>() && !device["available"].as<bool>()) return false;
-                    auto value = device["capabilitiesObj"]["measure_temperature"]["value"];
-                    if (!value.is<float>()) return false;
-                    const float temperature = value.as<float>();
-                    // Reject missing or corrupt indoor readings instead of displaying zero.
-                    if (!std::isfinite(temperature) || temperature < -20 || temperature > 60) return false;
-                    lv_label_set_text_fmt(id(climate_sensor_1_value), "%.1f °C", temperature);
-                    return true;
-                  });
-          on_error:
-            then:
-              - lvgl.label.update:
-                  id: climate_sensor_1_value
-                  text: "-- °C"
+      - script.execute: layout_climate_sensors
+      - if:
+          condition:
+            lambda: |-
+              const char *id_str = "${homey_climate_sensor_1_device_id}";
+              return id_str != nullptr && strlen(id_str) > 0 && strcmp(id_str, "none") != 0 && strcmp(id_str, "\"\"") != 0;
+          then:
+            - background_http.get:
+                url: "${homey_address}/api/manager/devices/device/${homey_climate_sensor_1_device_id}"
+                request_headers:
+                  Authorization: "Bearer ${homey_token}"
+                  Accept: "application/json"
+                capture_response: true
+                max_response_buffer_size: 16384
+                on_response:
+                  then:
+                    - lambda: |-
+                        lv_label_set_text(id(climate_sensor_1_value), "-- °C");
+                        if (response->status_code != 200) return;
+                        json::parse_json(body, [](JsonObject device) -> bool {
+                          if (device["available"].is<bool>() && !device["available"].as<bool>()) return false;
+                          auto value = device["capabilitiesObj"]["measure_temperature"]["value"];
+                          if (!value.is<float>()) return false;
+                          const float temperature = value.as<float>();
+                          // Reject missing or corrupt indoor readings instead of displaying zero.
+                          if (!std::isfinite(temperature) || temperature < -20 || temperature > 60) return false;
+                          lv_label_set_text_fmt(id(climate_sensor_1_value), "%.1f °C", temperature);
+                          return true;
+                        });
+                on_error:
+                  then:
+                    - lvgl.label.update:
+                        id: climate_sensor_1_value
+                        text: "-- °C"
       - delay: 80ms
-      - background_http.get:
-          url: "${homey_address}/api/manager/devices/device/${homey_climate_sensor_2_device_id}"
-          request_headers:
-            Authorization: "Bearer ${homey_token}"
-            Accept: "application/json"
-          capture_response: true
-          max_response_buffer_size: 16384
-          on_response:
-            then:
-              - lambda: |-
-                  lv_label_set_text(id(climate_sensor_2_value), "-- °C");
-                  if (response->status_code != 200) return;
-                  json::parse_json(body, [](JsonObject device) -> bool {
-                    if (device["available"].is<bool>() && !device["available"].as<bool>()) return false;
-                    auto value = device["capabilitiesObj"]["measure_temperature"]["value"];
-                    if (!value.is<float>()) return false;
-                    const float temperature = value.as<float>();
-                    // Reject missing or corrupt indoor readings instead of displaying zero.
-                    if (!std::isfinite(temperature) || temperature < -20 || temperature > 60) return false;
-                    lv_label_set_text_fmt(id(climate_sensor_2_value), "%.1f °C", temperature);
-                    return true;
-                  });
-          on_error:
-            then:
-              - lvgl.label.update:
-                  id: climate_sensor_2_value
-                  text: "-- °C"
+      - if:
+          condition:
+            lambda: |-
+              const char *id_str = "${homey_climate_sensor_2_device_id}";
+              return id_str != nullptr && strlen(id_str) > 0 && strcmp(id_str, "none") != 0 && strcmp(id_str, "\"\"") != 0;
+          then:
+            - background_http.get:
+                url: "${homey_address}/api/manager/devices/device/${homey_climate_sensor_2_device_id}"
+                request_headers:
+                  Authorization: "Bearer ${homey_token}"
+                  Accept: "application/json"
+                capture_response: true
+                max_response_buffer_size: 16384
+                on_response:
+                  then:
+                    - lambda: |-
+                        lv_label_set_text(id(climate_sensor_2_value), "-- °C");
+                        if (response->status_code != 200) return;
+                        json::parse_json(body, [](JsonObject device) -> bool {
+                          if (device["available"].is<bool>() && !device["available"].as<bool>()) return false;
+                          auto value = device["capabilitiesObj"]["measure_temperature"]["value"];
+                          if (!value.is<float>()) return false;
+                          const float temperature = value.as<float>();
+                          // Reject missing or corrupt indoor readings instead of displaying zero.
+                          if (!std::isfinite(temperature) || temperature < -20 || temperature > 60) return false;
+                          lv_label_set_text_fmt(id(climate_sensor_2_value), "%.1f °C", temperature);
+                          return true;
+                        });
+                on_error:
+                  then:
+                    - lvgl.label.update:
+                        id: climate_sensor_2_value
+                        text: "-- °C"
       - delay: 80ms
-      - background_http.get:
-          url: "${homey_address}/api/manager/devices/device/${homey_climate_sensor_3_device_id}"
-          request_headers:
-            Authorization: "Bearer ${homey_token}"
-            Accept: "application/json"
-          capture_response: true
-          max_response_buffer_size: 16384
-          on_response:
-            then:
-              - lambda: |-
-                  lv_label_set_text(id(climate_sensor_3_value), "-- °C");
-                  if (response->status_code != 200) return;
-                  json::parse_json(body, [](JsonObject device) -> bool {
-                    if (device["available"].is<bool>() && !device["available"].as<bool>()) return false;
-                    auto value = device["capabilitiesObj"]["measure_temperature"]["value"];
-                    if (!value.is<float>()) return false;
-                    const float temperature = value.as<float>();
-                    // Reject missing or corrupt indoor readings instead of displaying zero.
-                    if (!std::isfinite(temperature) || temperature < -20 || temperature > 60) return false;
-                    lv_label_set_text_fmt(id(climate_sensor_3_value), "%.1f °C", temperature);
-                    return true;
-                  });
-          on_error:
-            then:
-              - lvgl.label.update:
-                  id: climate_sensor_3_value
-                  text: "-- °C"
+      - if:
+          condition:
+            lambda: |-
+              const char *id_str = "${homey_climate_sensor_3_device_id}";
+              return id_str != nullptr && strlen(id_str) > 0 && strcmp(id_str, "none") != 0 && strcmp(id_str, "\"\"") != 0;
+          then:
+            - background_http.get:
+                url: "${homey_address}/api/manager/devices/device/${homey_climate_sensor_3_device_id}"
+                request_headers:
+                  Authorization: "Bearer ${homey_token}"
+                  Accept: "application/json"
+                capture_response: true
+                max_response_buffer_size: 16384
+                on_response:
+                  then:
+                    - lambda: |-
+                        lv_label_set_text(id(climate_sensor_3_value), "-- °C");
+                        if (response->status_code != 200) return;
+                        json::parse_json(body, [](JsonObject device) -> bool {
+                          if (device["available"].is<bool>() && !device["available"].as<bool>()) return false;
+                          auto value = device["capabilitiesObj"]["measure_temperature"]["value"];
+                          if (!value.is<float>()) return false;
+                          const float temperature = value.as<float>();
+                          // Reject missing or corrupt indoor readings instead of displaying zero.
+                          if (!std::isfinite(temperature) || temperature < -20 || temperature > 60) return false;
+                          lv_label_set_text_fmt(id(climate_sensor_3_value), "%.1f °C", temperature);
+                          return true;
+                        });
+                on_error:
+                  then:
+                    - lvgl.label.update:
+                        id: climate_sensor_3_value
+                        text: "-- °C"
       - delay: 80ms
-      - background_http.get:
-          url: "${homey_address}/api/manager/devices/device/${homey_climate_sensor_4_device_id}"
-          request_headers:
-            Authorization: "Bearer ${homey_token}"
-            Accept: "application/json"
-          capture_response: true
-          max_response_buffer_size: 16384
-          on_response:
-            then:
-              - lambda: |-
-                  lv_label_set_text(id(climate_sensor_4_value), "-- °C");
-                  if (response->status_code != 200) return;
-                  json::parse_json(body, [](JsonObject device) -> bool {
-                    if (device["available"].is<bool>() && !device["available"].as<bool>()) return false;
-                    auto value = device["capabilitiesObj"]["measure_temperature"]["value"];
-                    if (!value.is<float>()) return false;
-                    const float temperature = value.as<float>();
-                    // Reject missing or corrupt indoor readings instead of displaying zero.
-                    if (!std::isfinite(temperature) || temperature < -20 || temperature > 60) return false;
-                    lv_label_set_text_fmt(id(climate_sensor_4_value), "%.1f °C", temperature);
-                    return true;
-                  });
-          on_error:
-            then:
-              - lvgl.label.update:
-                  id: climate_sensor_4_value
-                  text: "-- °C"
+      - if:
+          condition:
+            lambda: |-
+              const char *id_str = "${homey_climate_sensor_4_device_id}";
+              return id_str != nullptr && strlen(id_str) > 0 && strcmp(id_str, "none") != 0 && strcmp(id_str, "\"\"") != 0;
+          then:
+            - background_http.get:
+                url: "${homey_address}/api/manager/devices/device/${homey_climate_sensor_4_device_id}"
+                request_headers:
+                  Authorization: "Bearer ${homey_token}"
+                  Accept: "application/json"
+                capture_response: true
+                max_response_buffer_size: 16384
+                on_response:
+                  then:
+                    - lambda: |-
+                        lv_label_set_text(id(climate_sensor_4_value), "-- °C");
+                        if (response->status_code != 200) return;
+                        json::parse_json(body, [](JsonObject device) -> bool {
+                          if (device["available"].is<bool>() && !device["available"].as<bool>()) return false;
+                          auto value = device["capabilitiesObj"]["measure_temperature"]["value"];
+                          if (!value.is<float>()) return false;
+                          const float temperature = value.as<float>();
+                          // Reject missing or corrupt indoor readings instead of displaying zero.
+                          if (!std::isfinite(temperature) || temperature < -20 || temperature > 60) return false;
+                          lv_label_set_text_fmt(id(climate_sensor_4_value), "%.1f °C", temperature);
+                          return true;
+                        });
+                on_error:
+                  then:
+                    - lvgl.label.update:
+                        id: climate_sensor_4_value
+                        text: "-- °C"
       - delay: 80ms
-      - background_http.get:
-          url: "${homey_address}/api/manager/devices/device/${homey_climate_sensor_5_device_id}"
-          request_headers:
-            Authorization: "Bearer ${homey_token}"
-            Accept: "application/json"
-          capture_response: true
-          max_response_buffer_size: 16384
-          on_response:
-            then:
-              - lambda: |-
-                  lv_label_set_text(id(climate_sensor_5_value), "-- °C");
-                  if (response->status_code != 200) return;
-                  json::parse_json(body, [](JsonObject device) -> bool {
-                    if (device["available"].is<bool>() && !device["available"].as<bool>()) return false;
-                    auto value = device["capabilitiesObj"]["measure_temperature"]["value"];
-                    if (!value.is<float>()) return false;
-                    const float temperature = value.as<float>();
-                    // Reject missing or corrupt indoor readings instead of displaying zero.
-                    if (!std::isfinite(temperature) || temperature < -20 || temperature > 60) return false;
-                    lv_label_set_text_fmt(id(climate_sensor_5_value), "%.1f °C", temperature);
-                    return true;
-                  });
-          on_error:
-            then:
-              - lvgl.label.update:
-                  id: climate_sensor_5_value
-                  text: "-- °C"
+      - if:
+          condition:
+            lambda: |-
+              const char *id_str = "${homey_climate_sensor_5_device_id}";
+              return id_str != nullptr && strlen(id_str) > 0 && strcmp(id_str, "none") != 0 && strcmp(id_str, "\"\"") != 0;
+          then:
+            - background_http.get:
+                url: "${homey_address}/api/manager/devices/device/${homey_climate_sensor_5_device_id}"
+                request_headers:
+                  Authorization: "Bearer ${homey_token}"
+                  Accept: "application/json"
+                capture_response: true
+                max_response_buffer_size: 16384
+                on_response:
+                  then:
+                    - lambda: |-
+                        lv_label_set_text(id(climate_sensor_5_value), "-- °C");
+                        if (response->status_code != 200) return;
+                        json::parse_json(body, [](JsonObject device) -> bool {
+                          if (device["available"].is<bool>() && !device["available"].as<bool>()) return false;
+                          auto value = device["capabilitiesObj"]["measure_temperature"]["value"];
+                          if (!value.is<float>()) return false;
+                          const float temperature = value.as<float>();
+                          // Reject missing or corrupt indoor readings instead of displaying zero.
+                          if (!std::isfinite(temperature) || temperature < -20 || temperature > 60) return false;
+                          lv_label_set_text_fmt(id(climate_sensor_5_value), "%.1f °C", temperature);
+                          return true;
+                        });
+                on_error:
+                  then:
+                    - lvgl.label.update:
+                        id: climate_sensor_5_value
+                        text: "-- °C"
       - delay: 80ms
-      - background_http.get:
-          url: "${homey_address}/api/manager/devices/device/${homey_climate_sensor_6_device_id}"
-          request_headers:
-            Authorization: "Bearer ${homey_token}"
-            Accept: "application/json"
-          capture_response: true
-          max_response_buffer_size: 16384
-          on_response:
-            then:
-              - lambda: |-
-                  lv_label_set_text(id(climate_sensor_6_value), "-- °C");
-                  if (response->status_code != 200) return;
-                  json::parse_json(body, [](JsonObject device) -> bool {
-                    if (device["available"].is<bool>() && !device["available"].as<bool>()) return false;
-                    auto value = device["capabilitiesObj"]["measure_temperature"]["value"];
-                    if (!value.is<float>()) return false;
-                    const float temperature = value.as<float>();
-                    // Reject missing or corrupt indoor readings instead of displaying zero.
-                    if (!std::isfinite(temperature) || temperature < -20 || temperature > 60) return false;
-                    lv_label_set_text_fmt(id(climate_sensor_6_value), "%.1f °C", temperature);
-                    return true;
-                  });
-          on_error:
-            then:
-              - lvgl.label.update:
-                  id: climate_sensor_6_value
-                  text: "-- °C"
+      - if:
+          condition:
+            lambda: |-
+              const char *id_str = "${homey_climate_sensor_6_device_id}";
+              return id_str != nullptr && strlen(id_str) > 0 && strcmp(id_str, "none") != 0 && strcmp(id_str, "\"\"") != 0;
+          then:
+            - background_http.get:
+                url: "${homey_address}/api/manager/devices/device/${homey_climate_sensor_6_device_id}"
+                request_headers:
+                  Authorization: "Bearer ${homey_token}"
+                  Accept: "application/json"
+                capture_response: true
+                max_response_buffer_size: 16384
+                on_response:
+                  then:
+                    - lambda: |-
+                        lv_label_set_text(id(climate_sensor_6_value), "-- °C");
+                        if (response->status_code != 200) return;
+                        json::parse_json(body, [](JsonObject device) -> bool {
+                          if (device["available"].is<bool>() && !device["available"].as<bool>()) return false;
+                          auto value = device["capabilitiesObj"]["measure_temperature"]["value"];
+                          if (!value.is<float>()) return false;
+                          const float temperature = value.as<float>();
+                          // Reject missing or corrupt indoor readings instead of displaying zero.
+                          if (!std::isfinite(temperature) || temperature < -20 || temperature > 60) return false;
+                          lv_label_set_text_fmt(id(climate_sensor_6_value), "%.1f °C", temperature);
+                          return true;
+                        });
+                on_error:
+                  then:
+                    - lvgl.label.update:
+                        id: climate_sensor_6_value
+                        text: "-- °C"

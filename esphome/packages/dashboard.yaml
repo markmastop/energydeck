@@ -1918,101 +1918,177 @@ lvgl:
                   text_font: montserrat_10
                   text_color: 0xA9B8AE
               - label:
+                  id: climate_no_sensors_label
+                  hidden: true
+                  x: 16
+                  y: 55
+                  width: 262
+                  text_align: CENTER
+                  text: "${climate_no_sensors}"
+                  text_font: montserrat_12
+                  text_color: 0xA9B8AE
+              - obj:
+                  id: climate_sensor_1_slot
                   x: 16
                   y: 27
                   width: 125
-                  height: 14
-                  long_mode: DOT
-                  text: "${climate_sensor_1_name}"
-                  text_font: montserrat_12
-                  text_color: 0xA9B8AE
-              - label:
-                  id: climate_sensor_1_value
-                  x: 16
-                  y: 40
-                  text: "-- °C"
-                  text_font: montserrat_14
-                  text_color: 0xEEF6F0
-              - label:
+                  height: 30
+                  pad_all: 0
+                  border_width: 0
+                  bg_opa: TRANSP
+                  scrollable: false
+                  widgets:
+                    - label:
+                        x: 0
+                        y: 0
+                        width: 125
+                        height: 14
+                        long_mode: DOT
+                        text: "${climate_sensor_1_name}"
+                        text_font: montserrat_12
+                        text_color: 0xA9B8AE
+                    - label:
+                        id: climate_sensor_1_value
+                        x: 0
+                        y: 13
+                        text: "-- °C"
+                        text_font: montserrat_14
+                        text_color: 0xEEF6F0
+              - obj:
+                  id: climate_sensor_2_slot
                   x: 153
                   y: 27
                   width: 125
-                  height: 14
-                  long_mode: DOT
-                  text: "${climate_sensor_2_name}"
-                  text_font: montserrat_12
-                  text_color: 0xA9B8AE
-              - label:
-                  id: climate_sensor_2_value
-                  x: 153
-                  y: 40
-                  text: "-- °C"
-                  text_font: montserrat_14
-                  text_color: 0xEEF6F0
-              - label:
+                  height: 30
+                  pad_all: 0
+                  border_width: 0
+                  bg_opa: TRANSP
+                  scrollable: false
+                  widgets:
+                    - label:
+                        x: 0
+                        y: 0
+                        width: 125
+                        height: 14
+                        long_mode: DOT
+                        text: "${climate_sensor_2_name}"
+                        text_font: montserrat_12
+                        text_color: 0xA9B8AE
+                    - label:
+                        id: climate_sensor_2_value
+                        x: 0
+                        y: 13
+                        text: "-- °C"
+                        text_font: montserrat_14
+                        text_color: 0xEEF6F0
+              - obj:
+                  id: climate_sensor_3_slot
                   x: 16
                   y: 57
                   width: 125
-                  height: 14
-                  long_mode: DOT
-                  text: "${climate_sensor_3_name}"
-                  text_font: montserrat_12
-                  text_color: 0xA9B8AE
-              - label:
-                  id: climate_sensor_3_value
-                  x: 16
-                  y: 70
-                  text: "-- °C"
-                  text_font: montserrat_14
-                  text_color: 0xEEF6F0
-              - label:
+                  height: 30
+                  pad_all: 0
+                  border_width: 0
+                  bg_opa: TRANSP
+                  scrollable: false
+                  widgets:
+                    - label:
+                        x: 0
+                        y: 0
+                        width: 125
+                        height: 14
+                        long_mode: DOT
+                        text: "${climate_sensor_3_name}"
+                        text_font: montserrat_12
+                        text_color: 0xA9B8AE
+                    - label:
+                        id: climate_sensor_3_value
+                        x: 0
+                        y: 13
+                        text: "-- °C"
+                        text_font: montserrat_14
+                        text_color: 0xEEF6F0
+              - obj:
+                  id: climate_sensor_4_slot
                   x: 153
                   y: 57
                   width: 125
-                  height: 14
-                  long_mode: DOT
-                  text: "${climate_sensor_4_name}"
-                  text_font: montserrat_12
-                  text_color: 0xA9B8AE
-              - label:
-                  id: climate_sensor_4_value
-                  x: 153
-                  y: 70
-                  text: "-- °C"
-                  text_font: montserrat_14
-                  text_color: 0xEEF6F0
-              - label:
+                  height: 30
+                  pad_all: 0
+                  border_width: 0
+                  bg_opa: TRANSP
+                  scrollable: false
+                  widgets:
+                    - label:
+                        x: 0
+                        y: 0
+                        width: 125
+                        height: 14
+                        long_mode: DOT
+                        text: "${climate_sensor_4_name}"
+                        text_font: montserrat_12
+                        text_color: 0xA9B8AE
+                    - label:
+                        id: climate_sensor_4_value
+                        x: 0
+                        y: 13
+                        text: "-- °C"
+                        text_font: montserrat_14
+                        text_color: 0xEEF6F0
+              - obj:
+                  id: climate_sensor_5_slot
                   x: 16
                   y: 87
                   width: 125
-                  height: 14
-                  long_mode: DOT
-                  text: "${climate_sensor_5_name}"
-                  text_font: montserrat_12
-                  text_color: 0xA9B8AE
-              - label:
-                  id: climate_sensor_5_value
-                  x: 16
-                  y: 100
-                  text: "-- °C"
-                  text_font: montserrat_14
-                  text_color: 0xEEF6F0
-              - label:
+                  height: 30
+                  pad_all: 0
+                  border_width: 0
+                  bg_opa: TRANSP
+                  scrollable: false
+                  widgets:
+                    - label:
+                        x: 0
+                        y: 0
+                        width: 125
+                        height: 14
+                        long_mode: DOT
+                        text: "${climate_sensor_5_name}"
+                        text_font: montserrat_12
+                        text_color: 0xA9B8AE
+                    - label:
+                        id: climate_sensor_5_value
+                        x: 0
+                        y: 13
+                        text: "-- °C"
+                        text_font: montserrat_14
+                        text_color: 0xEEF6F0
+              - obj:
+                  id: climate_sensor_6_slot
                   x: 153
                   y: 87
                   width: 125
-                  height: 14
-                  long_mode: DOT
-                  text: "${climate_sensor_6_name}"
-                  text_font: montserrat_12
-                  text_color: 0xA9B8AE
-              - label:
-                  id: climate_sensor_6_value
-                  x: 153
-                  y: 100
-                  text: "-- °C"
-                  text_font: montserrat_14
-                  text_color: 0xEEF6F0
+                  height: 30
+                  pad_all: 0
+                  border_width: 0
+                  bg_opa: TRANSP
+                  scrollable: false
+                  widgets:
+                    - label:
+                        x: 0
+                        y: 0
+                        width: 125
+                        height: 14
+                        long_mode: DOT
+                        text: "${climate_sensor_6_name}"
+                        text_font: montserrat_12
+                        text_color: 0xA9B8AE
+                    - label:
+                        id: climate_sensor_6_value
+                        x: 0
+                        y: 13
+                        text: "-- °C"
+                        text_font: montserrat_14
+                        text_color: 0xEEF6F0
 
         - button:
             id: gas_tab

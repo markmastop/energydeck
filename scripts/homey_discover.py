@@ -180,6 +180,7 @@ def print_devices(client: HomeyClient) -> None:
         "charging_state",
         "is_connected",
         "is_charging",
+        "measure_temperature",
     }
     print("\nPossible energy devices:")
     found = 0
@@ -193,6 +194,12 @@ def print_devices(client: HomeyClient) -> None:
             os.environ.get("HOMEY_GAS_SUMMARY_DEVICE_ID", "").strip(),
             os.environ.get("HOMEY_SOLAR_DEVICE_ID", "").strip(),
             os.environ.get("HOMEY_SOLAR_SUMMARY_DEVICE_ID", "").strip(),
+            os.environ.get("HOMEY_CLIMATE_LIVING_DEVICE_ID", "").strip(),
+            os.environ.get("HOMEY_CLIMATE_EXTENSION_DEVICE_ID", "").strip(),
+            os.environ.get("HOMEY_CLIMATE_LIEKE_DEVICE_ID", "").strip(),
+            os.environ.get("HOMEY_CLIMATE_SAAR_DEVICE_ID", "").strip(),
+            os.environ.get("HOMEY_CLIMATE_RENATE_DEVICE_ID", "").strip(),
+            os.environ.get("HOMEY_CLIMATE_MARK_DEVICE_ID", "").strip(),
         )
         if value
     }
@@ -217,6 +224,7 @@ def print_devices(client: HomeyClient) -> None:
         "meter_m3_this_day",
         "meter_m3_this_month",
         "meter_m3_this_year",
+        "measure_temperature",
     }
     for device in values(payload):
         if not isinstance(device, dict):
@@ -226,7 +234,7 @@ def print_devices(client: HomeyClient) -> None:
         driver = str(device.get("driverId", ""))
         searchable = f"{name} {driver}".lower()
         if capabilities.intersection(interesting) or any(
-            word in searchable for word in ("sessy", "homewizard", "p1", "gas", "energy")
+            word in searchable for word in ("sessy", "homewizard", "p1", "gas", "energy", "klimaat", "temperatuur", "thermostaat")
         ):
             found += 1
             print(f"\n- {name}")

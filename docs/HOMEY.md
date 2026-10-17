@@ -184,11 +184,17 @@ The `.env` file contains:
 - `HOMEY_SOLAR_SUMMARY_DEVICE_ID`: the solar summary containing
   `meter_kwh_this_day`;
 - `HOMEY_PRICES_VARIABLE_ID`: the `EnergyDeck Prices` Logic variable.
+- `HOMEY_CLIMATE_*_DEVICE_ID`: optional Homey temperature sensor IDs for the Climate tab
+  (`HOMEY_CLIMATE_LIVING_DEVICE_ID`, `HOMEY_CLIMATE_EXTENSION_DEVICE_ID`,
+  `HOMEY_CLIMATE_LIEKE_DEVICE_ID`, `HOMEY_CLIMATE_SAAR_DEVICE_ID`,
+  `HOMEY_CLIMATE_RENATE_DEVICE_ID`, `HOMEY_CLIMATE_MARK_DEVICE_ID`).
+- `SONOS_LIVING_ADDRESS` and `SONOS_KITCHEN_ADDRESS`: Sonos bootstrap addresses.
 - `ENERGYDECK_ENERGY_TAX_EX_VAT_CT`: energy tax in ct/kWh before VAT;
 - `ENERGYDECK_VAT_PERCENT`: VAT percentage applied to market price and tax;
 - `ENERGYDECK_SUPPLIER_FEE_INCL_VAT_CT`: supplier fee in ct/kWh including VAT.
 - `ENERGYDECK_LATITUDE` and `ENERGYDECK_LONGITUDE`: Homey's location, used
   locally to calculate sunrise and sunset without an internet service.
+- `ENERGYDECK_SERIAL_PORT`: optional override for the serial flash port in `flash.sh`.
 
 An empty example is available in `.env.example`. Git ignores the real `.env`.
 

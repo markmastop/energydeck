@@ -309,7 +309,7 @@ on the associated music service and the speaker's local API support.
 
 ## Network and artwork
 
-The current bootstrap addresses in `esphome/packages/music.yaml` are:
+The default bootstrap addresses (configurable via `SONOS_LIVING_ADDRESS` and `SONOS_KITCHEN_ADDRESS` in `.env`) are:
 
 - Woonkamer: `http://192.168.1.50:1400`
 - Keuken: `http://192.168.1.51:1400`
@@ -317,7 +317,7 @@ The current bootstrap addresses in `esphome/packages/music.yaml` are:
 Reserve these IPs in the router's DHCP settings. Either reachable speaker's
 topology resolves both configured player UUIDs and their current coordinator,
 including coordinator changes. This version does not run multicast discovery
-on the deck; if both bootstrap IPs change, update the substitutions. The deck
+on the deck; if both bootstrap IPs change, update `.env` or the substitutions. The deck
 must be allowed to reach the speakers on TCP port 1400 (no client isolation).
 
 No Sonos request carries the Homey bearer token. Topology endpoints are restricted

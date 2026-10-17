@@ -183,8 +183,7 @@ The `.env` file contains:
   `measure_power`;
 - `HOMEY_SOLAR_SUMMARY_DEVICE_ID`: the solar summary containing
   `meter_kwh_this_day`;
-- `HOMEY_PRICES_VARIABLE_ID`: the `EnergyDeck Prices` Logic variable.
-- `HOMEY_CLIMATE_SENSOR_*_NAME` and `HOMEY_CLIMATE_SENSOR_*_DEVICE_ID`: optional configurable names and Homey temperature sensor IDs for the 6 Climate card slots (`HOMEY_CLIMATE_SENSOR_1_NAME` / `HOMEY_CLIMATE_SENSOR_1_DEVICE_ID` through `6`). Legacy `HOMEY_CLIMATE_<ROOM>_DEVICE_ID` variables remain supported as fallbacks.
+- `HOMEY_CLIMATE_SENSOR_*_NAME` and `HOMEY_CLIMATE_SENSOR_*_DEVICE_ID`: optional configurable names and Homey temperature sensor IDs for the 6 Climate card slots (`HOMEY_CLIMATE_SENSOR_1_NAME` / `HOMEY_CLIMATE_SENSOR_1_DEVICE_ID` through `6`).
 - `SONOS_BOOTSTRAP_ADDRESS` and `SONOS_BOOTSTRAP_FALLBACK_ADDRESS`: Sonos bootstrap addresses.
 - `ENERGYDECK_ENERGY_TAX_EX_VAT_CT`: energy tax in ct/kWh before VAT;
 - `ENERGYDECK_VAT_PERCENT`: VAT percentage applied to market price and tax;

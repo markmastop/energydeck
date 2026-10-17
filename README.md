@@ -161,8 +161,8 @@ After filling `.env`, build, upload and follow the boot log with:
 
 The script reads `.env` without executing it as shell code, so wifi passwords
 containing spaces or special characters are supported. Pass a different serial
-port as the first argument when necessary, for example
-`./flash.sh /dev/cu.wchusbserial210`.
+port as the first argument when necessary (e.g. `./flash.sh /dev/cu.wchusbserial210`),
+or configure `ENERGYDECK_SERIAL_PORT` in `.env`.
 
 ## CrowPanel Advance 7.0
 

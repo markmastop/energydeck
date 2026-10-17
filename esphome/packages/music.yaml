@@ -14,8 +14,6 @@ sonos_http:
 
 substitutions:
   music_compact_cover_size: "92"
-  sonos_living_address: "http://192.168.0.190:1400"
-  sonos_kitchen_address: "http://192.168.0.191:1400"
 
 globals:
   - id: favorite_artwork

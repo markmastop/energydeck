@@ -15,7 +15,7 @@ export ENERGYDECK_SUPPLIER_FEE_INCL_VAT_CT="${ENERGYDECK_SUPPLIER_FEE_INCL_VAT_C
 if [[ -f "$project_dir/.env" ]]; then
   while IFS='=' read -r key value; do
     case "$key" in
-      HOMEY_*|ENERGYDECK_*)
+      HOMEY_*|ENERGYDECK_*|SONOS_*)
         value="${value%\"}"
         value="${value#\"}"
         export "$key=$value"

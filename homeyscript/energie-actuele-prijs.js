@@ -9,6 +9,12 @@ async function set(name, value) {
   if (old) await Homey.logic.updateVariable({id: old.id, variable: {value}});
   else await Homey.logic.createVariable({variable: {name, type: typeof value, value}});
 }
+// Match EnergyDeck's configured tax (ex VAT), VAT and supplier fee (incl VAT).
+// Defaults: Netherlands / Zonneplan 2026 (matches .env defaults).
+const ENERGY_TAX_EX_VAT_CT = 9.161;
+const VAT_MULTIPLIER = 1.21;
+const SUPPLIER_FEE_INCL_VAT_CT = 2.0;
+
 // Dashboard-only values: do not change the legacy Sessy control variables.
 async function publishDashboard(ok, value, mean, values, sourceName, interval, reason) {
   let category = 'N';
@@ -24,11 +30,11 @@ async function publishDashboard(ok, value, mean, values, sourceName, interval, r
       ? values.slice(48).concat(nextValues.slice(0, 48)) : values;
     const minimum = Math.min(...window);
     // Firmware floors the all-in EUR/kWh span at 0.001; convert to raw units.
-    const span = Math.max(0.001 / 1.21, Math.max(...window) - minimum);
+    const span = Math.max(0.001 / VAT_MULTIPLIER, Math.max(...window) - minimum);
     category = value <= minimum + span * 0.33 ? 'C' : value >= minimum + span * 0.66 ? 'E' : 'N';
     // Match EnergyDeck's configured tax (ex VAT), VAT and supplier fee (incl VAT).
     // Presentation only: cached market prices and charging signals remain raw.
-    const allInCents = raw => ((raw * 100 + 9.161) * 1.21 + 2.0).toFixed(1).replace('.', ',');
+    const allInCents = raw => ((raw * 100 + ENERGY_TAX_EX_VAT_CT) * VAT_MULTIPLIER + SUPPLIER_FEE_INCL_VAT_CT).toFixed(1).replace('.', ',');
     const sourceLabel = /epex/i.test(sourceName) ? '⚠' : /^homey/i.test(sourceName) ? 'Homey' : '⚠ Bron?';
     // Put provenance first so narrow DataVista rows cannot truncate the warning.
     label = sourceLabel + ' | ' + allInCents(value) + ' ct | gem. ' + allInCents(mean) + ' | ' + category;

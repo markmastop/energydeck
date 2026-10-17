@@ -12,7 +12,7 @@ script:
     mode: single
     then:
       - background_http.get:
-          url: "${homey_address}/api/manager/devices/device/e5705cd4-ca02-4cdc-816f-4bc5fc4f5432"
+          url: "${homey_address}/api/manager/devices/device/${homey_climate_living_device_id}"
           request_headers:
             Authorization: "Bearer ${homey_token}"
             Accept: "application/json"
@@ -40,7 +40,7 @@ script:
                   text: "-- °C"
       - delay: 80ms
       - background_http.get:
-          url: "${homey_address}/api/manager/devices/device/564a9710-c503-4d04-9996-6c27b5f28157"
+          url: "${homey_address}/api/manager/devices/device/${homey_climate_extension_device_id}"
           request_headers:
             Authorization: "Bearer ${homey_token}"
             Accept: "application/json"
@@ -68,7 +68,7 @@ script:
                   text: "-- °C"
       - delay: 80ms
       - background_http.get:
-          url: "${homey_address}/api/manager/devices/device/0d278a3e-aeb7-4cb3-bb2d-131766931482"
+          url: "${homey_address}/api/manager/devices/device/${homey_climate_lieke_device_id}"
           request_headers:
             Authorization: "Bearer ${homey_token}"
             Accept: "application/json"
@@ -96,7 +96,7 @@ script:
                   text: "-- °C"
       - delay: 80ms
       - background_http.get:
-          url: "${homey_address}/api/manager/devices/device/ed3cdd0e-2562-453a-a381-5c7d72bdf871"
+          url: "${homey_address}/api/manager/devices/device/${homey_climate_saar_device_id}"
           request_headers:
             Authorization: "Bearer ${homey_token}"
             Accept: "application/json"
@@ -124,7 +124,7 @@ script:
                   text: "-- °C"
       - delay: 80ms
       - background_http.get:
-          url: "${homey_address}/api/manager/devices/device/b4a69ec5-a37b-4617-b490-d4c7b74534b9"
+          url: "${homey_address}/api/manager/devices/device/${homey_climate_renate_device_id}"
           request_headers:
             Authorization: "Bearer ${homey_token}"
             Accept: "application/json"
@@ -152,7 +152,7 @@ script:
                   text: "-- °C"
       - delay: 80ms
       - background_http.get:
-          url: "${homey_address}/api/manager/devices/device/fae4c622-df59-4e18-8722-53fc9eb1cfb0"
+          url: "${homey_address}/api/manager/devices/device/${homey_climate_mark_device_id}"
           request_headers:
             Authorization: "Bearer ${homey_token}"
             Accept: "application/json"

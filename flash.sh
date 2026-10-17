@@ -5,12 +5,10 @@ set -euo pipefail
 project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 esphome_bin="$project_dir/.venv/bin/esphome"
 config_file="$project_dir/esphome/energydeck-crowpanel.yaml"
-serial_port="${1:-/dev/cu.wchusbserial110}"
-
 if [[ -f "$project_dir/.env" ]]; then
   while IFS='=' read -r key value; do
     case "$key" in
-      HOMEY_*|ENERGYDECK_*)
+      HOMEY_*|ENERGYDECK_*|SONOS_*)
         value="${value%$'\r'}"
         value="${value%\"}"
         value="${value#\"}"
@@ -19,6 +17,8 @@ if [[ -f "$project_dir/.env" ]]; then
     esac
   done < "$project_dir/.env"
 fi
+
+serial_port="${1:-${ENERGYDECK_SERIAL_PORT:-/dev/cu.wchusbserial110}}"
 
 export ENERGYDECK_ENERGY_TAX_EX_VAT_CT="${ENERGYDECK_ENERGY_TAX_EX_VAT_CT:-9.161}"
 export ENERGYDECK_VAT_PERCENT="${ENERGYDECK_VAT_PERCENT:-21.0}"

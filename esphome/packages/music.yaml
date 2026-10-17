@@ -744,9 +744,9 @@ script:
             lv_obj_set_parent(id(music_favorites_status), parent);
             lv_obj_scroll_to_y(id(music_favorites_grid), 0, LV_ANIM_OFF);
           }
-          lv_obj_set_pos(id(music_favorites_grid), compact_favorites ? 10 : 14, compact_favorites ? 34 : 606);
-          lv_obj_set_size(id(music_favorites_grid), compact_favorites ? 274 : 452, compact_favorites ? 98 : 180);
-          lv_obj_set_pos(id(music_favorites_status), compact_favorites ? 10 : 24, compact_favorites ? 62 : 668);
+          lv_obj_set_pos(id(music_favorites_grid), compact_favorites ? 10 : 14, compact_favorites ? 34 : 586);
+          lv_obj_set_size(id(music_favorites_grid), compact_favorites ? 274 : 452, compact_favorites ? 98 : 200);
+          lv_obj_set_pos(id(music_favorites_status), compact_favorites ? 10 : 24, compact_favorites ? 62 : 654);
           lv_obj_set_width(id(music_favorites_status), compact_favorites ? 274 : 432);
           // The dashboard keeps its idle favorites regardless of the detail tab.
           const bool favorites_visible = compact_favorites || id(music_content_tab) == 0;

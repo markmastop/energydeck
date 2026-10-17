@@ -91,9 +91,9 @@ widgets:
   - label:
       id: music_title
       x: 14
-      y: 500
+      y: 494
       width: 452
-      height: 28
+      height: 26
       text: "${music_ready}"
       text_font: montserrat_20
       text_align: LEFT
@@ -101,7 +101,7 @@ widgets:
   - label:
       id: music_artist
       x: 14
-      y: 534
+      y: 524
       width: 330
       height: 20
       text: ""
@@ -112,7 +112,7 @@ widgets:
   - label:
       id: music_status
       x: 350
-      y: 536
+      y: 526
       width: 116
       height: 18
       text: "${music_loading}"
@@ -239,9 +239,9 @@ widgets:
   - button:
       id: music_favorites_tab
       x: 14
-      y: 566
+      y: 550
       width: 144
-      height: 32
+      height: 30
       radius: 6
       pad_all: 0
       bg_color: 0x24583B
@@ -258,9 +258,9 @@ widgets:
   - button:
       id: music_systems_tab
       x: 166
-      y: 566
+      y: 550
       width: 144
-      height: 32
+      height: 30
       radius: 6
       pad_all: 0
       bg_color: 0x18231E
@@ -276,9 +276,9 @@ widgets:
       id: music_group_apply
       hidden: true
       x: 318
-      y: 566
+      y: 550
       width: 100
-      height: 32
+      height: 30
       radius: 6
       pad_all: 0
       bg_color: 0x24583B
@@ -293,9 +293,9 @@ widgets:
       id: music_group_reset
       hidden: true
       x: 426
-      y: 566
+      y: 550
       width: 40
-      height: 32
+      height: 30
       radius: 6
       pad_all: 0
       bg_color: 0x18231E
@@ -312,9 +312,9 @@ widgets:
       id: music_systems_list
       hidden: true
       x: 14
-      y: 606
+      y: 586
       width: 452
-      height: 180
+      height: 200
       pad_all: 0
       border_width: 0
       bg_opa: TRANSP
@@ -326,9 +326,9 @@ widgets:
   - obj:
       id: music_favorites_grid
       x: 14
-      y: 606
+      y: 586
       width: 452
-      height: 180
+      height: 200
       pad_all: 0
       border_width: 0
       bg_opa: TRANSP
@@ -340,7 +340,7 @@ widgets:
   - label:
       id: music_favorites_status
       x: 24
-      y: 668
+      y: 654
       width: 432
       text: "${music_favorites_loading}"
       text_font: montserrat_14

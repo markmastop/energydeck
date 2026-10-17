@@ -1923,11 +1923,11 @@ lvgl:
                   width: 125
                   height: 14
                   long_mode: DOT
-                  text: "${climate_living}"
+                  text: "${climate_sensor_1_name}"
                   text_font: montserrat_12
                   text_color: 0xA9B8AE
               - label:
-                  id: climate_living_value
+                  id: climate_sensor_1_value
                   x: 16
                   y: 40
                   text: "-- °C"
@@ -1939,11 +1939,11 @@ lvgl:
                   width: 125
                   height: 14
                   long_mode: DOT
-                  text: "${climate_extension}"
+                  text: "${climate_sensor_2_name}"
                   text_font: montserrat_12
                   text_color: 0xA9B8AE
               - label:
-                  id: climate_extension_value
+                  id: climate_sensor_2_value
                   x: 153
                   y: 40
                   text: "-- °C"
@@ -1955,11 +1955,11 @@ lvgl:
                   width: 125
                   height: 14
                   long_mode: DOT
-                  text: "${climate_lieke}"
+                  text: "${climate_sensor_3_name}"
                   text_font: montserrat_12
                   text_color: 0xA9B8AE
               - label:
-                  id: climate_lieke_value
+                  id: climate_sensor_3_value
                   x: 16
                   y: 70
                   text: "-- °C"
@@ -1971,11 +1971,11 @@ lvgl:
                   width: 125
                   height: 14
                   long_mode: DOT
-                  text: "${climate_saar}"
+                  text: "${climate_sensor_4_name}"
                   text_font: montserrat_12
                   text_color: 0xA9B8AE
               - label:
-                  id: climate_saar_value
+                  id: climate_sensor_4_value
                   x: 153
                   y: 70
                   text: "-- °C"
@@ -1987,11 +1987,11 @@ lvgl:
                   width: 125
                   height: 14
                   long_mode: DOT
-                  text: "${climate_renate}"
+                  text: "${climate_sensor_5_name}"
                   text_font: montserrat_12
                   text_color: 0xA9B8AE
               - label:
-                  id: climate_renate_value
+                  id: climate_sensor_5_value
                   x: 16
                   y: 100
                   text: "-- °C"
@@ -2003,11 +2003,11 @@ lvgl:
                   width: 125
                   height: 14
                   long_mode: DOT
-                  text: "${climate_mark}"
+                  text: "${climate_sensor_6_name}"
                   text_font: montserrat_12
                   text_color: 0xA9B8AE
               - label:
-                  id: climate_mark_value
+                  id: climate_sensor_6_value
                   x: 153
                   y: 100
                   text: "-- °C"

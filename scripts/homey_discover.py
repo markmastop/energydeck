@@ -200,12 +200,6 @@ def print_devices(client: HomeyClient) -> None:
             os.environ.get("HOMEY_CLIMATE_SENSOR_4_DEVICE_ID", "").strip(),
             os.environ.get("HOMEY_CLIMATE_SENSOR_5_DEVICE_ID", "").strip(),
             os.environ.get("HOMEY_CLIMATE_SENSOR_6_DEVICE_ID", "").strip(),
-            os.environ.get("HOMEY_CLIMATE_LIVING_DEVICE_ID", "").strip(),
-            os.environ.get("HOMEY_CLIMATE_EXTENSION_DEVICE_ID", "").strip(),
-            os.environ.get("HOMEY_CLIMATE_LIEKE_DEVICE_ID", "").strip(),
-            os.environ.get("HOMEY_CLIMATE_SAAR_DEVICE_ID", "").strip(),
-            os.environ.get("HOMEY_CLIMATE_RENATE_DEVICE_ID", "").strip(),
-            os.environ.get("HOMEY_CLIMATE_MARK_DEVICE_ID", "").strip(),
         )
         if value
     }

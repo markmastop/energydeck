@@ -18,8 +18,6 @@ The Climate tab replaces Extra with six read-only temperature readings in two co
 | Sensor 5 | `HOMEY_CLIMATE_SENSOR_5_NAME` (Werk Renate) | `HOMEY_CLIMATE_SENSOR_5_DEVICE_ID` | b4a69ec5-a37b-4617-b490-d4c7b74534b9 |
 | Sensor 6 | `HOMEY_CLIMATE_SENSOR_6_NAME` (Werk Mark) | `HOMEY_CLIMATE_SENSOR_6_DEVICE_ID` | fae4c622-df59-4e18-8722-53fc9eb1cfb0 |
 
-Legacy `HOMEY_CLIMATE_<ROOM>_DEVICE_ID` environment variables (`HOMEY_CLIMATE_LIVING_DEVICE_ID`, `HOMEY_CLIMATE_EXTENSION_DEVICE_ID`, etc.) remain supported as automatic fallbacks for backwards compatibility.
-
 Polling uses six sequential GET requests separated by 80 ms. It never changes thermostats. Missing, unavailable, failed or implausible (-20 to 60 °C bounds) readings show `-- °C` rather than a stale value.
 
 Heating status is explicitly unknown. The inspected Homey thermostats expose `target_temperature`, `measure_temperature` and `alarm_battery`, but no active-heating capability. A setpoint above measured temperature is not proof of actual heating. A confirmed per-room heating signal must be provided before active/inactive icons can be implemented.

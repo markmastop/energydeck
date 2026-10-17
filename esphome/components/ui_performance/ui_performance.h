@@ -12,15 +12,68 @@
 #include "freertos/task.h"
 #endif
 #include <array>
+#include <cstdio>
 #include <cstring>
+#include <string>
 
 namespace esphome::ui_performance {
 
 // LVGL rebuilds label layout even for identical text. Skip unchanged snapshots
 // so regular read-only polls do not invalidate the same text repeatedly.
 inline void set_text(lv_obj_t *label, const char *text) {
-  if (text == nullptr || std::strcmp(lv_label_get_text(label), text) != 0)
+  if (label == nullptr) return;
+  const char *curr = lv_label_get_text(label);
+  if (text == nullptr) {
+    if (curr != nullptr && curr[0] != '\0') lv_label_set_text(label, "");
+    return;
+  }
+  if (curr == nullptr || std::strcmp(curr, text) != 0)
     lv_label_set_text(label, text);
+}
+
+inline void set_text(lv_obj_t *label, const std::string &text) {
+  set_text(label, text.c_str());
+}
+
+template <typename... Args>
+inline void set_text_fmt(lv_obj_t *label, const char *fmt, Args... args) {
+  if (label == nullptr || fmt == nullptr) return;
+  char buf[256];
+  std::snprintf(buf, sizeof(buf), fmt, args...);
+  set_text(label, buf);
+}
+
+inline void set_bar_value(lv_obj_t *bar, int32_t value, lv_anim_enable_t anim = LV_ANIM_OFF) {
+  if (bar == nullptr) return;
+  if (lv_bar_get_value(bar) != value)
+    lv_bar_set_value(bar, value, anim);
+}
+
+inline void set_arc_value(lv_obj_t *arc, int32_t value) {
+  if (arc == nullptr) return;
+  if (lv_arc_get_value(arc) != value)
+    lv_arc_set_value(arc, value);
+}
+
+inline void set_style_text_color(lv_obj_t *obj, lv_color_t color, lv_part_t part = LV_PART_MAIN) {
+  if (obj == nullptr) return;
+  lv_color_t curr = lv_obj_get_style_text_color(obj, part);
+  if (!lv_color_eq(curr, color))
+    lv_obj_set_style_text_color(obj, color, part);
+}
+
+inline void set_style_bg_color(lv_obj_t *obj, lv_color_t color, lv_part_t part = LV_PART_MAIN) {
+  if (obj == nullptr) return;
+  lv_color_t curr = lv_obj_get_style_bg_color(obj, part);
+  if (!lv_color_eq(curr, color))
+    lv_obj_set_style_bg_color(obj, color, part);
+}
+
+inline void set_style_arc_color(lv_obj_t *obj, lv_color_t color, lv_part_t part = LV_PART_MAIN) {
+  if (obj == nullptr) return;
+  lv_color_t curr = lv_obj_get_style_arc_color(obj, part);
+  if (!lv_color_eq(curr, color))
+    lv_obj_set_style_arc_color(obj, color, part);
 }
 
 class UiPerformance : public Component {

@@ -621,8 +621,8 @@ script:
               - lambda: |-
                   ESP_LOGD("network_performance", "refresh_homey_sessy: %u ms", static_cast<unsigned>(response->duration_ms));
                   if (response->status_code != 200) {
-                    lv_label_set_text(id(battery_status_label), "${battery_unavailable}");
-                    lv_obj_set_style_text_color(id(battery_status_label), lv_color_hex(0xEA665F), LV_PART_MAIN);
+                    esphome::ui_performance::set_text(id(battery_status_label), "${battery_unavailable}");
+                    esphome::ui_performance::set_style_text_color(id(battery_status_label), lv_color_hex(0xEA665F), LV_PART_MAIN);
                     ESP_LOGW("homey", "Sessy request returned HTTP %d", response->status_code);
                     return;
                   }
@@ -645,32 +645,32 @@ script:
                     const int watts = static_cast<int>(roundf(fabsf(power)));
                     ESP_LOGI("homey", "Sessy: %d%%, %.0f W", percentage, power);
 
-                    lv_bar_set_value(id(battery_level_bar), percentage, LV_ANIM_OFF);
-                    lv_label_set_text_fmt(id(battery_percentage_label), "%d%%", percentage);
+                    esphome::ui_performance::set_bar_value(id(battery_level_bar), percentage, LV_ANIM_OFF);
+                    esphome::ui_performance::set_text_fmt(id(battery_percentage_label), "%d%%", percentage);
 
                     // Sessy reports charging as negative battery power and
                     // discharging as positive battery power.
                     if (power < -25.0f) {
-                      lv_label_set_text_fmt(id(battery_status_label), "${battery_charging_format}", watts);
-                      lv_obj_set_style_text_color(id(battery_status_label), lv_color_hex(0x62D98A), LV_PART_MAIN);
+                      esphome::ui_performance::set_text_fmt(id(battery_status_label), "${battery_charging_format}", watts);
+                      esphome::ui_performance::set_style_text_color(id(battery_status_label), lv_color_hex(0x62D98A), LV_PART_MAIN);
                     } else if (power > 25.0f) {
-                      lv_label_set_text_fmt(id(battery_status_label), "${battery_discharging_format}", watts);
-                      lv_obj_set_style_text_color(id(battery_status_label), lv_color_hex(0xF1C75B), LV_PART_MAIN);
+                      esphome::ui_performance::set_text_fmt(id(battery_status_label), "${battery_discharging_format}", watts);
+                      esphome::ui_performance::set_style_text_color(id(battery_status_label), lv_color_hex(0xF1C75B), LV_PART_MAIN);
                     } else {
-                      lv_label_set_text_fmt(id(battery_status_label), "${battery_standby_format}", watts);
-                      lv_obj_set_style_text_color(id(battery_status_label), lv_color_hex(0xA9B8AE), LV_PART_MAIN);
+                      esphome::ui_performance::set_text_fmt(id(battery_status_label), "${battery_standby_format}", watts);
+                      esphome::ui_performance::set_style_text_color(id(battery_status_label), lv_color_hex(0xA9B8AE), LV_PART_MAIN);
                     }
 
                     const uint32_t level_color = percentage < 15
                       ? 0xEA665F
                       : percentage < 30 ? 0xE8B94C : 0x48BD70;
-                    lv_obj_set_style_bg_color(id(battery_level_bar), lv_color_hex(level_color), LV_PART_INDICATOR);
+                    esphome::ui_performance::set_style_bg_color(id(battery_level_bar), lv_color_hex(level_color), LV_PART_INDICATOR);
                     return true;
                   });
 
                   if (!parsed) {
-                    lv_label_set_text(id(battery_status_label), "${battery_unavailable}");
-                    lv_obj_set_style_text_color(id(battery_status_label), lv_color_hex(0xEA665F), LV_PART_MAIN);
+                    esphome::ui_performance::set_text(id(battery_status_label), "${battery_unavailable}");
+                    esphome::ui_performance::set_style_text_color(id(battery_status_label), lv_color_hex(0xEA665F), LV_PART_MAIN);
                     ESP_LOGW("homey", "Could not parse Sessy device capabilities");
                   }
               - script.execute: render_sonos_energy_header
@@ -722,18 +722,18 @@ script:
                     );
                     lv_obj_set_style_border_width(button, 1, LV_PART_MAIN);
                     if (label != nullptr) {
-                      lv_obj_set_style_text_color(
+                      esphome::ui_performance::set_style_text_color(
                         label,
                         lv_color_hex((enabled || complete_style) ? 0xFFFFFF : 0xA9B8AE),
                         LV_PART_MAIN
                       );
                     }
-                    if (label != nullptr) lv_label_set_text(label, text);
+                    if (label != nullptr) esphome::ui_performance::set_text(label, text);
                   };
 
                   if (response->status_code != 200) {
-                    lv_label_set_text(id(ev_status_label), "${car_unavailable}");
-                    lv_label_set_text(id(ev_detail_label), "${car_try_again}");
+                    esphome::ui_performance::set_text(id(ev_status_label), "${car_unavailable}");
+                    esphome::ui_performance::set_text(id(ev_detail_label), "${car_try_again}");
                     set_button(false, "${charge_unavailable}", 0x46505D);
                     ESP_LOGW("homey", "Charger request returned HTTP %d", response->status_code);
                     return;
@@ -763,35 +763,35 @@ script:
                              status.c_str(), power_w);
 
                     if (!connected) {
-                      lv_label_set_text(id(ev_status_label), "${car_disconnected}");
-                      lv_label_set_text(id(ev_detail_label), "${car_connect_vehicle}");
+                      esphome::ui_performance::set_text(id(ev_status_label), "${car_disconnected}");
+                      esphome::ui_performance::set_text(id(ev_detail_label), "${car_connect_vehicle}");
                       set_button(false, "${charge_unavailable}", 0x46505D);
                     } else if (fault) {
-                      lv_label_set_text(id(ev_status_label), "${car_charger_error}");
-                      lv_label_set_text(id(ev_detail_label), "${car_check_homey}");
+                      esphome::ui_performance::set_text(id(ev_status_label), "${car_charger_error}");
+                      esphome::ui_performance::set_text(id(ev_detail_label), "${car_check_homey}");
                       set_button(false, "${charge_unavailable}", 0x7A4545);
                     } else if (charging || power_w > 50.0f) {
-                      lv_label_set_text(id(ev_status_label), "${car_charging}");
-                      lv_label_set_text_fmt(id(ev_detail_label), "${car_charging_format}", power_w / 1000.0f);
+                      esphome::ui_performance::set_text(id(ev_status_label), "${car_charging}");
+                      esphome::ui_performance::set_text_fmt(id(ev_detail_label), "${car_charging_format}", power_w / 1000.0f);
                       // The user's Homey Flow is a toggle. Keep the button
                       // available while charging so a second press invokes
                       // the same Flow and returns the charger to normal mode.
                       set_button(true, "${resume_normal}", 0xB94343);
                     } else if (complete) {
-                      lv_label_set_text(id(ev_status_label), "${car_complete}");
-                      lv_label_set_text(id(ev_detail_label), "${car_complete_detail}");
+                      esphome::ui_performance::set_text(id(ev_status_label), "${car_complete}");
+                      esphome::ui_performance::set_text(id(ev_detail_label), "${car_complete_detail}");
                       set_button(true, "${charge_complete}", 0x2E7D4F);
                     } else {
-                      lv_label_set_text(id(ev_status_label), "${car_ready}");
-                      lv_label_set_text(id(ev_detail_label), "${car_waiting}");
+                      esphome::ui_performance::set_text(id(ev_status_label), "${car_ready}");
+                      esphome::ui_performance::set_text(id(ev_detail_label), "${car_waiting}");
                       set_button(true, "${force_charge}", 0x346DDB);
                     }
                     return true;
                   });
 
                   if (!parsed) {
-                    lv_label_set_text(id(ev_status_label), "${car_unavailable}");
-                    lv_label_set_text(id(ev_detail_label), "${car_try_again}");
+                    esphome::ui_performance::set_text(id(ev_status_label), "${car_unavailable}");
+                    esphome::ui_performance::set_text(id(ev_detail_label), "${car_try_again}");
                     set_button(false, "${charge_unavailable}", 0x46505D);
                     ESP_LOGW("homey", "Could not parse charger capabilities");
                   }
@@ -827,8 +827,8 @@ script:
               - lambda: |-
                   ESP_LOGD("network_performance", "refresh_homey_electricity_now: %u ms", static_cast<unsigned>(response->duration_ms));
                   if (response->status_code != 200) {
-                    lv_label_set_text(id(electricity_now_value_label), "--");
-                    lv_label_set_text(id(electricity_now_unit_label), "");
+                    esphome::ui_performance::set_text(id(electricity_now_value_label), "--");
+                    esphome::ui_performance::set_text(id(electricity_now_unit_label), "");
                     ESP_LOGW("homey", "HomeWizard request returned HTTP %d", response->status_code);
                     return;
                   }
@@ -847,18 +847,18 @@ script:
                     // right/blue is consumption. Export also keeps its minus
                     // sign so the direction remains clear at a glance.
                     if (fabsf(display_power_w) < 999.0f) {
-                      lv_label_set_text_fmt(id(electricity_now_value_label), "%.0f", display_power_w);
-                      lv_label_set_text(id(electricity_now_unit_label), "W");
+                      esphome::ui_performance::set_text_fmt(id(electricity_now_value_label), "%.0f", display_power_w);
+                      esphome::ui_performance::set_text(id(electricity_now_unit_label), "W");
                     } else {
-                      lv_label_set_text_fmt(id(electricity_now_value_label), "%.1f", power_kw);
-                      lv_label_set_text(id(electricity_now_unit_label), "kW");
+                      esphome::ui_performance::set_text_fmt(id(electricity_now_value_label), "%.1f", power_kw);
+                      esphome::ui_performance::set_text(id(electricity_now_unit_label), "kW");
                     }
 
                     const float peak = std::max(1000.0f, id(electricity_peak_w));
                     const int arc_value = std::max(-100, std::min(100,
                       static_cast<int>(roundf((display_power_w / peak) * 100.0f))));
-                    lv_arc_set_value(id(electricity_now_arc), arc_value);
-                    lv_obj_set_style_arc_color(
+                    esphome::ui_performance::set_arc_value(id(electricity_now_arc), arc_value);
+                    esphome::ui_performance::set_style_arc_color(
                       id(electricity_now_arc),
                       lv_color_hex(display_power_w < 0.0f ? 0x48BD70 : 0x3AA7D8),
                       LV_PART_INDICATOR
@@ -867,8 +867,8 @@ script:
                   });
 
                   if (!parsed) {
-                    lv_label_set_text(id(electricity_now_value_label), "--");
-                    lv_label_set_text(id(electricity_now_unit_label), "");
+                    esphome::ui_performance::set_text(id(electricity_now_value_label), "--");
+                    esphome::ui_performance::set_text(id(electricity_now_unit_label), "");
                     ESP_LOGW("homey", "Could not parse HomeWizard power");
                   }
           on_error:
@@ -894,9 +894,9 @@ script:
             then:
               - lambda: |-
                   if (response->status_code != 200) {
-                    lv_label_set_text(id(electricity_today_value_label), "--");
-                    lv_label_set_text_fmt(id(electricity_ytd_label), "${energy_ytd_format}", 0.0);
-                    lv_label_set_text_fmt(id(electricity_peak_label), "${power_peak_format}", 0.0);
+                    esphome::ui_performance::set_text(id(electricity_today_value_label), "--");
+                    esphome::ui_performance::set_text_fmt(id(electricity_ytd_label), "${energy_ytd_format}", 0.0);
+                    esphome::ui_performance::set_text_fmt(id(electricity_peak_label), "${power_peak_format}", 0.0);
                     ESP_LOGW("homey", "Electricity summary request returned HTTP %d", response->status_code);
                     return;
                   }
@@ -913,22 +913,22 @@ script:
                     const float peak_w = std::max(0.0f, peak_value.as<float>());
                     id(electricity_peak_w) = std::max(1000.0f, peak_w);
 
-                    lv_label_set_text_fmt(id(electricity_today_value_label), "%.1f", day_kwh);
-                    lv_label_set_text_fmt(id(electricity_ytd_label), "${energy_ytd_format}", year_kwh);
-                    lv_label_set_text_fmt(id(electricity_peak_label), "${power_peak_format}", peak_w / 1000.0f);
+                    esphome::ui_performance::set_text_fmt(id(electricity_today_value_label), "%.1f", day_kwh);
+                    esphome::ui_performance::set_text_fmt(id(electricity_ytd_label), "${energy_ytd_format}", year_kwh);
+                    esphome::ui_performance::set_text_fmt(id(electricity_peak_label), "${power_peak_format}", peak_w / 1000.0f);
 
                     // A 30 kWh reference keeps the daily ring useful without treating it as a target.
                     const int day_arc_value = std::max(0, std::min(100,
                       static_cast<int>(roundf((day_kwh / 30.0f) * 100.0f))));
-                    lv_arc_set_value(id(electricity_today_arc), day_arc_value);
+                    esphome::ui_performance::set_arc_value(id(electricity_today_arc), day_arc_value);
                     ESP_LOGI("homey", "Electricity: %.3f kWh today, %.3f kWh YTD, %.0f W day peak", day_kwh, year_kwh, peak_w);
                     return true;
                   });
 
                   if (!parsed) {
-                    lv_label_set_text(id(electricity_today_value_label), "--");
-                    lv_label_set_text_fmt(id(electricity_ytd_label), "${energy_ytd_format}", 0.0);
-                    lv_label_set_text_fmt(id(electricity_peak_label), "${power_peak_format}", 0.0);
+                    esphome::ui_performance::set_text(id(electricity_today_value_label), "--");
+                    esphome::ui_performance::set_text_fmt(id(electricity_ytd_label), "${energy_ytd_format}", 0.0);
+                    esphome::ui_performance::set_text_fmt(id(electricity_peak_label), "${power_peak_format}", 0.0);
                     ESP_LOGW("homey", "Could not parse electricity day summary");
                   }
           on_error:
@@ -958,7 +958,7 @@ script:
               - lambda: |-
                   ESP_LOGD("network_performance", "refresh_homey_solar_now: %u ms", static_cast<unsigned>(response->duration_ms));
                   if (response->status_code != 200) {
-                    lv_label_set_text(id(solar_now_value_label), "${solar_unavailable}");
+                    esphome::ui_performance::set_text(id(solar_now_value_label), "${solar_unavailable}");
                     ESP_LOGW("homey", "Solar request returned HTTP %d", response->status_code);
                     return;
                   }
@@ -968,18 +968,18 @@ script:
                     if (power_value.isNull()) return false;
 
                     const float power_w = std::max(0.0f, power_value.as<float>());
-                    lv_label_set_text_fmt(id(solar_now_value_label), "%.1f", power_w / 1000.0f);
+                    esphome::ui_performance::set_text_fmt(id(solar_now_value_label), "%.1f", power_w / 1000.0f);
 
                     // A 5 kW reference makes the ring readable; the numeric value remains exact.
                     const int arc_value = std::max(0, std::min(100,
                       static_cast<int>(roundf((power_w / 5000.0f) * 100.0f))));
-                    lv_arc_set_value(id(solar_now_arc), arc_value);
+                    esphome::ui_performance::set_arc_value(id(solar_now_arc), arc_value);
                     ESP_LOGI("homey", "Solar: %.0f W now", power_w);
                     return true;
                   });
 
                   if (!parsed) {
-                    lv_label_set_text(id(solar_now_value_label), "${solar_unavailable}");
+                    esphome::ui_performance::set_text(id(solar_now_value_label), "${solar_unavailable}");
                     ESP_LOGW("homey", "Could not parse solar power");
                   }
           on_error:
@@ -1002,7 +1002,7 @@ script:
             then:
               - lambda: |-
                   if (response->status_code != 200) {
-                    lv_label_set_text(id(solar_today_label), "${solar_unavailable}");
+                    esphome::ui_performance::set_text(id(solar_today_label), "${solar_unavailable}");
                     ESP_LOGW("homey", "Solar summary request returned HTTP %d", response->status_code);
                     return;
                   }
@@ -1011,13 +1011,13 @@ script:
                     JsonVariant day_value = device["capabilitiesObj"]["meter_kwh_this_day"]["value"];
                     if (day_value.isNull()) return false;
                     const float day_kwh = std::max(0.0f, day_value.as<float>());
-                    lv_label_set_text_fmt(id(solar_today_label), "${solar_today_format}", day_kwh);
+                    esphome::ui_performance::set_text_fmt(id(solar_today_label), "${solar_today_format}", day_kwh);
                     ESP_LOGI("homey", "Solar: %.3f kWh today", day_kwh);
                     return true;
                   });
 
                   if (!parsed) {
-                    lv_label_set_text(id(solar_today_label), "${solar_unavailable}");
+                    esphome::ui_performance::set_text(id(solar_today_label), "${solar_unavailable}");
                     ESP_LOGW("homey", "Could not parse solar day summary");
                   }
           on_error:
@@ -1040,9 +1040,9 @@ script:
             then:
               - lambda: |-
                   if (response->status_code != 200) {
-                    lv_label_set_text(id(gas_today_value_label), "--");
-                    lv_label_set_text(id(gas_month_value_label), "--");
-                    lv_label_set_text(id(gas_year_value_label), "--");
+                    esphome::ui_performance::set_text(id(gas_today_value_label), "--");
+                    esphome::ui_performance::set_text(id(gas_month_value_label), "--");
+                    esphome::ui_performance::set_text(id(gas_year_value_label), "--");
                     ESP_LOGW("homey", "Gas summary request returned HTTP %d", response->status_code);
                     return;
                   }
@@ -1057,25 +1057,25 @@ script:
                     const float today_m3 = std::max(0.0f, today_value.as<float>());
                     const float month_m3 = std::max(0.0f, month_value.as<float>());
                     const float year_m3 = std::max(0.0f, year_value.as<float>());
-                    lv_label_set_text_fmt(id(gas_today_value_label), "%.1f", today_m3);
-                    lv_label_set_text_fmt(id(gas_month_value_label), "%.1f", month_m3);
-                    lv_label_set_text_fmt(id(gas_year_value_label), "%.0f", year_m3);
+                    esphome::ui_performance::set_text_fmt(id(gas_today_value_label), "%.1f", today_m3);
+                    esphome::ui_performance::set_text_fmt(id(gas_month_value_label), "%.1f", month_m3);
+                    esphome::ui_performance::set_text_fmt(id(gas_year_value_label), "%.0f", year_m3);
 
                     // The rings use reference ranges only; their labels always show exact Homey values.
-                    lv_arc_set_value(id(gas_today_arc), std::max(0, std::min(100,
+                    esphome::ui_performance::set_arc_value(id(gas_today_arc), std::max(0, std::min(100,
                       static_cast<int>(roundf((today_m3 / 10.0f) * 100.0f)))));
-                    lv_arc_set_value(id(gas_month_arc), std::max(0, std::min(100,
+                    esphome::ui_performance::set_arc_value(id(gas_month_arc), std::max(0, std::min(100,
                       static_cast<int>(roundf((month_m3 / 250.0f) * 100.0f)))));
-                    lv_arc_set_value(id(gas_year_arc), std::max(0, std::min(100,
+                    esphome::ui_performance::set_arc_value(id(gas_year_arc), std::max(0, std::min(100,
                       static_cast<int>(roundf((year_m3 / 2000.0f) * 100.0f)))));
                     ESP_LOGI("homey", "Gas: %.3f m3 today, %.3f this month, %.3f this year", today_m3, month_m3, year_m3);
                     return true;
                   });
 
                   if (!parsed) {
-                    lv_label_set_text(id(gas_today_value_label), "--");
-                    lv_label_set_text(id(gas_month_value_label), "--");
-                    lv_label_set_text(id(gas_year_value_label), "--");
+                    esphome::ui_performance::set_text(id(gas_today_value_label), "--");
+                    esphome::ui_performance::set_text(id(gas_month_value_label), "--");
+                    esphome::ui_performance::set_text(id(gas_year_value_label), "--");
                     ESP_LOGW("homey", "Could not parse gas summary");
                   }
           on_error:
@@ -1104,8 +1104,8 @@ script:
             then:
               - lambda: |-
                   if (response->status_code != 200) {
-                    lv_label_set_text(id(weather_now_label), "${weather_loading}");
-                    lv_label_set_text(id(weather_tomorrow_label), "${weather_tomorrow_loading}");
+                    esphome::ui_performance::set_text(id(weather_now_label), "${weather_loading}");
+                    esphome::ui_performance::set_text(id(weather_tomorrow_label), "${weather_tomorrow_loading}");
                     ESP_LOGW("homey", "Weather request returned HTTP %d", response->status_code);
                     return;
                   }
@@ -1139,13 +1139,13 @@ script:
                     else if (current_cloud) condition = "${weather_cloudy}";
                     else if (current_icon.find("clear") != std::string::npos) condition = "${weather_clear}";
 
-                    lv_label_set_text_fmt(
+                    esphome::ui_performance::set_text_fmt(
                       id(weather_now_label),
                       "${weather_now_format}",
                       temperature_value.as<float>(),
                       condition
                     );
-                    lv_label_set_text_fmt(
+                    esphome::ui_performance::set_text_fmt(
                       id(weather_tomorrow_label),
                       "${weather_tomorrow_format}",
                       minimum_value.as<float>(),
@@ -1163,7 +1163,7 @@ script:
                       lv_obj_add_flag(id(weather_cloud_icon), LV_OBJ_FLAG_HIDDEN);
                       lv_obj_add_flag(id(weather_cloud_bump), LV_OBJ_FLAG_HIDDEN);
                     }
-                    lv_obj_set_style_bg_color(id(weather_sun_icon),
+                    esphome::ui_performance::set_style_bg_color(id(weather_sun_icon),
                       lv_color_hex(current_night ? 0xCBD5CE : 0xF1C75B), LV_PART_MAIN);
                     lv_obj_t *drops[3] = {
                       id(weather_rain_drop_1), id(weather_rain_drop_2), id(weather_rain_drop_3)
@@ -1181,8 +1181,8 @@ script:
                   });
 
                   if (!parsed) {
-                    lv_label_set_text(id(weather_now_label), "${weather_loading}");
-                    lv_label_set_text(id(weather_tomorrow_label), "${weather_tomorrow_loading}");
+                    esphome::ui_performance::set_text(id(weather_now_label), "${weather_loading}");
+                    esphome::ui_performance::set_text(id(weather_tomorrow_label), "${weather_tomorrow_loading}");
                     ESP_LOGW("homey", "Could not parse Homey weather");
                   }
           on_error:

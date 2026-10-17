@@ -110,18 +110,23 @@ script:
                 on_response:
                   then:
                     - lambda: |-
-                        lv_label_set_text(id(climate_sensor_1_value), "-- °C");
-                        if (response->status_code != 200) return;
-                        json::parse_json(body, [](JsonObject device) -> bool {
+                        if (response->status_code != 200) {
+                          esphome::ui_performance::set_text(id(climate_sensor_1_value), "-- °C");
+                          return;
+                        }
+                        const bool parsed = json::parse_json(body, [](JsonObject device) -> bool {
                           if (device["available"].is<bool>() && !device["available"].as<bool>()) return false;
                           auto value = device["capabilitiesObj"]["measure_temperature"]["value"];
                           if (!value.is<float>()) return false;
                           const float temperature = value.as<float>();
                           // Reject missing or corrupt indoor readings instead of displaying zero.
                           if (!std::isfinite(temperature) || temperature < -20 || temperature > 60) return false;
-                          lv_label_set_text_fmt(id(climate_sensor_1_value), "%.1f °C", temperature);
+                          esphome::ui_performance::set_text_fmt(id(climate_sensor_1_value), "%.1f °C", temperature);
                           return true;
                         });
+                        if (!parsed) {
+                          esphome::ui_performance::set_text(id(climate_sensor_1_value), "-- °C");
+                        }
                 on_error:
                   then:
                     - lvgl.label.update:
@@ -144,18 +149,23 @@ script:
                 on_response:
                   then:
                     - lambda: |-
-                        lv_label_set_text(id(climate_sensor_2_value), "-- °C");
-                        if (response->status_code != 200) return;
-                        json::parse_json(body, [](JsonObject device) -> bool {
+                        if (response->status_code != 200) {
+                          esphome::ui_performance::set_text(id(climate_sensor_2_value), "-- °C");
+                          return;
+                        }
+                        const bool parsed = json::parse_json(body, [](JsonObject device) -> bool {
                           if (device["available"].is<bool>() && !device["available"].as<bool>()) return false;
                           auto value = device["capabilitiesObj"]["measure_temperature"]["value"];
                           if (!value.is<float>()) return false;
                           const float temperature = value.as<float>();
                           // Reject missing or corrupt indoor readings instead of displaying zero.
                           if (!std::isfinite(temperature) || temperature < -20 || temperature > 60) return false;
-                          lv_label_set_text_fmt(id(climate_sensor_2_value), "%.1f °C", temperature);
+                          esphome::ui_performance::set_text_fmt(id(climate_sensor_2_value), "%.1f °C", temperature);
                           return true;
                         });
+                        if (!parsed) {
+                          esphome::ui_performance::set_text(id(climate_sensor_2_value), "-- °C");
+                        }
                 on_error:
                   then:
                     - lvgl.label.update:
@@ -178,18 +188,23 @@ script:
                 on_response:
                   then:
                     - lambda: |-
-                        lv_label_set_text(id(climate_sensor_3_value), "-- °C");
-                        if (response->status_code != 200) return;
-                        json::parse_json(body, [](JsonObject device) -> bool {
+                        if (response->status_code != 200) {
+                          esphome::ui_performance::set_text(id(climate_sensor_3_value), "-- °C");
+                          return;
+                        }
+                        const bool parsed = json::parse_json(body, [](JsonObject device) -> bool {
                           if (device["available"].is<bool>() && !device["available"].as<bool>()) return false;
                           auto value = device["capabilitiesObj"]["measure_temperature"]["value"];
                           if (!value.is<float>()) return false;
                           const float temperature = value.as<float>();
                           // Reject missing or corrupt indoor readings instead of displaying zero.
                           if (!std::isfinite(temperature) || temperature < -20 || temperature > 60) return false;
-                          lv_label_set_text_fmt(id(climate_sensor_3_value), "%.1f °C", temperature);
+                          esphome::ui_performance::set_text_fmt(id(climate_sensor_3_value), "%.1f °C", temperature);
                           return true;
                         });
+                        if (!parsed) {
+                          esphome::ui_performance::set_text(id(climate_sensor_3_value), "-- °C");
+                        }
                 on_error:
                   then:
                     - lvgl.label.update:
@@ -212,18 +227,23 @@ script:
                 on_response:
                   then:
                     - lambda: |-
-                        lv_label_set_text(id(climate_sensor_4_value), "-- °C");
-                        if (response->status_code != 200) return;
-                        json::parse_json(body, [](JsonObject device) -> bool {
+                        if (response->status_code != 200) {
+                          esphome::ui_performance::set_text(id(climate_sensor_4_value), "-- °C");
+                          return;
+                        }
+                        const bool parsed = json::parse_json(body, [](JsonObject device) -> bool {
                           if (device["available"].is<bool>() && !device["available"].as<bool>()) return false;
                           auto value = device["capabilitiesObj"]["measure_temperature"]["value"];
                           if (!value.is<float>()) return false;
                           const float temperature = value.as<float>();
                           // Reject missing or corrupt indoor readings instead of displaying zero.
                           if (!std::isfinite(temperature) || temperature < -20 || temperature > 60) return false;
-                          lv_label_set_text_fmt(id(climate_sensor_4_value), "%.1f °C", temperature);
+                          esphome::ui_performance::set_text_fmt(id(climate_sensor_4_value), "%.1f °C", temperature);
                           return true;
                         });
+                        if (!parsed) {
+                          esphome::ui_performance::set_text(id(climate_sensor_4_value), "-- °C");
+                        }
                 on_error:
                   then:
                     - lvgl.label.update:
@@ -246,18 +266,23 @@ script:
                 on_response:
                   then:
                     - lambda: |-
-                        lv_label_set_text(id(climate_sensor_5_value), "-- °C");
-                        if (response->status_code != 200) return;
-                        json::parse_json(body, [](JsonObject device) -> bool {
+                        if (response->status_code != 200) {
+                          esphome::ui_performance::set_text(id(climate_sensor_5_value), "-- °C");
+                          return;
+                        }
+                        const bool parsed = json::parse_json(body, [](JsonObject device) -> bool {
                           if (device["available"].is<bool>() && !device["available"].as<bool>()) return false;
                           auto value = device["capabilitiesObj"]["measure_temperature"]["value"];
                           if (!value.is<float>()) return false;
                           const float temperature = value.as<float>();
                           // Reject missing or corrupt indoor readings instead of displaying zero.
                           if (!std::isfinite(temperature) || temperature < -20 || temperature > 60) return false;
-                          lv_label_set_text_fmt(id(climate_sensor_5_value), "%.1f °C", temperature);
+                          esphome::ui_performance::set_text_fmt(id(climate_sensor_5_value), "%.1f °C", temperature);
                           return true;
                         });
+                        if (!parsed) {
+                          esphome::ui_performance::set_text(id(climate_sensor_5_value), "-- °C");
+                        }
                 on_error:
                   then:
                     - lvgl.label.update:
@@ -280,18 +305,23 @@ script:
                 on_response:
                   then:
                     - lambda: |-
-                        lv_label_set_text(id(climate_sensor_6_value), "-- °C");
-                        if (response->status_code != 200) return;
-                        json::parse_json(body, [](JsonObject device) -> bool {
+                        if (response->status_code != 200) {
+                          esphome::ui_performance::set_text(id(climate_sensor_6_value), "-- °C");
+                          return;
+                        }
+                        const bool parsed = json::parse_json(body, [](JsonObject device) -> bool {
                           if (device["available"].is<bool>() && !device["available"].as<bool>()) return false;
                           auto value = device["capabilitiesObj"]["measure_temperature"]["value"];
                           if (!value.is<float>()) return false;
                           const float temperature = value.as<float>();
                           // Reject missing or corrupt indoor readings instead of displaying zero.
                           if (!std::isfinite(temperature) || temperature < -20 || temperature > 60) return false;
-                          lv_label_set_text_fmt(id(climate_sensor_6_value), "%.1f °C", temperature);
+                          esphome::ui_performance::set_text_fmt(id(climate_sensor_6_value), "%.1f °C", temperature);
                           return true;
                         });
+                        if (!parsed) {
+                          esphome::ui_performance::set_text(id(climate_sensor_6_value), "-- °C");
+                        }
                 on_error:
                   then:
                     - lvgl.label.update:

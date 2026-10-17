@@ -106,6 +106,9 @@ esp32:
       # with PSRAM-backed TLS. Software AES runs on the low-priority worker and
       # avoids those DMA staging allocations without changing TLS verification.
       CONFIG_MBEDTLS_HARDWARE_AES: n
+      # Optimize for execution speed (-O2) instead of binary size (-Os).
+      CONFIG_COMPILER_OPTIMIZATION_PERF: y
+      CONFIG_COMPILER_OPTIMIZATION_SIZE: n
 
 psram:
   mode: octal

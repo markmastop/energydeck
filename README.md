@@ -208,8 +208,10 @@ Keep this backup separate from the 5-inch unit's backup. Neither image is
 committed to Git.
 
 Use the same local environment variables as the 5-inch build to compile this
-target with `esphome compile esphome/energydeck-crowpanel-7.yaml`. Compilation
-does not upload firmware. Keep the 5-inch `flash.sh` target unchanged.
+target with `esphome compile esphome/energydeck-crowpanel-7.yaml`. Upload to the
+connected 7-inch display with `./flash.sh 7` (or specify the port, e.g.
+`./flash.sh /dev/cu.wchusbserial110 7`). By default, `./flash.sh` continues to
+target the 5-inch model.
 
 Both physical targets use the shared [display responsiveness optimizations
 and diagnostics](docs/PERFORMANCE.md). On the 7-inch deck, measured full-screen

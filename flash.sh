@@ -4,7 +4,6 @@ set -euo pipefail
 
 project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 esphome_bin="$project_dir/.venv/bin/esphome"
-config_file="$project_dir/esphome/energydeck-crowpanel.yaml"
 if [[ -f "$project_dir/.env" ]]; then
   while IFS='=' read -r key value; do
     case "$key" in
@@ -19,6 +18,15 @@ if [[ -f "$project_dir/.env" ]]; then
 fi
 
 serial_port="${1:-${ENERGYDECK_SERIAL_PORT:-/dev/cu.wchusbserial110}}"
+config_file="${ENERGYDECK_CONFIG:-$project_dir/esphome/energydeck-crowpanel.yaml}"
+if [[ "$serial_port" == "7" ]]; then
+  serial_port="${ENERGYDECK_SERIAL_PORT:-/dev/cu.wchusbserial110}"
+  config_file="$project_dir/esphome/energydeck-crowpanel-7.yaml"
+elif [[ "${2:-}" == "7" || "${2:-}" =~ crowpanel-7 ]]; then
+  config_file="$project_dir/esphome/energydeck-crowpanel-7.yaml"
+elif [[ -n "${2:-}" && -f "${2:-}" ]]; then
+  config_file="$2"
+fi
 
 export ENERGYDECK_ENERGY_TAX_EX_VAT_CT="${ENERGYDECK_ENERGY_TAX_EX_VAT_CT:-9.161}"
 export ENERGYDECK_VAT_PERCENT="${ENERGYDECK_VAT_PERCENT:-21.0}"
@@ -56,6 +64,6 @@ if [[ ! -e "$serial_port" ]]; then
   exit 1
 fi
 
-echo "Building and uploading EnergyDeck through $serial_port"
+echo "Building and uploading $(basename "$config_file" .yaml) through $serial_port"
 cd "$project_dir"
 exec "$esphome_bin" run "$config_file" --device "$serial_port"

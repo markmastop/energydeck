@@ -8,7 +8,8 @@ esphome:
       then:
         # CrowPanel Advance V1.2/V1.3: 0 is maximum brightness, 245 is off.
         - lambda: |-
-            const uint8_t brightness = 48;
+            const uint8_t brightness = ${backlight_day_brightness};
+            id(current_backlight_brightness) = brightness;
             id(backlight_controller).write(&brightness, 1);
     - priority: -100
       then:
@@ -74,6 +75,11 @@ substitutions:
   climate_sensor_6_name: !env_var HOMEY_CLIMATE_SENSOR_6_NAME Werk Mark
   sonos_bootstrap_address: !env_var SONOS_BOOTSTRAP_ADDRESS http://192.168.0.190:1400
   sonos_bootstrap_fallback_address: !env_var SONOS_BOOTSTRAP_FALLBACK_ADDRESS http://192.168.0.191:1400
+  backlight_day_brightness: !env_var ENERGYDECK_BACKLIGHT_DAY_BRIGHTNESS 48
+  backlight_night_brightness: !env_var ENERGYDECK_BACKLIGHT_NIGHT_BRIGHTNESS 160
+  backlight_night_start_hour: !env_var ENERGYDECK_BACKLIGHT_NIGHT_START_HOUR 23
+  backlight_night_end_hour: !env_var ENERGYDECK_BACKLIGHT_NIGHT_END_HOUR 7
+  backlight_wake_duration_s: !env_var ENERGYDECK_BACKLIGHT_WAKE_DURATION_S 30
 
 esp32:
   board: esp32-s3-devkitc-1
@@ -148,6 +154,7 @@ time:
         # The first Homey response can arrive before SNTP knows the local
         # time, which would otherwise select the 00:00 price interval.
         - script.execute: refresh_homey_prices
+        - script.execute: update_display_backlight
 
 display:
   # The ST7262 panel is driven directly over its 16-bit RGB interface.
@@ -183,6 +190,65 @@ touchscreen:
     display: energydeck_display
     # Track drags at 50 Hz; the default 50 ms polling visibly steps room scrolling.
     update_interval: 20ms
+    on_touch:
+      - lambda: |-
+          id(last_screen_touch_ms) = millis();
+          if (id(current_backlight_brightness) != ${backlight_day_brightness}) {
+            id(update_display_backlight).execute();
+          }
+
+globals:
+  - id: last_screen_touch_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: "0"
+  - id: current_backlight_brightness
+    type: uint8_t
+    restore_value: no
+    initial_value: "255"
+
+interval:
+  - interval: 5s
+    then:
+      - script.execute: update_display_backlight
+
+script:
+  - id: set_display_brightness
+    parameters:
+      target: int
+    mode: restart
+    then:
+      - lambda: |-
+          const uint8_t b = static_cast<uint8_t>(std::clamp(target, 0, 245));
+          if (b != id(current_backlight_brightness)) {
+            id(current_backlight_brightness) = b;
+            id(backlight_controller).write(&b, 1);
+            ESP_LOGD("backlight", "Backlight set to %u (day=${backlight_day_brightness}, night=${backlight_night_brightness})", b);
+          }
+
+  - id: update_display_backlight
+    mode: restart
+    then:
+      - lambda: |-
+          const bool time_valid = id(energydeck_time).now().is_valid();
+          const int hour = time_valid ? id(energydeck_time).now().hour : 12;
+          const int night_start = ${backlight_night_start_hour};
+          const int night_end = ${backlight_night_end_hour};
+          const bool is_night = (night_start > night_end)
+            ? (hour >= night_start || hour < night_end)
+            : (hour >= night_start && hour < night_end);
+
+          int target = ${backlight_day_brightness};
+          if (is_night) {
+            const uint32_t now = millis();
+            const uint32_t elapsed = (now >= id(last_screen_touch_ms)) ? (now - id(last_screen_touch_ms)) : 0;
+            if (elapsed < (${backlight_wake_duration_s} * 1000ULL)) {
+              target = ${backlight_day_brightness};
+            } else {
+              target = ${backlight_night_brightness};
+            }
+          }
+          id(set_display_brightness).execute(target);
 
 packages:
   climate: !include packages/climate.yaml

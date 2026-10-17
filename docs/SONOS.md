@@ -309,7 +309,7 @@ on the associated music service and the speaker's local API support.
 
 ## Network and artwork
 
-The default bootstrap addresses (configurable via `SONOS_LIVING_ADDRESS` and `SONOS_KITCHEN_ADDRESS` in `.env`) are:
+The default bootstrap addresses (configurable via `SONOS_BOOTSTRAP_ADDRESS` and `SONOS_BOOTSTRAP_FALLBACK_ADDRESS` in `.env`) are:
 
 - Woonkamer: `http://192.168.1.50:1400`
 - Keuken: `http://192.168.1.51:1400`

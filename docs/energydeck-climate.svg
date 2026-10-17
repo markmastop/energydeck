@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="800" viewBox="0 0 480 800" role="img" aria-label="EnergyDeck Climate Sensors">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0b100d"/>
+      <stop offset="100%" stop-color="#070a08"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Frame / Bezel -->
+  <rect width="480" height="800" rx="20" fill="url(#bg)"/>
+  <rect x="8" y="8" width="464" height="784" rx="14" fill="#0f1712"/>
+
+  <!-- Main font & styles -->
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" fill="#eef6f0">
+    
+    <!-- Top Energy Header (Shared live header) -->
+    <text x="22" y="32" font-size="13" font-weight="600" fill="#a9b8ae">16:42  EnergyDeck</text>
+    <circle cx="366" cy="28" r="4.5" fill="#45bd70"/>
+    <text x="376" y="32" font-size="12" font-weight="500" fill="#45bd70">Homey online</text>
+    
+    <text x="22" y="52" font-size="10" font-weight="700" letter-spacing="0.5" fill="#e8b94c">ZONNEPLAN DYNAMISCH</text>
+    <text x="22" y="66" font-size="11" font-weight="500" fill="#93a097">Stroom nu · 16:30–16:45</text>
+    <text x="20" y="116" font-size="46" font-weight="800" fill="#eef6f0">22,4</text>
+    <text x="122" y="112" font-size="14" font-weight="700" fill="#a8b5ab">ct/kWh</text>
+
+    <!-- Top Right Solar summary -->
+    <circle cx="355" cy="88" r="38" fill="none" stroke="#202c24" stroke-width="7"/>
+    <circle cx="355" cy="88" r="38" fill="none" stroke="#e8b94c" stroke-width="7" stroke-linecap="round" stroke-dasharray="160 240" transform="rotate(-90 355 88)"/>
+    <text x="355" y="86" font-size="16" font-weight="800" text-anchor="middle" fill="#eef6f0">1,8</text>
+    <text x="355" y="101" font-size="10" font-weight="700" text-anchor="middle" fill="#e8b94c">kW zon</text>
+    <text x="404" y="80" font-size="11" font-weight="700" fill="#eef6f0">Netto</text>
+    <text x="404" y="96" font-size="12" font-weight="700" fill="#7fe0a2">-940 W</text>
+
+    <!-- Climate Header -->
+    <text x="22" y="172" font-size="20" font-weight="800" fill="#eef6f0">Temperatuur &amp; Klimaat</text>
+    <text x="22" y="196" font-size="12" font-weight="500" fill="#93a097">Draadloze Homey klimaatsensoren per kamer</text>
+
+    <!-- 6 Room Climate Cards in 2 columns -->
+    <!-- Room 1: Woonkamer (Col 1, Row 1) -->
+    <rect x="14" y="216" width="220" height="136" rx="12" fill="#172019" stroke="#29352d" stroke-width="1"/>
+    <text x="30" y="244" font-size="15" font-weight="700" fill="#eef6f0">Woonkamer</text>
+    <text x="30" y="292" font-size="34" font-weight="800" fill="#7fe0a2">20,4°</text>
+    <rect x="30" y="310" width="76" height="22" rx="4" fill="#202c24"/>
+    <text x="68" y="325" font-size="11" font-weight="600" text-anchor="middle" fill="#45bd70">Behaaglijk</text>
+
+    <!-- Room 2: Aanbouw (Col 2, Row 1) -->
+    <rect x="246" y="216" width="220" height="136" rx="12" fill="#172019" stroke="#29352d" stroke-width="1"/>
+    <text x="262" y="244" font-size="15" font-weight="700" fill="#eef6f0">Aanbouw</text>
+    <text x="262" y="292" font-size="34" font-weight="800" fill="#7fe0a2">19,8°</text>
+    <rect x="262" y="310" width="76" height="22" rx="4" fill="#202c24"/>
+    <text x="300" y="325" font-size="11" font-weight="600" text-anchor="middle" fill="#45bd70">Normaal</text>
+
+    <!-- Room 3: Bedroom 1 (Col 1, Row 2) -->
+    <rect x="14" y="364" width="220" height="136" rx="12" fill="#172019" stroke="#29352d" stroke-width="1"/>
+    <text x="30" y="392" font-size="15" font-weight="700" fill="#eef6f0">Bedroom 1</text>
+    <text x="30" y="440" font-size="34" font-weight="800" fill="#7fe0a2">19,1°</text>
+    <rect x="30" y="458" width="76" height="22" rx="4" fill="#202c24"/>
+    <text x="68" y="473" font-size="11" font-weight="600" text-anchor="middle" fill="#45bd70">Slapen</text>
+
+    <!-- Room 4: Bedroom 2 (Col 2, Row 2) -->
+    <rect x="246" y="364" width="220" height="136" rx="12" fill="#172019" stroke="#29352d" stroke-width="1"/>
+    <text x="262" y="392" font-size="15" font-weight="700" fill="#eef6f0">Bedroom 2</text>
+    <text x="262" y="440" font-size="34" font-weight="800" fill="#7fe0a2">19,5°</text>
+    <rect x="262" y="458" width="76" height="22" rx="4" fill="#202c24"/>
+    <text x="300" y="473" font-size="11" font-weight="600" text-anchor="middle" fill="#45bd70">Slapen</text>
+
+    <!-- Room 5: Werkkamer 1 (Col 1, Row 3) -->
+    <rect x="14" y="512" width="220" height="136" rx="12" fill="#172019" stroke="#29352d" stroke-width="1"/>
+    <text x="30" y="540" font-size="15" font-weight="700" fill="#eef6f0">Office 1</text>
+    <text x="30" y="588" font-size="34" font-weight="800" fill="#7fe0a2">21,0°</text>
+    <rect x="30" y="606" width="76" height="22" rx="4" fill="#202c24"/>
+    <text x="68" y="621" font-size="11" font-weight="600" text-anchor="middle" fill="#45bd70">Werkplek</text>
+
+    <!-- Room 6: Werkkamer 2 (Col 2, Row 3) -->
+    <rect x="246" y="512" width="220" height="136" rx="12" fill="#172019" stroke="#29352d" stroke-width="1"/>
+    <text x="262" y="540" font-size="15" font-weight="700" fill="#eef6f0">Office 2</text>
+    <text x="262" y="588" font-size="34" font-weight="800" fill="#7fe0a2">20,8°</text>
+    <rect x="262" y="606" width="76" height="22" rx="4" fill="#202c24"/>
+    <text x="300" y="621" font-size="11" font-weight="600" text-anchor="middle" fill="#45bd70">Werkplek</text>
+
+    <!-- Footer Weather bar -->
+    <rect x="14" y="660" width="452" height="112" rx="12" fill="#172019" stroke="#29352d" stroke-width="1"/>
+    <text x="30" y="688" font-size="13" font-weight="700" fill="#eef6f0">Verwachting komende 3 uur</text>
+    <text x="452" y="688" font-size="12" font-weight="600" text-anchor="end" fill="#7fe0a2">15,3 °C · Helder</text>
+    
+    <text x="30" y="718" font-size="12" fill="#a9b8ae">Regenradar (Buienradar):</text>
+    <text x="30" y="738" font-size="11" font-weight="600" fill="#45bd70">Geen regen verwacht komende 2 uur (0,0 mm/u)</text>
+    <text x="30" y="756" font-size="10" fill="#93a097">Vannacht 7,2 °C · Morgen max 13,0 °C</text>
+
+  </g>
+</svg>

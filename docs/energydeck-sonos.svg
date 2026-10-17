@@ -1,0 +1,164 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="800" viewBox="0 0 480 800" role="img" aria-label="EnergyDeck Sonos Player">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0b100d"/>
+      <stop offset="100%" stop-color="#070a08"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Frame / Bezel -->
+  <rect width="480" height="800" rx="20" fill="url(#bg)"/>
+  <rect x="8" y="8" width="464" height="784" rx="14" fill="#0f1712"/>
+
+  <!-- Main font & styles -->
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" fill="#eef6f0">
+    
+    <!-- Top Energy Header (Shared live header) -->
+    <text x="22" y="32" font-size="13" font-weight="600" fill="#a9b8ae">16:42  EnergyDeck</text>
+    <circle cx="366" cy="28" r="4.5" fill="#45bd70"/>
+    <text x="376" y="32" font-size="12" font-weight="500" fill="#45bd70">Homey online</text>
+    
+    <text x="22" y="52" font-size="10" font-weight="700" letter-spacing="0.5" fill="#e8b94c">ZONNEPLAN DYNAMISCH</text>
+    <text x="22" y="66" font-size="11" font-weight="500" fill="#93a097">Stroom nu · 16:30–16:45</text>
+    <text x="20" y="116" font-size="46" font-weight="800" fill="#eef6f0">22,4</text>
+    <text x="122" y="112" font-size="14" font-weight="700" fill="#a8b5ab">ct/kWh</text>
+
+    <!-- Top Right Solar summary -->
+    <circle cx="355" cy="88" r="38" fill="none" stroke="#202c24" stroke-width="7"/>
+    <circle cx="355" cy="88" r="38" fill="none" stroke="#e8b94c" stroke-width="7" stroke-linecap="round" stroke-dasharray="160 240" transform="rotate(-90 355 88)"/>
+    <text x="355" y="86" font-size="16" font-weight="800" text-anchor="middle" fill="#eef6f0">1,8</text>
+    <text x="355" y="101" font-size="10" font-weight="700" text-anchor="middle" fill="#e8b94c">kW zon</text>
+    <text x="404" y="80" font-size="11" font-weight="700" fill="#eef6f0">Netto</text>
+    <text x="404" y="96" font-size="12" font-weight="700" fill="#7fe0a2">-940 W</text>
+
+    <!-- Back Button (y: 154, w: 44, h: 44) -->
+    <rect x="14" y="154" width="44" height="44" rx="8" fill="#18231e" stroke="#34463c" stroke-width="1"/>
+    <!-- Left arrow -->
+    <path d="M 38 176 L 26 176 M 32 170 L 26 176 L 32 182" stroke="#eef6f0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+
+    <!-- Title & Room Selector -->
+    <text x="68" y="172" font-size="20" font-weight="800" fill="#eef6f0">Sonos</text>
+    <rect x="68" y="183" width="398" height="26" rx="6" fill="#18231e" stroke="#34463c" stroke-width="1"/>
+    <text x="80" y="200" font-size="12" font-weight="600" fill="#7fe0a2">🔊 Keuken + Woonkamer (Groep)</text>
+    <text x="450" y="200" font-size="10" text-anchor="end" fill="#93a097">▾</text>
+
+    <!-- Full 272x272 Cover Frame (y: 216 to 488) -->
+    <rect x="14" y="216" width="272" height="272" rx="10" fill="#e3001b"/>
+    <text x="150" y="375" font-size="76" font-weight="900" text-anchor="middle" fill="#ffffff" letter-spacing="3">JOE</text>
+    <text x="150" y="420" font-size="16" font-weight="800" text-anchor="middle" fill="#ffffff" letter-spacing="2">NEDERLAND</text>
+
+    <!-- Transport Controls on Right of Cover (x: 310 to 466) -->
+    <!-- Play/Pause Big Button (x: 356, y: 220, 64x64) -->
+    <circle cx="388" cy="252" r="32" fill="#24583b" stroke="#45bd70" stroke-width="1.5"/>
+    <text x="388" y="260" font-size="24" font-weight="700" text-anchor="middle" fill="#eef6f0">⏸</text>
+
+    <!-- Previous Button (x: 310, y: 294, 64x48) -->
+    <rect x="310" y="294" width="64" height="48" rx="8" fill="#18231e" stroke="#34463c" stroke-width="1"/>
+    <text x="342" y="324" font-size="18" font-weight="700" text-anchor="middle" fill="#eef6f0">⏮</text>
+
+    <!-- Next Button (x: 402, y: 294, 64x48) -->
+    <rect x="402" y="294" width="64" height="48" rx="8" fill="#18231e" stroke="#34463c" stroke-width="1"/>
+    <text x="434" y="324" font-size="18" font-weight="700" text-anchor="middle" fill="#eef6f0">⏭</text>
+
+    <!-- Volume Label (y: 350, h: 42) -->
+    <text x="388" y="374" font-size="13" font-weight="600" text-anchor="middle" fill="#a9b8ae">Volume 24%</text>
+
+    <!-- Minus Button (x: 310, y: 398, 64x44) -->
+    <rect x="310" y="398" width="64" height="44" rx="8" fill="#18231e" stroke="#34463c" stroke-width="1"/>
+    <text x="342" y="427" font-size="22" font-weight="700" text-anchor="middle" fill="#eef6f0">-</text>
+
+    <!-- Plus Button (x: 402, y: 398, 64x44) -->
+    <rect x="402" y="398" width="64" height="44" rx="8" fill="#18231e" stroke="#34463c" stroke-width="1"/>
+    <text x="434" y="427" font-size="22" font-weight="700" text-anchor="middle" fill="#eef6f0">+</text>
+
+    <!-- Mute Button (x: 310, y: 448, 156x40) -->
+    <rect x="310" y="448" width="156" height="40" rx="8" fill="#18231e" stroke="#34463c" stroke-width="1"/>
+    <text x="388" y="473" font-size="13" font-weight="600" text-anchor="middle" fill="#eef6f0">Dempen</text>
+
+    <!-- Track & Artist Metadata (y: 494 to 546) -->
+    <text x="14" y="515" font-size="19" font-weight="800" fill="#eef6f0">Joe Nederland</text>
+    <text x="14" y="540" font-size="14" font-weight="500" fill="#a9b8ae">Sing Along Songs · Goed Gevoel</text>
+    <text x="466" y="540" font-size="12" font-weight="700" text-anchor="end" fill="#7fe0a2">Speelt af</text>
+
+    <!-- Content Tabs (y: 550, h: 30) -->
+    <rect x="14" y="550" width="144" height="30" rx="6" fill="#24583b" stroke="#45bd70" stroke-width="1.5"/>
+    <text x="86" y="570" font-size="13" font-weight="700" text-anchor="middle" fill="#eef6f0">Favorieten</text>
+
+    <rect x="166" y="550" width="144" height="30" rx="6" fill="#18231e" stroke="#34463c" stroke-width="1"/>
+    <text x="238" y="570" font-size="13" font-weight="600" text-anchor="middle" fill="#a9b8ae">Systemen</text>
+
+    <!-- 4 Rows of Favorites (y: 586 to 786, height 200 - PERFECT NO SCROLLBAR) -->
+    <!-- Row 0: y=586 -->
+    <g>
+      <rect x="14" y="586" width="146" height="44" rx="6" fill="#18231e" stroke="#45bd70" stroke-width="1.5"/>
+      <rect x="20" y="592" width="32" height="32" rx="4" fill="#244434"/>
+      <text x="36" y="613" font-size="13" text-anchor="middle" fill="#7fe0a2">📻</text>
+      <text x="58" y="613" font-size="12" font-weight="700" fill="#7fe0a2">Joe</text>
+
+      <rect x="164" y="586" width="146" height="44" rx="6" fill="#18231e" stroke="#34463c" stroke-width="1"/>
+      <rect x="170" y="592" width="32" height="32" rx="4" fill="#244434"/>
+      <text x="186" y="613" font-size="13" text-anchor="middle" fill="#7fe0a2">📻</text>
+      <text x="208" y="613" font-size="12" font-weight="600" fill="#eef6f0">Qmusic</text>
+
+      <rect x="314" y="586" width="146" height="44" rx="6" fill="#18231e" stroke="#34463c" stroke-width="1"/>
+      <rect x="320" y="592" width="32" height="32" rx="4" fill="#244434"/>
+      <text x="336" y="613" font-size="13" text-anchor="middle" fill="#7fe0a2">📻</text>
+      <text x="358" y="613" font-size="12" font-weight="600" fill="#eef6f0">Sky Radio</text>
+    </g>
+
+    <!-- Row 1: y=634 -->
+    <g>
+      <rect x="14" y="634" width="146" height="44" rx="6" fill="#18231e" stroke="#34463c" stroke-width="1"/>
+      <rect x="20" y="640" width="32" height="32" rx="4" fill="#244434"/>
+      <text x="36" y="661" font-size="13" text-anchor="middle" fill="#7fe0a2">📻</text>
+      <text x="58" y="661" font-size="12" font-weight="600" fill="#eef6f0">Radio 538</text>
+
+      <rect x="164" y="634" width="146" height="44" rx="6" fill="#18231e" stroke="#34463c" stroke-width="1"/>
+      <rect x="170" y="640" width="32" height="32" rx="4" fill="#244434"/>
+      <text x="186" y="661" font-size="13" text-anchor="middle" fill="#7fe0a2">📻</text>
+      <text x="208" y="661" font-size="12" font-weight="600" fill="#eef6f0">NPO Radio 2</text>
+
+      <rect x="314" y="634" width="146" height="44" rx="6" fill="#18231e" stroke="#34463c" stroke-width="1"/>
+      <rect x="320" y="640" width="32" height="32" rx="4" fill="#244434"/>
+      <text x="336" y="661" font-size="13" text-anchor="middle" fill="#7fe0a2">📻</text>
+      <text x="358" y="661" font-size="12" font-weight="600" fill="#eef6f0">RADIONL</text>
+    </g>
+
+    <!-- Row 2: y=682 -->
+    <g>
+      <rect x="14" y="682" width="146" height="44" rx="6" fill="#18231e" stroke="#34463c" stroke-width="1"/>
+      <rect x="20" y="688" width="32" height="32" rx="4" fill="#244434"/>
+      <text x="36" y="709" font-size="13" text-anchor="middle" fill="#7fe0a2">📻</text>
+      <text x="58" y="709" font-size="12" font-weight="600" fill="#eef6f0">Radio 10</text>
+
+      <rect x="164" y="682" width="146" height="44" rx="6" fill="#18231e" stroke="#34463c" stroke-width="1"/>
+      <rect x="170" y="688" width="32" height="32" rx="4" fill="#244434"/>
+      <text x="186" y="709" font-size="13" text-anchor="middle" fill="#7fe0a2">📻</text>
+      <text x="208" y="709" font-size="12" font-weight="600" fill="#eef6f0">Sublime</text>
+
+      <rect x="314" y="682" width="146" height="44" rx="6" fill="#18231e" stroke="#34463c" stroke-width="1"/>
+      <rect x="320" y="688" width="32" height="32" rx="4" fill="#244434"/>
+      <text x="336" y="709" font-size="13" text-anchor="middle" fill="#7fe0a2">📻</text>
+      <text x="358" y="709" font-size="12" font-weight="600" fill="#eef6f0">100% NL</text>
+    </g>
+
+    <!-- Row 3: y=730 -->
+    <g>
+      <rect x="14" y="730" width="146" height="44" rx="6" fill="#18231e" stroke="#34463c" stroke-width="1"/>
+      <rect x="20" y="736" width="32" height="32" rx="4" fill="#244434"/>
+      <text x="36" y="757" font-size="13" text-anchor="middle" fill="#7fe0a2">📻</text>
+      <text x="58" y="757" font-size="12" font-weight="600" fill="#eef6f0">StuBru</text>
+
+      <rect x="164" y="730" width="146" height="44" rx="6" fill="#18231e" stroke="#34463c" stroke-width="1"/>
+      <rect x="170" y="736" width="32" height="32" rx="4" fill="#244434"/>
+      <text x="186" y="757" font-size="13" text-anchor="middle" fill="#7fe0a2">🎵</text>
+      <text x="208" y="757" font-size="12" font-weight="600" fill="#eef6f0">Top 2000</text>
+
+      <rect x="314" y="730" width="146" height="44" rx="6" fill="#18231e" stroke="#34463c" stroke-width="1"/>
+      <rect x="320" y="736" width="32" height="32" rx="4" fill="#244434"/>
+      <text x="336" y="757" font-size="13" text-anchor="middle" fill="#7fe0a2">🎵</text>
+      <text x="358" y="757" font-size="12" font-weight="600" fill="#eef6f0">Discover Mix</text>
+    </g>
+
+  </g>
+</svg>

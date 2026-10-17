@@ -60,12 +60,12 @@ substitutions:
   supplier_fee_incl_vat_ct: !env_var ENERGYDECK_SUPPLIER_FEE_INCL_VAT_CT
   energydeck_latitude: !env_var ENERGYDECK_LATITUDE
   energydeck_longitude: !env_var ENERGYDECK_LONGITUDE
-  homey_climate_sensor_1_device_id: !env_var HOMEY_CLIMATE_SENSOR_1_DEVICE_ID e5705cd4-ca02-4cdc-816f-4bc5fc4f5432
-  homey_climate_sensor_2_device_id: !env_var HOMEY_CLIMATE_SENSOR_2_DEVICE_ID 564a9710-c503-4d04-9996-6c27b5f28157
-  homey_climate_sensor_3_device_id: !env_var HOMEY_CLIMATE_SENSOR_3_DEVICE_ID 0d278a3e-aeb7-4cb3-bb2d-131766931482
-  homey_climate_sensor_4_device_id: !env_var HOMEY_CLIMATE_SENSOR_4_DEVICE_ID ed3cdd0e-2562-453a-a381-5c7d72bdf871
-  homey_climate_sensor_5_device_id: !env_var HOMEY_CLIMATE_SENSOR_5_DEVICE_ID b4a69ec5-a37b-4617-b490-d4c7b74534b9
-  homey_climate_sensor_6_device_id: !env_var HOMEY_CLIMATE_SENSOR_6_DEVICE_ID fae4c622-df59-4e18-8722-53fc9eb1cfb0
+  homey_climate_sensor_1_device_id: !env_var HOMEY_CLIMATE_SENSOR_1_DEVICE_ID none
+  homey_climate_sensor_2_device_id: !env_var HOMEY_CLIMATE_SENSOR_2_DEVICE_ID none
+  homey_climate_sensor_3_device_id: !env_var HOMEY_CLIMATE_SENSOR_3_DEVICE_ID none
+  homey_climate_sensor_4_device_id: !env_var HOMEY_CLIMATE_SENSOR_4_DEVICE_ID none
+  homey_climate_sensor_5_device_id: !env_var HOMEY_CLIMATE_SENSOR_5_DEVICE_ID none
+  homey_climate_sensor_6_device_id: !env_var HOMEY_CLIMATE_SENSOR_6_DEVICE_ID none
   climate_sensor_1_name: !env_var HOMEY_CLIMATE_SENSOR_1_NAME Woonkamer
   climate_sensor_2_name: !env_var HOMEY_CLIMATE_SENSOR_2_NAME Aanbouw
   climate_sensor_3_name: !env_var HOMEY_CLIMATE_SENSOR_3_NAME Lieke

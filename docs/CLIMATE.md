@@ -7,16 +7,18 @@ with 80 ms between rooms (400 ms total deliberate delay instead of 3 seconds).
 New Sonos cover/favorite artwork downloads defer while this script runs; an
 already-started download is not cancelled. The shared HTTP timeout remains 8 s.
 
-The Climate tab replaces Extra with six read-only temperature readings in two columns. It uses the dedicated room sensors, not radiator setpoints, air-quality sensors or wall-panel temperature readings. Sensor IDs are configurable via environment variables in `.env` (with built-in defaults):
+The Climate tab replaces Extra with six read-only temperature readings in two columns. It uses dedicated temperature sensors, not radiator setpoints, air-quality sensors or wall-panel temperature readings. Both the sensor names and sensor device IDs are fully configurable via 6 generic slots in `.env` (with built-in defaults):
 
-| Room | Environment variable | Default Homey sensor ID |
-| --- | --- | --- |
-| Living room | `HOMEY_CLIMATE_LIVING_DEVICE_ID` | e5705cd4-ca02-4cdc-816f-4bc5fc4f5432 |
-| Extension | `HOMEY_CLIMATE_EXTENSION_DEVICE_ID` | 564a9710-c503-4d04-9996-6c27b5f28157 |
-| Lieke | `HOMEY_CLIMATE_LIEKE_DEVICE_ID` | 0d278a3e-aeb7-4cb3-bb2d-131766931482 |
-| Saar | `HOMEY_CLIMATE_SAAR_DEVICE_ID` | ed3cdd0e-2562-453a-a381-5c7d72bdf871 |
-| Office Renate | `HOMEY_CLIMATE_RENATE_DEVICE_ID` | b4a69ec5-a37b-4617-b490-d4c7b74534b9 |
-| Office Mark | `HOMEY_CLIMATE_MARK_DEVICE_ID` | fae4c622-df59-4e18-8722-53fc9eb1cfb0 |
+| Slot | Name variable (default) | Device ID variable | Default Homey sensor ID |
+| --- | --- | --- | --- |
+| Sensor 1 | `HOMEY_CLIMATE_SENSOR_1_NAME` (Woonkamer) | `HOMEY_CLIMATE_SENSOR_1_DEVICE_ID` | e5705cd4-ca02-4cdc-816f-4bc5fc4f5432 |
+| Sensor 2 | `HOMEY_CLIMATE_SENSOR_2_NAME` (Aanbouw) | `HOMEY_CLIMATE_SENSOR_2_DEVICE_ID` | 564a9710-c503-4d04-9996-6c27b5f28157 |
+| Sensor 3 | `HOMEY_CLIMATE_SENSOR_3_NAME` (Lieke) | `HOMEY_CLIMATE_SENSOR_3_DEVICE_ID` | 0d278a3e-aeb7-4cb3-bb2d-131766931482 |
+| Sensor 4 | `HOMEY_CLIMATE_SENSOR_4_NAME` (Saar) | `HOMEY_CLIMATE_SENSOR_4_DEVICE_ID` | ed3cdd0e-2562-453a-a381-5c7d72bdf871 |
+| Sensor 5 | `HOMEY_CLIMATE_SENSOR_5_NAME` (Werk Renate) | `HOMEY_CLIMATE_SENSOR_5_DEVICE_ID` | b4a69ec5-a37b-4617-b490-d4c7b74534b9 |
+| Sensor 6 | `HOMEY_CLIMATE_SENSOR_6_NAME` (Werk Mark) | `HOMEY_CLIMATE_SENSOR_6_DEVICE_ID` | fae4c622-df59-4e18-8722-53fc9eb1cfb0 |
+
+Legacy `HOMEY_CLIMATE_<ROOM>_DEVICE_ID` environment variables (`HOMEY_CLIMATE_LIVING_DEVICE_ID`, `HOMEY_CLIMATE_EXTENSION_DEVICE_ID`, etc.) remain supported as automatic fallbacks for backwards compatibility.
 
 Polling uses six sequential GET requests separated by 80 ms. It never changes thermostats. Missing, unavailable, failed or implausible (-20 to 60 °C bounds) readings show `-- °C` rather than a stale value.
 

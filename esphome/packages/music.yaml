@@ -99,7 +99,7 @@ image:
   - platform: online_image
     id: favorite_cover_download
     http_request_id: homey_http
-    url: "${sonos_living_address}/unavailable"
+    url: "${sonos_bootstrap_address}/unavailable"
     format: JPEG
     type: RGB565
     resize: 32x32
@@ -121,7 +121,7 @@ image:
   - platform: online_image
     id: music_cover
     http_request_id: homey_http
-    url: "${sonos_living_address}/unavailable"
+    url: "${sonos_bootstrap_address}/unavailable"
     format: JPEG
     type: RGB565
     resize: 272x272
@@ -344,7 +344,7 @@ script:
           id(music_refresh_selected_only) = id(music_room_refresh_pending) && !id(music_busy);
           id(music_room_refresh_pending) = false;
           if (id(music_refresh_selected_only)) id(sonos).begin_current();
-          else id(sonos).begin("${sonos_living_address}", "${sonos_kitchen_address}");
+          else id(sonos).begin("${sonos_bootstrap_address}", "${sonos_bootstrap_fallback_address}");
       - script.execute: sonos_requests
       - script.wait: sonos_requests
       - lambda: |-
@@ -1062,7 +1062,7 @@ script:
                 id(music_favorites_loading) = true;
                 esphome::ui_performance::set_text(id(music_favorites_status), "${music_favorites_loading}");
                 id(sonos_favorites).begin(id(sonos).current().host.empty() ?
-                  "${sonos_kitchen_address}" : id(sonos).current().host);
+                  "${sonos_bootstrap_fallback_address}" : id(sonos).current().host);
             - script.execute: render_music
             - script.execute: sonos_favorite_requests
             - script.wait: sonos_favorite_requests
@@ -1071,7 +1071,7 @@ script:
                   lambda: return id(sonos_favorites).failed;
                 then:
                   - lambda: |-
-                      id(sonos_favorites).begin(id(sonos).current().host == "${sonos_living_address}" ? "${sonos_kitchen_address}" : "${sonos_living_address}");
+                      id(sonos_favorites).begin(id(sonos).current().host == "${sonos_bootstrap_address}" ? "${sonos_bootstrap_fallback_address}" : "${sonos_bootstrap_address}");
                   - script.execute: sonos_favorite_requests
                   - script.wait: sonos_favorite_requests
             - lambda: id(music_favorites_loading) = false;

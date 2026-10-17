@@ -27,8 +27,8 @@ substitutions:
   homey_climate_saar_device_id: !env_var HOMEY_CLIMATE_SAAR_DEVICE_ID ed3cdd0e-2562-453a-a381-5c7d72bdf871
   homey_climate_renate_device_id: !env_var HOMEY_CLIMATE_RENATE_DEVICE_ID b4a69ec5-a37b-4617-b490-d4c7b74534b9
   homey_climate_mark_device_id: !env_var HOMEY_CLIMATE_MARK_DEVICE_ID fae4c622-df59-4e18-8722-53fc9eb1cfb0
-  sonos_living_address: !env_var SONOS_LIVING_ADDRESS http://192.168.0.190:1400
-  sonos_kitchen_address: !env_var SONOS_KITCHEN_ADDRESS http://192.168.0.191:1400
+  sonos_bootstrap_address: !env_var SONOS_BOOTSTRAP_ADDRESS http://192.168.0.190:1400
+  sonos_bootstrap_fallback_address: !env_var SONOS_BOOTSTRAP_FALLBACK_ADDRESS http://192.168.0.191:1400
 
 host:
 

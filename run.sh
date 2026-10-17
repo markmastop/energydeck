@@ -24,6 +24,9 @@ if [[ -f "$project_dir/.env" ]]; then
   done < "$project_dir/.env"
 fi
 
+export SONOS_BOOTSTRAP_ADDRESS="${SONOS_BOOTSTRAP_ADDRESS:-${SONOS_LIVING_ADDRESS:-http://192.168.0.190:1400}}"
+export SONOS_BOOTSTRAP_FALLBACK_ADDRESS="${SONOS_BOOTSTRAP_FALLBACK_ADDRESS:-${SONOS_KITCHEN_ADDRESS:-http://192.168.0.191:1400}}"
+
 if ! command -v sdl2-config >/dev/null 2>&1; then
   echo "SDL2 is missing. Install the simulator libraries first:"
   echo "  brew install sdl2 libsodium"

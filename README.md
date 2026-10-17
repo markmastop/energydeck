@@ -312,6 +312,24 @@ revoked at any time under **Settings → API Keys**.
 > therefore does not require full Homey access. A HomeyScript will copy Homey's
 > internal quarter-hour prices to a read-only Logic variable instead.
 
+## Connect Sonos
+
+EnergyDeck communicates directly with Sonos speakers over your local network using UPnP/SOAP on port 1400 (independent of Homey or cloud APIs).
+
+Because multicast discovery (SSDP) is intentionally not run on the ESP32 to save power, reduce Wi-Fi traffic, and avoid router/AP IGMP snooping issues, EnergyDeck needs at least one fixed speaker IP address (*bootstrap seed*). Querying this single speaker returns the full zone topology of the entire household, automatically discovering all other rooms and their current IP addresses.
+
+Configure the bootstrap addresses in `.env`:
+
+```env
+# Primary bootstrap speaker (e.g. Living room)
+SONOS_BOOTSTRAP_ADDRESS=http://192.168.0.190:1400
+
+# Optional secondary speaker for fallback redundancy (e.g. Kitchen)
+SONOS_BOOTSTRAP_FALLBACK_ADDRESS=http://192.168.0.191:1400
+```
+
+> **Tip:** Set a permanent DHCP reservation in your home router for your bootstrap speaker(s) so their IP addresses remain stable.
+
 ## Weather and development
 
 The simulator and physical display use Dutch by default, with English strings

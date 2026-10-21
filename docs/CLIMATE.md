@@ -19,6 +19,12 @@ its room name and **measured / target** temperature. The Climate detail page sho
 all nine rooms in a 3-by-3 grid with measured temperature, setpoint and inferred
 room demand, below the controller programme summary. No scrolling is needed.
 
+The weather card below the rooms shows the current outdoor temperature and
+conditions, the three-hour temperature trend, tomorrow’s range and the two-hour
+rain forecast. Climate and the main dashboard share the same live widgets,
+including source credits. Navigation moves them between pages without resetting
+the chart, duplicating requests or changing weather refresh intervals.
+
 The default slot names are Woonkamer, Aanbouw, Lieke, Saar, Werk Renate, Werk Mark,
 Badkamer, Badkamer vl and Bijkeuken. Configure the nine zone device IDs with
 `HOMEY_ROOM_THERMOSTAT_1_ID` through `HOMEY_ROOM_THERMOSTAT_9_ID`; optional
@@ -80,3 +86,15 @@ The 5-inch upload passed flash hash verification. Its boot log confirmed build
 state 2` (orange heat demand). No label variables were read for this change and no
 thermostat, charging or playback commands were issued. Existing unrelated sensor
 entries in the local environment remain preserved but are unused by Climate.
+
+## Weather footer
+
+The compact nine-room layout and shared weather footer were built for the
+simulator and 5-inch target. The actual YAML widgets were rendered using the
+built LVGL library with synthetic values to check spacing and readability.
+Climate source/navigation checks and the Sonos control regression suite passed,
+including weather reuse, return-to-main ownership and room/footer separation.
+
+The connected 5-inch upload passed flash hash verification. Its serial boot log
+confirmed build `2026-10-21 20:59:49 +0200` and all nine Evohome zones valid.
+Physical touch navigation has not been manually verified for this change.

@@ -2200,6 +2200,7 @@ lvgl:
               - script.execute: open_climate_page
 
         - obj:
+            id: shared_weather_card
             x: 14
             y: 726
             width: 452
@@ -2351,6 +2352,7 @@ lvgl:
                   text_font: montserrat_10
                   text_color: 0x82958A
         - label:
+            id: shared_weather_attribution
             x: 14
             y: 788
             width: 452

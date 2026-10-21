@@ -81,3 +81,17 @@ passed. No Homey writes were performed.
 The connected 5-inch upload passed flash hash verification. Serial boot confirmed
 build `2026-10-21 21:22:41 +0200` and all nine Evohome zones valid. Physical touch
 navigation and history loading on the physical display were not manually tested.
+
+### 7-inch rollout, 2026-10-21
+
+The connected serial device matched the previously verified 7-inch MAC
+`14:c1:9f:c3:10:e0`. The `energydeck-crowpanel-7.yaml` target was built from
+`e18a5b9` and uploaded over USB with flash hash verification. This includes the
+five-minute power/gas lines, shared header and status icons, nine-zone Evohome
+overview and shared Climate weather card. The existing 7-inch configuration
+reuses the portrait layout with its own `energydeck-7` hostname.
+
+Serial boot confirmed build `2026-10-21 21:27:36 +0200`, hostname `energydeck-7`
+and `Controller Automatisch: 9/9 zones valid, demand state 1`. No control commands
+were issued. Physical touch navigation and line-chart loading on the physical
+7-inch were not manually verified.

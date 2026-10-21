@@ -26,13 +26,13 @@ It connects directly over your local network to Homey and Sonos to provide a rea
 - **Local Weather & Rain Radar:** 2-hour Buienradar precipitation graph and 3-hour Open-Meteo temperature outlook.
 - **Automatic Night Dimming:** Time-based backlight dimming (e.g. 23:00 to 07:00) with instant touch-to-wake.
 - **Desktop Simulator:** Test and preview the exact UI on macOS or Linux with live data before touching hardware.
-- **Mobile Web Dashboard:** A separate, read-only phone/tablet dashboard in one small Docker container, with access-code login and server-side Homey credentials. See [web setup and security](docs/WEB.md).
+- **Mobile Web App / PWA:** The energy dashboard, Insights graphs, local Sonos player with favorites and grouping, Evohome climate, weather/rain and charging Flow control on your phone, in one Docker container. Includes access-code login and server-side device credentials. See [web setup and security](docs/WEB.md).
 
 ---
 
 ## Supported Hardware
 
-The optional [mobile web dashboard](docs/WEB.md) runs independently of the display on a NAS, Raspberry Pi, or home server. Start it with `docker compose up -d --build` after configuring its access code and network settings. It provides live energy, today/tomorrow prices, battery and EV status, and Evohome temperatures; Sonos, charging controls, weather and energy history remain display features in this first web version.
+The optional [mobile web app](docs/WEB.md) runs independently of the display on a NAS, Raspberry Pi, or home server. Start it with `docker compose up -d --build` after configuring its access code and network settings. Overview, Energy, Sonos and Climate pages reproduce the display's household functions with responsive layouts. No ESP32 hardware is required for the web app.
 
 | Model | Screen Size | Resolution | Part Number | Flash Target |
 | :--- | :--- | :--- | :--- | :--- |

@@ -3,6 +3,9 @@ import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { configuration, createDataService } from './data.mjs';
+import { createExtrasService } from './extras.mjs';
+import { createSonosService } from './sonos.mjs';
+import { AppError } from './net.mjs';
 
 const digest = value => createHash('sha256').update(value).digest();
 const sessionLife = 7 * 24 * 3600 * 1000;
@@ -17,11 +20,16 @@ const staticFiles = new Map([
   ['/apple-touch-icon.png', ['apple-touch-icon.png', 'image/png']],
   ['/icon-192.png', ['icon-192.png', 'image/png']],
   ['/icon-512.png', ['icon-512.png', 'image/png']],
+  ['/details.js', ['details.js', 'text/javascript; charset=utf-8']],
+  ['/details.css', ['details.css', 'text/css; charset=utf-8']],
+  ['/charts.js', ['charts.js', 'text/javascript; charset=utf-8']],
+  ['/sw.js', ['sw.js', 'text/javascript; charset=utf-8']],
 ]);
 
-export function createApp(config, { service = createDataService(config), clock = Date.now } = {}) {
+export function createApp(config, { service = createDataService(config), extras = createExtrasService(config), sonos = createSonosService(config), clock = Date.now } = {}) {
   const sessions = new Map();
   const attempts = new Map();
+  const controlAttempts = new Map();
   const secret = digest(config.accessCode);
   const cookieName = config.secureCookie ? '__Host-energydeck' : 'energydeck';
   let globalAttempts = { count: 0, until: 0 };
@@ -47,13 +55,13 @@ export function createApp(config, { service = createDataService(config), clock =
         ['http:', 'https:'].includes(source.protocol) && source.host === req.headers.host;
     } catch { return false; }
   }
-  async function jsonBody(req) {
+  async function jsonBody(req, limit = 2048) {
     if (req.headers['content-type']?.split(';')[0] !== 'application/json') throw new Error('body');
     let size = 0;
     const chunks = [];
     for await (const chunk of req) {
       size += chunk.length;
-      if (size > 2048) throw new Error('body');
+      if (size > limit) throw new Error('body');
       chunks.push(chunk);
     }
     return JSON.parse(Buffer.concat(chunks).toString());
@@ -108,11 +116,38 @@ export function createApp(config, { service = createDataService(config), clock =
         return reply(res, 200, { ok: true });
       }
       if (url.pathname.startsWith('/api/')) {
-        if (!session(req)) return reply(res, 401, { error: 'unauthorized' });
+        const key = session(req);
+        if (!key) return reply(res, 401, { error: 'unauthorized' });
+        if (req.method === 'POST' && ['/api/charge', '/api/sonos/command'].includes(url.pathname)) {
+          if (!sameOrigin(req)) return reply(res, 403, { error: 'origin' });
+          const now = clock();
+          for (const [id, entry] of controlAttempts) if (entry.until <= now) controlAttempts.delete(id);
+          const entry = controlAttempts.get(key) || { until: now + 60000, count: 0 };
+          if (++entry.count > 60) return reply(res, 429, { error: 'rateLimited' });
+          controlAttempts.set(key, entry);
+          let body;
+          try { body = await jsonBody(req, 8192); } catch { return reply(res, 400, { error: 'invalidRequest' }); }
+          const result = url.pathname === '/api/charge' ? await extras.charge(body) : await sonos.command(body);
+          if (url.pathname === '/api/charge') service.invalidate?.();
+          return reply(res, 200, result);
+        }
         if (req.method !== 'GET') return reply(res, 405, { error: 'readOnly' });
         if (url.pathname === '/api/session') return reply(res, 200, { ok: true });
         if (url.pathname === '/api/dashboard') return reply(res, 200, await service.get());
+        if (url.pathname === '/api/history') return reply(res, 200, await extras.history());
+        if (url.pathname === '/api/weather') return reply(res, 200, await extras.weather());
+        if (url.pathname === '/api/sonos') return reply(res, 200, await sonos.get(url.searchParams.get('room') || '', url.searchParams.get('favorites') === 'true', url.searchParams.get('combined') === 'true'));
+        if (/^\/api\/sonos\/artwork\/[a-f0-9]{64}$/.test(url.pathname)) {
+          const asset = await sonos.artwork(url.pathname.split('/').at(-1));
+          res.writeHead(200, { 'Content-Type': asset.type }); return res.end(asset.body);
+        }
         return reply(res, 404, { error: 'notFound' });
+      }
+      if (req.method === 'GET' && /^\/stations\/[a-z0-9-]+\.jpg$/.test(url.pathname)) {
+        try {
+          const body = await readFile(new URL(`./public${url.pathname}`, import.meta.url));
+          res.writeHead(200, { 'Content-Type': 'image/jpeg' }); return res.end(body);
+        } catch { return reply(res, 404, { error: 'notFound' }); }
       }
       if (req.method === 'GET' && staticFiles.has(url.pathname)) {
         const [file, type] = staticFiles.get(url.pathname);
@@ -121,9 +156,9 @@ export function createApp(config, { service = createDataService(config), clock =
         return res.end(body);
       }
       return reply(res, 404, { error: 'notFound' });
-    } catch {
+    } catch (error) {
       // Never send upstream errors, addresses, credentials, or request URLs to clients/logs.
-      if (!res.headersSent) reply(res, 500, { error: 'unavailable' });
+      if (!res.headersSent) reply(res, error instanceof AppError ? error.status : 500, { error: error instanceof AppError ? error.code : 'unavailable' });
       else res.end();
     }
   });

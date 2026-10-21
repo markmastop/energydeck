@@ -1,6 +1,6 @@
 *
 !package.json
-!server.mjs
-!data.mjs
+!package-lock.json
+!*.mjs
 !public/
 !public/**

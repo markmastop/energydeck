@@ -1,4 +1,4 @@
-// All external requests are server-side, read-only, and restricted to configured IDs.
+// All Homey polling is server-side, read-only, and restricted to configured IDs.
 export function configuration(env = process.env) {
   const number = (key, fallback) => {
     const value = env[key]?.trim() ? Number(env[key]) : fallback;
@@ -25,6 +25,12 @@ export function configuration(env = process.env) {
     accessCode, address, origin, secureCookie,
     token: env.HOMEY_TOKEN || '',
     demo: env.ENERGYDECK_WEB_DEMO === 'true',
+    demoState: { charging: false },
+    chargeFlow: env.HOMEY_CHARGE_FLOW_ID?.trim() || '',
+    controller: env.HOMEY_THERMOSTAT_DEVICE_ID?.trim() || '',
+    latitude: env.ENERGYDECK_LATITUDE?.trim() ? number('ENERGYDECK_LATITUDE', null) : null,
+    longitude: env.ENERGYDECK_LONGITUDE?.trim() ? number('ENERGYDECK_LONGITUDE', null) : null,
+    sonosSeeds: [env.SONOS_BOOTSTRAP_ADDRESS, env.SONOS_BOOTSTRAP_FALLBACK_ADDRESS].map(s => s?.trim()).filter(Boolean),
     tax: number('ENERGYDECK_ENERGY_TAX_EX_VAT_CT', 9.161),
     vat: number('ENERGYDECK_VAT_PERCENT', 21),
     fee: number('ENERGYDECK_SUPPLIER_FEE_INCL_VAT_CT', 2),
@@ -84,16 +90,20 @@ export function normalize(devices, rooms, bridge, config, now = new Date()) {
   const [grid, electricity, solar, solarDay, battery, charger, gas] =
     ['grid', 'electricity', 'solar', 'solarDay', 'battery', 'charger', 'gas'].map(key => devices[key]);
   return {
-    grid: { power: metric(grid, 'measure_power'), today: metric(electricity, 'meter_kwh_this_day') },
-    solar: { power: metric(solar, 'measure_power'), today: metric(solarDay, 'meter_kwh_this_day') },
+    grid: { power: metric(grid, 'measure_power'), today: metric(electricity, 'meter_kwh_this_day'),
+      month: metric(electricity, 'meter_kwh_this_month'), year: metric(electricity, 'meter_kwh_this_year'), peak: metric(electricity, 'measure_watt_max') },
+    solar: { power: metric(solar, 'measure_power'), today: metric(solarDay, 'meter_kwh_this_day'),
+      month: metric(solarDay, 'meter_kwh_this_month'), year: metric(solarDay, 'meter_kwh_this_year'), peak: metric(solarDay, 'measure_watt_max') },
     battery: {
       percentage: ranged(metric(battery, 'measure_battery'), 0, 100),
       // Sessy uses negative watts for charging and positive watts for discharge.
       power: metric(battery, 'measure_power.battery') ?? metric(battery, 'measure_power'),
     },
     charger: { power: metric(charger, 'measure_power'), connected: bool(charger, 'is_connected'),
-      charging: bool(charger, 'is_charging'), fault: bool(charger, 'alarm_device') },
-    gas: { today: metric(gas, 'meter_m3_this_day'), rate: metric(grid, 'measure_gas') },
+      charging: bool(charger, 'is_charging'), fault: bool(charger, 'alarm_device'), canStart: !!config.chargeFlow && config.chargeFlow !== 'none' },
+    gas: { today: metric(gas, 'meter_m3_this_day'), rate: metric(grid, 'measure_gas'),
+      yesterday: metric(gas, 'meter_m3_last_day'), month: metric(gas, 'meter_m3_this_month'), year: metric(gas, 'meter_m3_this_year') },
+    climate: climateState(devices.controller, rooms),
     rooms: rooms.map(({ device, name }, i) => {
       // Keep the same Evohome-only source restriction as the physical display.
       const room = device?.driverId === 'homey:app:com.honeywell:zone' ? device : null;
@@ -139,6 +149,7 @@ export function createDataService(config, fetcher = fetch, clock = () => new Dat
         if (id && id !== 'none') queue(key, `/api/manager/devices/device/${encodeURIComponent(id)}`, d => { devices[key] = d; });
       }
       config.rooms.forEach((room, i) => queue('climate', `/api/manager/devices/device/${encodeURIComponent(room.id)}`, d => { rooms[i].device = d; }));
+      if (config.controller && config.controller !== 'none') queue('climate', `/api/manager/devices/device/${encodeURIComponent(config.controller)}`, d => { devices.controller = d; });
       if (config.prices && config.prices !== 'none') queue('prices', `/api/manager/logic/variable/${encodeURIComponent(config.prices)}`, d => {
         bridge = JSON.parse(d.value);
       });
@@ -153,6 +164,7 @@ export function createDataService(config, fetcher = fetch, clock = () => new Dat
       errors: [...new Set(errors)], updatedAt: now.toISOString(), day: localDay(now) };
   }
   return {
+    invalidate() { expires = 0; },
     async get() {
       const now = clock();
       if (cached && now.getTime() < expires && cached.day === localDay(now)) return cached;
@@ -164,16 +176,27 @@ export function createDataService(config, fetcher = fetch, clock = () => new Dat
   };
 }
 
+export function climateState(controller, rooms) {
+  const mode = controller?.driverId === 'homey:app:com.honeywell:thermostat' ? cap(controller, 'honeywell_thermostat_mode') : null;
+  if (mode === 'HeatingOff') return { mode, demand: 'off' };
+  if (!['Auto', 'Away', 'AutoWithEco', 'Custom', 'DayOff'].includes(mode)) return { mode: null, demand: 'unknown' };
+  const known = rooms.map(({ device }) => device?.driverId === 'homey:app:com.honeywell:zone' ?
+    [ranged(metric(device, 'measure_temperature'), -20, 60), ranged(metric(device, 'target_temperature'), 5, 35)] : [null, null]);
+  const demand = known.some(([measured, target]) => measured !== null && target !== null && target - measured > .05);
+  return { mode, demand: demand ? 'demand' : known.length && known.every(values => values.every(v => v !== null)) ? 'idle' : 'unknown' };
+}
+
 function demoData(config, now) {
   const device = values => ({ capabilitiesObj: Object.fromEntries(Object.entries(values).map(([key, value]) => [key, { value }])) });
   const day = offset => ({ date: localDay(now, offset), source: 'homey',
     values: Array.from({ length: 96 }, (_, i) => .065 + .045 * Math.sin((i - 22) / 12) + .018 * Math.cos(i / 5)) });
-  const rooms = [['Living room', 20.8, 21], ['Kitchen', 20.2, 20], ['Bedroom', 18.4, 18]].map(([name, temperature, target]) => ({ name,
+  const rooms = [['Living room', 20.8, 21], ['Kitchen', 20.2, 20], ['Bedroom', 18.4, 18], ['Office', 19.6, 20], ['Bathroom', 21, 21], ['Hall', 18.8, 18], ['Attic', 17.5, 17], ['Guest room', 18, 18], ['Dining room', 20.1, 20]].map(([name, temperature, target]) => ({ name,
     device: { ...device({ measure_temperature: temperature, target_temperature: target }), driverId: 'homey:app:com.honeywell:zone' } }));
   return { ...normalize({ grid: device({ measure_power: -940, measure_gas: .12 }),
-    electricity: device({ meter_kwh_this_day: 8.4 }), solar: device({ measure_power: 2460 }),
-    solarDay: device({ meter_kwh_this_day: 14.2 }), battery: device({ measure_battery: 74, 'measure_power.battery': -860 }),
-    charger: device({ measure_power: 0, is_connected: true, is_charging: false, alarm_device: false }),
-    gas: device({ meter_m3_this_day: .83 }) }, rooms, { today: day(0), tomorrow: day(1) }, config, now),
+    electricity: device({ meter_kwh_this_day: 8.4, meter_kwh_this_month: 186.2, meter_kwh_this_year: 2480.6, measure_watt_max: 6320 }), solar: device({ measure_power: 2460 }),
+    solarDay: device({ meter_kwh_this_day: 14.2, meter_kwh_this_month: 238.4, meter_kwh_this_year: 3124.8, measure_watt_max: 4210 }), battery: device({ measure_battery: 74, 'measure_power.battery': -860 }),
+    charger: device({ measure_power: config.demoState?.charging ? 7300 : 0, is_connected: true, is_charging: config.demoState?.charging === true, alarm_device: false }),
+    gas: device({ meter_m3_this_day: .83, meter_m3_last_day: 1.2, meter_m3_this_month: 24.8, meter_m3_this_year: 382.6 }),
+    controller: { ...device({ honeywell_thermostat_mode: 'Auto' }), driverId: 'homey:app:com.honeywell:thermostat' } }, rooms, { today: day(0), tomorrow: day(1) }, config, now),
     demo: true, status: 'demo', errors: [], updatedAt: now.toISOString(), day: localDay(now) };
 }

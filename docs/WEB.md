@@ -1,20 +1,34 @@
-# Mobile web dashboard
+# EnergyDeck mobile web app / PWA
 
-EnergyDeck includes an independent, responsive dashboard for phones, tablets and desktop browsers. It runs in one Node.js container with no npm dependencies, database or frontend build step. The ESPHome display and simulator continue to work independently.
+The web app reproduces EnergyDeck's household functions in a responsive interface with Overview, Energy, Sonos and Climate pages. It runs independently of the ESPHome display in one Node.js Docker container. The only npm dependency is the pinned XML parser used for local Sonos SOAP/DIDL; no frontend build, database or cloud account is required.
 
-The first web version shows live grid/solar power, daily electricity/solar/gas totals, Sessy battery state, EV connection/charging status, Evohome zone temperatures, and today/tomorrow quarter-hour prices. It supports Dutch and English. It is read-only: there are no Flow triggers, charger controls or thermostat writes. Sonos, weather and Insights history are not included in this version.
+## Pages and display parity
+
+| View | Features |
+| --- | --- |
+| Shared header | Current all-in electricity price, grid power, battery percentage and solar power on detail pages. Overview retains its larger price and power gauges. |
+| Overview | Grid/solar power and daily totals, day/year toggle, battery state and signed power, EV charging/connection/fault status, today/tomorrow prices with provenance, weather and Gas / Sonos / Climate cards. |
+| Price chart | 96 quarter-hour bars, negative prices, current-quarter marker, min/mean/max and cheapest consecutive three hours. From noon, Today rolls from today's noon to tomorrow's noon when tomorrow is valid. |
+| Energy | Today's five-minute signed grid-power and gas-rate graphs from Homey Insights, gaps for missing samples, separate import/export colors, and available daily/monthly/yearly summary totals and peaks. Missing capabilities remain dashes. |
+| Sonos | Local discovery, visible rooms, current group, track/artist/album and cover, Play/Pause, Previous/Next when supported, room volume ±2 and mute, paged Sonos favorites, and explicit group editing. TV sources hide old music metadata and disable transport while retaining volume. |
+| Climate | All nine configured Evohome zones, measured/target temperature, inferred demand and controller programme, plus weather/rain. HeatingOff overrides demand; missing data cannot imply confirmed idle. Climate is read-only, like the display. |
+| Weather | Homey current weather and tomorrow's temperature range, a Buienradar two-hour five-minute rain chart, Open-Meteo's exactly interpolated three-hour temperature and sunrise/sunset. |
+| Charging | Starts/stops charging through the configured Homey toggle Flow only after a user click and confirmation. Waits for the requested state to be reported by Homey. |
+| PWA | Manifest, favicon and phone icons, standalone launch, public-shell service worker for HTTPS/localhost. Private API readings, Sonos images, sessions and device commands are never cached by the worker. |
+
+The phone layout scrolls and adapts to width instead of fixing every widget at the panel's 480×800 coordinates. Physical backlight dimming, USB flashing and hardware-specific timing remain display functions. Before an explicit room/group choice, a grouped Woonkamer/Living and Keuken/Kitchen pair shares volume/mute controls with per-room offsets preserved. An explicit choice targets only that room, matching the display. Transport and favorites affect the actual current Sonos group.
 
 ## Start on a trusted home network
 
-1. Install Docker Engine with Docker Compose on your NAS or home server, and clone this repository there.
-2. Copy `.env.example` to `.env` if you do not already have one. Fill in the existing `HOMEY_ADDRESS`, `HOMEY_TOKEN` and device/price-variable IDs as described in the main README. Existing display configuration can be reused. The Homey token needs device and Logic read permissions; this app does not need Flow-start permission.
+1. Install Docker Engine with Docker Compose on your NAS or home server and clone this repository.
+2. Copy `.env.example` to `.env` if needed. Reuse the display's `HOMEY_ADDRESS`, `HOMEY_TOKEN`, device IDs, `HOMEY_PRICES_VARIABLE_ID`, Evohome controller/zone IDs, location and Sonos bootstrap addresses. Follow the main README for Homey discovery and the price bridge.
 3. Generate a unique random access code:
 
    ```sh
    openssl rand -hex 32
    ```
 
-4. Add the result and the following settings to `.env`:
+4. Put it in `.env` with your network settings:
 
    ```dotenv
    ENERGYDECK_WEB_ACCESS_CODE=replace-with-the-generated-code
@@ -24,23 +38,22 @@ The first web version shows live grid/solar power, daily electricity/solar/gas t
    ENERGYDECK_WEB_DEMO=false
    ```
 
-   HTTP does not encrypt the access code or session. Use this configuration only on a trusted LAN, preferably with a firewall limiting access to that LAN. Keep the port closed on your router. For HTTPS, use the configuration below.
-
+   HTTP does not encrypt the code or session. Use it only on a trusted LAN, limit access with your firewall and keep the port closed on your router. HTTPS configuration is below.
 5. Start the container from the repository root:
 
    ```sh
    docker compose up -d --build
    ```
 
-6. Open `http://YOUR-SERVER-IP:8080` on your phone and enter the access code. Do not append the code to the URL. Your phone stays signed in for seven days unless you sign out or restart the container.
+6. Open `http://YOUR-SERVER-IP:8080` and enter the access code. Never append it to the URL. Your phone stays signed in for seven days unless you sign out or recreate/restart the container.
 
-To update, pull the repository and run `docker compose up -d --build` again. After changing `.env`, run the same command to recreate the container. `docker compose restart` alone does not apply changed environment variables. Run `docker compose down` to stop it.
+Pull updates and run `docker compose up -d --build` again. This also applies `.env` changes; `docker compose restart` alone does not apply changed environment variables. `docker compose down` stops the app.
 
-The secure defaults in `.env.example` and Compose bind only to `127.0.0.1` and require Secure cookies. They deliberately require the LAN opt-in above or an HTTPS proxy before phone sign-in works. Inside the container the app always listens on port 8080; `ENERGYDECK_WEB_PORT` changes the published host port.
+Secure defaults bind to `127.0.0.1` with Secure cookies. Explicitly opt into trusted-LAN HTTP as above or configure HTTPS before phone sign-in. The container always listens on 8080; `ENERGYDECK_WEB_PORT` changes the published host port. No host networking is needed, but the Docker host must be able to reach Homey and Sonos on your LAN.
 
-## HTTPS and access from outside the home
+## HTTPS and outside access
 
-Prefer access through a private VPN or a trusted HTTPS reverse proxy. A proxy must be able to reach the container's HTTP port and preserve the external Host header. Set the exact browser-facing origin, including its port if nonstandard:
+Prefer a private VPN or an HTTPS reverse proxy. A proxy on the Docker host can use the loopback-published port. Preserve the external Host header and configure the exact browser-facing origin, including a nonstandard port if used:
 
 ```dotenv
 ENERGYDECK_WEB_ACCESS_CODE=your-generated-code
@@ -49,59 +62,73 @@ ENERGYDECK_WEB_SECURE_COOKIE=true
 ENERGYDECK_WEB_ORIGIN=https://energydeck.example.com
 ```
 
-This loopback binding works for a proxy on the Docker host. A proxy in another container needs a shared private Docker network or another explicitly reachable binding; `127.0.0.1` inside the proxy container points to the proxy itself. Do not publish the plain HTTP upstream publicly. The browser uses HTTPS, while the private proxy-to-app hop can use HTTP. The app does not trust forwarded headers; `ENERGYDECK_WEB_ORIGIN` is the authority for sign-in/sign-out origin validation.
+A proxy in another container needs a private shared Docker network or another explicitly reachable binding; its own `127.0.0.1` is not the Docker host. Do not expose the unencrypted upstream publicly. The app ignores forwarded headers; the configured origin authorizes browser sign-in, sign-out and control requests.
 
-You can add the app to your phone's home screen using the browser menu. Manifest support is included; installation availability depends on the browser and HTTPS. No service worker caches private data, and there is no offline dashboard.
+Add the PWA to your phone's home screen using its browser menu. Installation support depends on the browser and HTTPS. Offline launch can show the public interface, but cannot show cached household readings or control devices. Bump the shell cache version in `web/public/sw.js` when changing offline shell assets.
 
-The energy-dial/bolt logo includes an SVG favicon, a multi-size ICO fallback, a 180 px Apple touch icon, and 192/512 px maskable app icons. Regenerate these assets with `.venv/bin/python scripts/generate-web-icons.py` (Pillow required). Phone icons use a full background so the operating system can apply its own corner shape.
+## Existing configuration and permissions
 
-## Authentication design
+- Homey device and Logic read permissions provide dashboard data and the price bridge. History uses the existing Homey Insights endpoints; an unavailable log or insufficient permission leaves that graph empty with an explanation.
+- `HOMEY_CHARGE_FLOW_ID` and Flow-start permission enable the charging button. Missing configuration disables it. The backend reads the charger before starting: it must be available, connected, not faulted and in the opposite state from the explicitly requested target.
+- `HOMEY_THERMOSTAT_DEVICE_ID` must refer to `homey:app:com.honeywell:thermostat`. Rooms must be `homey:app:com.honeywell:zone`. Generic sensors/Logic variables never substitute for Evohome.
+- `SONOS_BOOTSTRAP_ADDRESS` and optional fallback must be HTTP private IPv4 addresses on port 1400, for example `http://192.168.1.50:1400`. Hostnames, public IPs, link-local metadata addresses, other ports and HTTPS are rejected. These restrictions also apply to discovered topology destinations. No Sonos cloud token or Homey Sonos device is used.
+- `ENERGYDECK_LATITUDE` and `ENERGYDECK_LONGITUDE` enable location-based rain/temperature/sun information. Only two decimal places are sent to Buienradar. Location is not included in browser API results.
+- Existing tax/VAT/fee settings retain the display's units and defaults. Blank values keep defaults.
 
-- A shared, random code of at least 32 characters is required at startup. Generate 32 random bytes as 64 hexadecimal characters using the command above. Keep it in `.env` or your deployment's environment, never in Git.
-- The code is submitted in a same-origin JSON POST. Codes in query strings are not authentication. URLs can leak through browser history, copied links, server logs and referrers.
-- A successful sign-in generates a new random 256-bit session. Only its SHA-256 digest is kept in server memory. The browser receives an HttpOnly, SameSite=Strict cookie, with Secure and the `__Host-` prefix enabled by default. JavaScript cannot read that cookie; authentication is never stored in localStorage.
-- Sessions expire after seven days. Sign-out revokes that session immediately. Restarting/recreating the container revokes all sessions. Change the access code and recreate the container to revoke access for everyone.
-- Sign-in is limited to 10 attempts per minute per socket address and 60 globally. X-Forwarded-For cannot bypass these limits. Phones behind the same proxy share the per-address limit. There are at most 256 active sessions and 1,024 rate-limit entries. All state is local to one process; do not scale replicas without adding shared session/rate-limit storage.
-- Mutating authentication requests require a matching Origin; cross-site fetches are rejected. No CORS access is enabled. CSP, frame blocking, no-referrer and no-store headers limit browser exposure.
-- Only an explicit list of static files is served. `.env`, source files and Homey credentials cannot be retrieved through the web server. API responses contain normalized readings, not raw Homey device objects or tokens.
-- Homey requests never follow redirects, use a timeout and a response-size limit, and are always GET requests. The Docker build context contains only web sources and public assets. Compose passes only needed settings, excluding Wi-Fi credentials and Flow IDs.
-- The container runs as the unprivileged `node` user with a read-only filesystem, no Linux capabilities, no new privileges, a PID limit and a 128 MB memory limit. It needs no host network, Docker socket or writable volume.
+## Control behavior
 
-This follows the cookie and URL guidance in the [OWASP Session Management Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html). A shared household code is not a multi-user account system or MFA; use a private network/VPN or an additional identity-aware proxy if that is needed.
+Opening pages, selecting rooms or tabs, editing a group draft and polling do not change devices. The compact player follows a currently playing room; an explicit room selection on the full player remains selected. Music starting selects the compact Sonos card; confirmed stopping returns that card to Gas. The full player also returns to Gas after previously playing music stops in all known rooms, while opening an already idle player leaves it open. Unknown/transitioning room states never prove playback has stopped. Manual Gas/Climate selection remains until a new playback start.
 
-## Data behavior
+Sonos reads and commands share one serialized worker queue; waiting controls skip queued background reads. Every command captures the displayed room and topology scope. Fresh discovery must still match before a write; external regrouping cancels stale commands/drafts. The browser sends identifiers and typed actions, never speaker URLs, arbitrary SOAP or raw favorite resources.
 
-The browser refreshes every 15 seconds while visible, and refreshes immediately when reopened. All phones share a 15-second server cache and a single in-flight refresh; at most three Homey requests run concurrently. No polling happens when nobody requests the dashboard. A failed device fetch clears its readings instead of retaining stale values. A disconnected browser hides live readings and retries automatically. Missing capabilities appear as a dash, never as zero.
+Volume/mute target the selected physical room, or the implicit paired main rooms before an explicit choice; playback, skips and favorites target the fresh coordinator. Favorites are re-read from `FV:2` in bounded pages with one consistent UpdateID. Non-playable shortcuts are excluded. Radio sets the URI only when needed, waits for source readiness, then plays. Queue favorites append once, select the queue, seek to the first newly appended track and play; the old queue is never cleared. Source normalization only accepts the display's documented Sonos stream flag/percent-escape changes. Group/volume/mute are not changed by favorite playback.
 
-The backend reads the same configured Homey device IDs as the display. Climate accepts only `homey:app:com.honeywell:zone` devices, with the same temperature bounds. Negative net power means grid export. Sessy battery power is negative while charging and positive while discharging. Daily totals come from the configured summary devices.
+Room checkboxes are a draft. Apply rechecks the full visible inventory, promotes the selected anchor without clearing its source when necessary, preserves unrelated followers under a remaining coordinator, moves followers before old leaders and confirms the resulting coordinators. Hidden bonded/stereo partners are not shown as duplicate rooms and remain attached through Sonos' own grouping semantics. Partial failure stops the sequence and the UI refreshes actual topology. Writes are never automatically retried. A two-minute overall command deadline prevents delayed multi-stage writes after the interface has given up; ordinary writes allow eight seconds and favorite source/queue loads up to thirty seconds within that deadline.
 
-Prices come from `HOMEY_PRICES_VARIABLE_ID`, populated by `homeyscript/energydeck-prices.js`. The web app does not independently call external price providers. It preserves the bridge's per-day source and cached-day indicators and warns for reserve, cached or unknown sources. A valid day must match the Amsterdam calendar date and contain exactly 96 finite numeric quarter-hour values. Incomplete 92/100-quarter arrays are not stretched into 96. Yesterday's stored tomorrow can become today's matching date. A day rollover invalidates the shared cache even within its 15-second lifetime.
+Charging requires explicit confirmation, rechecks readiness and reserves a three-minute duplicate guard for the same target before posting. The same configured Flow toggles start/stop, matching the display; a fresh charger read must still show the opposite of the requested target. An opposite command is allowed after the first transition is verified. It tries the Advanced Flow endpoint first; only a definitive HTTP 404 permits the regular-Flow fallback. A timeout, missing response or other failure never authorizes another trigger. The app waits for real charger status and reports if the requested charging state is not confirmed. It does not override your Flow's charging policy.
 
-All-in prices in ct/kWh use the same calculation and defaults as the display:
+## Data and freshness
+
+Homey live data shares a 15-second single-flight cache across phones, with at most three concurrent device reads. Sonos status/discovery shares a 10-second cache, rotates bounded all-room activity reads and never overlaps commands with reads. Weather has a five-minute cache. History is requested on the Energy page and cached four minutes, independently of live polling. Hidden browser tabs stop polling and refresh on return. Failed reads remove affected data; no live/demo fallback invents readings.
+
+Net grid power is negative for export. Sessy battery power is negative while charging and positive while discharging. Gas rate is already m³/hour. History power is converted from W to kW. Calendar boundaries use Europe/Amsterdam and include 23/25-hour DST days; five-minute gaps remain gaps and line colors split exactly at zero. Future samples and stale tails older than 15 minutes are rejected. Daily summary values are whatever the configured Homey summary devices provide.
+
+Prices come only from the configured HomeyScript bridge. Each price day must match the Amsterdam date and contain exactly 96 finite numeric values; 92/100-quarter arrays are not stretched. Per-day source and cached status are retained, including tomorrow used as today's matching date after midnight. The server invalidates cache at a date rollover and the browser expires old dates. The visible price window determines min/mean/max and the cheapest consecutive three hours, including elapsed hours.
 
 ```text
-(market_EUR_per_kWh × 100 + tax_ct) × (1 + VAT_percent / 100) + fee_ct
+all_in_ct_per_kWh = (market_EUR_per_kWh × 100 + tax_ct) × (1 + VAT_percent / 100) + fee_ct
 ```
 
-Defaults are tax 9.161 ct before VAT, VAT 21%, and supplier fee 2 ct including VAT. Existing `ENERGYDECK_ENERGY_TAX_EX_VAT_CT`, `ENERGYDECK_VAT_PERCENT` and `ENERGYDECK_SUPPLIER_FEE_INCL_VAT_CT` override them; blank values retain defaults. Negative all-in prices are supported. The chart shows the selected calendar day; the cheapest three-hour block is calculated over that entire day, including elapsed hours for today. It does not use the display's rolling 24-hour chart window.
+Defaults: 9.161 ct tax before VAT, 21% VAT and 2 ct supplier fee including VAT. The web app does not independently call price providers.
 
-## Local development and demo
+## Security
 
-Node.js 22 or newer is required. From the repository root, reuse your `.env` without installing packages:
+A random code of at least 32 characters is required; use the 64-hex-character generator above. Keep it in `.env` or deployment secrets. It is submitted by same-origin JSON POST, never used as a URL credential. The session is a new random 256-bit token; only its SHA-256 digest is held in memory. Cookies are HttpOnly and SameSite=Strict, with Secure and the `__Host-` prefix by default. JavaScript cannot read them and authentication is never put in localStorage.
+
+Sign-out revokes that session. Expiry is seven days; restart/recreation revokes all sessions. Rotate the code and recreate the container to revoke household access. Login limits are 10/minute per socket address and 60 globally; forwarded addresses cannot bypass them. Controls are limited to 60/minute per session, plus serialized Sonos and charging duplicate guards. At most 256 sessions and 1,024 login-limit entries exist in memory. Proxied phones share a socket limit. Do not scale to multiple replicas without shared session/rate-limit state.
+
+All controls require an authenticated cookie, JSON body and matching Origin. No CORS access is enabled. CSP, no-store, no-referrer and frame blocking limit browser exposure. Static files are explicitly allowed; `.env`, source modules and Homey tokens are not served. Private API responses contain normalized data, not raw Homey devices or favorite metadata. APIs and artwork remain outside the service-worker cache.
+
+Upstream reads have deadlines, response limits and no redirect following. Sonos XML rejects DTD/entity declarations before parsing. Artwork is served only by opaque server-held keys: local Sonos `/getaa` resources or a fixed list of known HTTPS music CDNs, with no redirects, SVG/HTML or caller-supplied URLs. Image response buffers are capped at 6 MB total. The existing eleven station logos are reused locally; no external station art download is needed. Homey authorization is never sent to Sonos, weather providers or artwork hosts.
+
+The Docker build context excludes `.env`, Wi-Fi details, tests and development dependencies. Compose forwards only required settings. The container uses an unprivileged user, read-only filesystem, dropped capabilities, no new privileges, PID limit and 128 MB memory limit, with no Docker socket or writable volumes. The shared household code is not MFA or an individual account system; put an identity-aware proxy in front if needed. Cookie/URL choices follow the [OWASP Session Management Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html).
+
+## Development and verification
+
+Use Node.js 22 or newer. From the repository root:
 
 ```sh
+npm ci --prefix web --ignore-scripts
 node --env-file=.env web/server.mjs
-```
-
-Direct Node execution listens on `0.0.0.0` by default. Use `ENERGYDECK_WEB_HOST=127.0.0.1` in `.env` to restrict development to localhost. This setting affects direct Node execution; Compose controls host publication with `ENERGYDECK_WEB_BIND_ADDRESS` instead.
-
-Set `ENERGYDECK_WEB_DEMO=true` for explicitly labelled example data. Demo mode still requires sign-in and never calls Homey. It is never enabled as a fallback when live data fails. Turn it off before normal use.
-
-```sh
 npm test --prefix web
-node --check web/public/app.js
 ```
 
-Tests exercise session authentication/revocation/expiry, origin validation, login throttling, private routes, input bounds, security headers, data mapping, failure invalidation, cache sharing, request concurrency, date rollover, price calculations and translation keys. Integration tests open temporary localhost ports and use fake Homey responses; they never trigger real charging Flows.
+Direct Node execution uses `ENERGYDECK_WEB_PORT` (default 8080) and `ENERGYDECK_WEB_HOST` (default `0.0.0.0`). Set the latter to `127.0.0.1` for local-only development. Compose instead controls publication with `ENERGYDECK_WEB_BIND_ADDRESS`.
 
-The web UI is buildless: the container serves its HTML/CSS/JS files directly. Validate the Docker image on a Docker-capable host with `docker compose build` and `docker compose up -d`, then check `docker compose ps` for health. Do not print or share `docker compose config` output without redacting it: interpolation can expose environment secrets.
+`ENERGYDECK_WEB_DEMO=true` provides explicitly labelled data, nine climate zones, simulated Sonos controls and fake history/weather without any upstream request. Demo still requires login and is never enabled on failure. Set a demo Flow ID to enable simulated charging. Turn demo off before normal use.
+
+Tests use fake speakers/Homey responses for device commands, including lost write replies, stale group scope, source readiness, queue append/seek, group leadership, XML/SSRF bounds, cookie/origin checks, charge readiness/duplicate suppression, DST/history gaps and price-window calculations. Real installation checks must remain read-only unless the user explicitly requests a device action. Never trigger a real charging Flow merely to test the interface.
+
+The web app is buildless. On a Docker-capable host, verify `docker compose build`, `docker compose up -d` and `docker compose ps` health. Do not share unredacted `docker compose config` output: interpolation can expose secrets.
+
+Regenerate app/favicons with `.venv/bin/python scripts/generate-web-icons.py` (Pillow required), and export the display's embedded station JPEGs with `python3 scripts/export-web-stations.py`. Phone icons use full-bleed backgrounds so each OS can apply its own mask. Station logos identify their respective broadcasters, which retain ownership.

@@ -1,3 +1,6 @@
+import { initializeDetails } from './details.js';
+import { priceWindow } from './charts.js';
+
 const $ = id => document.getElementById(id);
 const translations = await fetch('/translations.json').then(response => response.json());
 let language;
@@ -28,6 +31,7 @@ function translate() {
 function showLogin() {
   authGeneration++;
   data = null;
+  details.reset();
   $('login').hidden = false;
   $('loading').hidden = true;
   $('dashboard').hidden = true;
@@ -43,12 +47,12 @@ async function api(path, body) {
   return fetch(path, { method: body === undefined ? 'GET' : 'POST',
     headers: body === undefined ? {} : { 'Content-Type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),
-    credentials: 'same-origin', cache: 'no-store', signal: AbortSignal.timeout(45000) });
+    credentials: 'same-origin', cache: 'no-store', signal: AbortSignal.timeout(path === '/api/sonos/command' ? 180000 : 45000) });
 }
 function unavailable() {
   // Do not keep old live readings visible after a failed connection.
-  const blank = { power: null, today: null, percentage: null, connected: null, charging: null, fault: null, rate: null };
-  data = { grid: blank, solar: blank, battery: blank, charger: blank, gas: blank, rooms: [],
+  const blank = { power: null, today: null, percentage: null, connected: null, charging: null, fault: null, rate: null, canStart: false };
+  data = { grid: blank, solar: blank, battery: blank, charger: blank, gas: blank, rooms: [], climate: { demand: 'unknown', mode: null },
     prices: { today: null, tomorrow: null }, status: 'offline', updatedAt: null, errors: [] };
   render();
 }
@@ -115,7 +119,7 @@ function render() {
   }
   data.rooms.forEach(room => {
     const node = document.createElement('div');
-    node.className = `room${room.temperature !== null && room.target !== null && room.temperature < room.target - .1 ? ' heating' : ''}`;
+    node.className = `room${data.climate?.mode && data.climate?.demand !== 'off' && room.temperature !== null && room.target !== null && room.target - room.temperature > .05 ? ' heating' : ''}`;
     const name = document.createElement('span'); name.textContent = room.name;
     const measured = document.createElement('strong'); measured.textContent = room.temperature === null ? '—' : `${format(room.temperature)}°`;
     const target = document.createElement('small'); target.textContent = `${t('target')} ${room.target === null ? '—' : `${format(room.target)} °C`}`;
@@ -123,6 +127,7 @@ function render() {
   });
   text('updated', data.updatedAt ? `${t('updated')} ${time(data.updatedAt)} · EnergyDeck` : 'EnergyDeck');
   drawChart(today, quarter);
+  details.dashboard(data);
 }
 function svgNode(tag, attributes, label) {
   const node = document.createElementNS('http://www.w3.org/2000/svg', tag);
@@ -132,6 +137,8 @@ function svgNode(tag, attributes, label) {
 }
 function drawChart(today, quarter) {
   const chart = $('price-chart'); chart.replaceChildren();
+  const chartWidth = Math.max(280, chart.clientWidth || 720);
+  chart.setAttribute('viewBox', `0 0 ${chartWidth} 190`);
   $('today').setAttribute('aria-pressed', String(selected === 'today'));
   $('tomorrow').setAttribute('aria-pressed', String(selected === 'tomorrow'));
   const tomorrowDate = new Date(`${localDate(new Date())}T12:00:00Z`);
@@ -147,25 +154,29 @@ function drawChart(today, quarter) {
   $('chart-warning').hidden = !warning;
   text('chart-warning', warning ? `${day.cached ? t('cachedPrices') : day.source === 'epexprijzen' ? t('reservePrices') : t('unknownSource')} · ${t('priceWarning')}` : '');
   if (!day) return;
-  text('price-min', format(day.minimum)); text('price-avg', format(day.average)); text('price-max', format(day.maximum));
-  text('cheapest-period', `${quarterTime(day.cheapest)} – ${quarterTime(day.cheapest + 12)}`);
-  const low = Math.min(0, day.minimum), high = Math.max(1, day.maximum), range = high - low;
+  const window = priceWindow(day, selected === 'today' ? tomorrow : null, quarter);
+  text('price-min', format(window.minimum)); text('price-avg', format(window.average)); text('price-max', format(window.maximum));
+  const windowTime = q => window.offset && q >= 96 ? `${quarterTime(q % 96)} ${t('tomorrow')}` : quarterTime(q);
+  text('cheapest-period', `${windowTime(window.offset + window.cheapest)} – ${windowTime(window.offset + window.cheapest + 12)}`);
+  if (window.offset) text('chart-date', `${t('today')} 12:00 → ${t('tomorrow')} 12:00`);
+  if (window.offset && (tomorrow.cached || tomorrow.source !== 'homey')) { $('chart-warning').hidden = false; text('chart-warning', t('priceWarning')); }
+  const low = Math.min(0, window.minimum), high = Math.max(1, window.maximum), range = high - low;
   const y = value => 154 - (value - low) / range * 140;
-  const left = 36, width = 680, step = width / 96;
+  const left = 32, width = chartWidth - left - 4, step = width / 96;
   [high, (high + low) / 2, low].forEach(value => {
-    chart.append(svgNode('line', { x1: left, y1: y(value), x2: 720, y2: y(value), class: 'chart-grid' }),
+    chart.append(svgNode('line', { x1: left, y1: y(value), x2: chartWidth, y2: y(value), class: 'chart-grid' }),
       svgNode('text', { x: 0, y: y(value) + 3 }, format(value, 0)));
   });
-  chart.append(svgNode('line', { x1: left, y1: y(0), x2: 720, y2: y(0), class: 'zero-line' }));
-  day.values.forEach((value, i) => {
+  chart.append(svgNode('line', { x1: left, y1: y(0), x2: chartWidth, y2: y(0), class: 'zero-line' }));
+  window.values.forEach((value, i) => {
     const height = Math.max(1, Math.abs(y(value) - y(0)));
-    const rect = svgNode('rect', { x: left + i * step, y: value >= 0 ? y(value) : y(0), width: step - 1.6, height, rx: 1,
-      class: `price-bar ${value < 0 ? 'negative-bar' : ''} ${i >= day.cheapest && i < day.cheapest + 12 ? 'cheap-bar' : ''} ${selected === 'today' && i === quarter ? 'current-bar' : ''}` });
-    rect.append(svgNode('title', {}, `${quarterTime(i)} · ${format(value)} ct/kWh`)); chart.append(rect);
+    const rect = svgNode('rect', { x: left + i * step, y: value >= 0 ? y(value) : y(0), width: Math.max(1, step - .8), height, rx: 1,
+      class: `price-bar ${value < 0 ? 'negative-bar' : ''} ${i >= window.cheapest && i < window.cheapest + 12 ? 'cheap-bar' : ''} ${selected === 'today' && i + window.offset === quarter ? 'current-bar' : ''}` });
+    rect.append(svgNode('title', {}, `${windowTime(i + window.offset)} · ${format(value)} ct/kWh`)); chart.append(rect);
   });
   [0, 6, 12, 18, 24].forEach(hour => chart.append(svgNode('text', {
     x: left + hour / 24 * width, y: 180, 'text-anchor': hour === 24 ? 'end' : hour === 0 ? 'start' : 'middle',
-  }, `${String(hour).padStart(2, '0')}:00`)));
+  }, window.offset ? quarterTime((hour * 4 + window.offset) % 96) : `${String(hour).padStart(2, '0')}:00`)));
 }
 $('language').addEventListener('click', () => {
   language = language === 'nl' ? 'en' : 'nl';
@@ -197,7 +208,11 @@ $('logout').addEventListener('click', async () => {
 });
 $('refresh').addEventListener('click', refresh);
 for (const day of ['today', 'tomorrow']) $(day).addEventListener('click', () => { selected = day; if (data) render(); });
+const details = initializeDetails({ api, t, format, time, svgNode, onUnauthorized: showLogin, onRefresh: refresh });
 translate();
 await refresh();
 setInterval(() => { if (data && !document.hidden) refresh(); }, 15000);
 document.addEventListener('visibilitychange', () => { if (data && !document.hidden) refresh(); });
+if ('serviceWorker' in navigator && window.isSecureContext) navigator.serviceWorker.register('/sw.js').catch(() => {});
+let resizeTimer;
+window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { if (data) render(); }, 150); });

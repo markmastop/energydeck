@@ -3,6 +3,11 @@
 set -euo pipefail
 
 project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+if [[ "${1:-}" == "web" ]]; then
+  shift
+  exec "$project_dir/web/run.sh" "$@"
+fi
+
 venv_dir="$project_dir/.venv"
 esphome_bin="$venv_dir/bin/esphome"
 config_file="$project_dir/esphome/energydeck-simulator.yaml"

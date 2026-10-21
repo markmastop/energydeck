@@ -34,6 +34,8 @@ It connects directly over your local network to Homey and Sonos to provide a rea
 
 The optional [mobile web app](docs/WEB.md) runs independently of the display on a NAS, Raspberry Pi, or home server. Start it with `docker compose up -d --build` after configuring its access code and network settings. Overview, Energy, Sonos and Climate pages reproduce the display's household functions with responsive layouts. No ESP32 hardware is required for the web app.
 
+For local use, run `./run.sh web` (or `./web/run.sh`) with Node.js 22 or newer. It installs dependencies when needed, reads your `.env` and prints the local URL. The original `./run.sh` command still starts the display simulator.
+
 | Model | Screen Size | Resolution | Part Number | Flash Target |
 | :--- | :--- | :--- | :--- | :--- |
 | **CrowPanel Advance 5.0"** | 5.0 inch IPS | 800 x 480 | `DIS02050A001` | `./flash.sh` |

@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b120f">
+  <meta name="description" content="EnergyDeck">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/icon.svg">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="stylesheet" href="/styles.css">
+  <title>EnergyDeck</title>
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="EnergyDeck"><img src="/icon.svg" alt="" width="32" height="32">Energy<span>Deck</span></a>
+    <div class="header-actions"><button id="language" class="quiet" type="button" aria-label="Language">EN</button><button id="logout" class="quiet" type="button" data-i18n="logout" hidden></button></div>
+  </header>
+  <main>
+    <section id="login" class="login panel" hidden>
+      <span class="eyebrow" data-i18n="localDashboard"></span>
+      <h1 data-i18n="welcome"></h1>
+      <p class="muted" data-i18n="loginDescription"></p>
+      <form id="login-form">
+        <label for="access-code" data-i18n="accessCode"></label>
+        <input id="access-code" name="code" type="password" autocomplete="current-password" required minlength="32" maxlength="512" spellcheck="false" autocapitalize="none">
+        <button id="login-button" class="primary" type="submit" data-i18n="login"></button>
+        <p id="login-error" class="error" role="alert"></p>
+      </form>
+      <p class="login-note" data-i18n="loginNote"></p>
+    </section>
+    <div id="loading" class="loading" role="status" data-i18n="loading"></div>
+    <div id="dashboard" hidden>
+      <div class="page-heading"><div><span id="date" class="eyebrow"></span><h1 data-i18n="yourEnergy"></h1></div><div id="connection" class="status" role="status"></div></div>
+      <p id="notice" class="notice" role="status" hidden></p>
+      <div class="dashboard-grid">
+        <section class="price-hero panel">
+          <div class="section-top"><span class="eyebrow" data-i18n="electricityNow"></span><span id="price-source" class="source"></span></div>
+          <div class="hero-value"><span id="price-now">—</span><span class="unit">ct/kWh</span></div>
+          <p id="price-period" class="muted"></p>
+          <div class="hero-bottom"><span class="small-dot"></span><span data-i18n="allIn"></span></div>
+        </section>
+        <section class="flow-panel panel" aria-labelledby="flow-title">
+          <div class="section-top"><h2 id="flow-title" data-i18n="livePower"></h2><span class="eyebrow" data-i18n="now"></span></div>
+          <div class="power-pair"><div class="power-item"><div class="dial solar-dial"><span class="sun-icon" aria-hidden="true">☀</span><strong id="solar-power">—</strong><small>kW</small></div><span data-i18n="solar"></span></div><div class="power-item"><div class="dial grid-dial"><span class="grid-icon" aria-hidden="true">↕</span><strong id="grid-power">—</strong><small>kW</small></div><span id="grid-direction"></span></div></div>
+        </section>
+        <section class="chart-panel panel" aria-labelledby="prices-title">
+          <div class="section-top"><h2 id="prices-title" data-i18n="prices"></h2><div class="segmented" role="group" data-i18n-aria="priceDay"><button id="today" type="button" aria-pressed="true" data-i18n="today"></button><button id="tomorrow" type="button" aria-pressed="false" data-i18n="tomorrow"></button></div></div>
+          <div class="chart-info"><span id="chart-date" class="muted"></span><span class="chart-unit">ct/kWh</span></div>
+          <svg id="price-chart" viewBox="0 0 720 190" role="img" data-i18n-aria="prices" preserveAspectRatio="none"></svg>
+          <p id="chart-empty" class="empty" hidden data-i18n="noPrices"></p>
+          <p id="chart-warning" class="chart-warning" hidden></p>
+          <div class="chart-summary"><div><span data-i18n="minimum"></span><strong id="price-min">—</strong></div><div><span data-i18n="average"></span><strong id="price-avg">—</strong></div><div><span data-i18n="maximum"></span><strong id="price-max">—</strong></div></div>
+          <div class="cheapest"><span class="spark" aria-hidden="true">✦</span><div><span data-i18n="cheapest"></span><strong id="cheapest-period">—</strong></div></div>
+        </section>
+        <section class="totals" data-i18n-aria="today"><div class="panel stat"><span class="stat-icon" aria-hidden="true">↯</span><span data-i18n="electricityToday"></span><strong id="electricity-day">—</strong><small>kWh</small></div><div class="panel stat"><span class="stat-icon yellow" aria-hidden="true">☀</span><span data-i18n="solarToday"></span><strong id="solar-day">—</strong><small>kWh</small></div><div class="panel stat"><span class="stat-icon blue" aria-hidden="true">♨</span><span data-i18n="gasToday"></span><strong id="gas-day">—</strong><small>m³</small></div></section>
+        <section class="battery-panel panel" aria-labelledby="battery-title"><div class="section-top"><h2 id="battery-title" data-i18n="battery"></h2><span class="source">Sessy</span></div><div class="battery-heading"><strong id="battery-level">—</strong><span id="battery-status" class="muted"></span></div><progress id="battery-progress" max="100" value="0" data-i18n-aria="battery"></progress><div class="card-foot"><span data-i18n="batteryPower"></span><strong id="battery-power">—</strong></div></section>
+        <section class="charger-panel panel" aria-labelledby="charger-title"><div class="section-top"><h2 id="charger-title" data-i18n="charger"></h2><span class="source">EV</span></div><div class="charger-body"><span class="ev-icon" aria-hidden="true">↯</span><div><strong id="charger-status">—</strong><p id="charger-power" class="muted"></p></div></div><div class="card-foot"><span data-i18n="readOnly"></span><span class="small-dot"></span></div></section>
+        <section class="climate-panel panel" aria-labelledby="climate-title"><div class="section-top"><h2 id="climate-title" data-i18n="climate"></h2><span class="source">Evohome</span></div><div id="rooms" class="rooms"></div></section>
+      </div>
+      <footer><span id="updated"></span><button id="refresh" class="quiet" type="button" data-i18n="refresh"></button></footer>
+    </div>
+  </main>
+</body>
+</html>

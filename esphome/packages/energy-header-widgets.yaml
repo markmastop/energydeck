@@ -1,5 +1,10 @@
 - arc:
     id: header_grid_arc
+    min_value: -100
+    max_value: 100
+    mode: SYMMETRICAL
+    start_angle: 135
+    end_angle: 45
     x: 6
     y: 11
     width: 66
@@ -13,6 +18,18 @@
       arc_color: 0x3AA7D8
     knob:
       bg_opa: TRANSP
+- obj:
+    id: header_grid_zero
+    x: 38
+    y: 12
+    width: 2
+    height: 7
+    bg_color: 0xDDE7E0
+    bg_opa: COVER
+    border_width: 0
+    radius: 1
+    clickable: false
+    scrollable: false
 - label:
     id: header_grid_title
     x: 0
@@ -138,6 +155,8 @@
 
 - arc:
     id: header_source_arc
+    start_angle: 135
+    end_angle: 45
     x: 162
     y: 11
     width: 66
@@ -151,6 +170,19 @@
       arc_color: 0x48BD70
     knob:
       bg_opa: TRANSP
+- obj:
+    id: header_source_zero
+    x: 194
+    y: 12
+    width: 2
+    height: 7
+    bg_color: 0xDDE7E0
+    bg_opa: COVER
+    border_width: 0
+    radius: 1
+    clickable: false
+    scrollable: false
+    hidden: true
 - label:
     id: header_source_title
     x: 156

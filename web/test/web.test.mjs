@@ -144,7 +144,7 @@ test('session rotation revokes the old cookie and server errors reveal no detail
 
 test('private APIs require cookies, never query-string access codes', async t => {
   const { request } = await fixture(t);
-  for (const path of ['/api/dashboard', `/api/dashboard?code=${code}`, '/api/session']) assert.equal((await request(path)).status, 401);
+  for (const path of ['/api/dashboard', `/api/dashboard?code=${code}`, '/api/session', '/api/sonos', '/api/weather', '/api/history', `/api/sonos/artwork/${'a'.repeat(64)}`]) assert.equal((await request(path)).status, 401);
   assert.equal((await request('/healthz')).status, 200);
   assert.equal((await request('/.env')).status, 404);
   assert.equal((await request('/data.mjs')).status, 404);
@@ -159,7 +159,8 @@ test('login creates an HttpOnly session; logout invalidates copied cookies', asy
   assert.ok(!cookie.includes(code));
   const headers = { Cookie: cookie.split(';')[0] };
   assert.deepEqual(await (await request('/api/dashboard', { headers })).json(), { private: true });
-  assert.equal((await request('/api/charge', { method: 'POST', headers })).status, 405);
+  assert.equal((await request('/api/charge', { method: 'POST', headers })).status, 403);
+  assert.equal((await request('/api/unsupported', { method: 'POST', headers })).status, 405);
   const out = await request('/api/logout', { method: 'POST', headers: { ...headers, Origin: origin } });
   assert.equal(out.status, 200); assert.match(out.headers.get('set-cookie'), /Max-Age=0/);
   assert.equal((await request('/api/dashboard', { headers })).status, 401);

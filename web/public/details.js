@@ -1,0 +1,350 @@
+import { lineSegments } from './charts.js';
+
+// Detail views share the dashboard session and never send device commands while rendering.
+export function initializeDetails({ api, t, format, time, svgNode, onUnauthorized, onRefresh }) {
+  const $ = id => document.getElementById(id);
+  const node = (tag, className, text) => { const element = document.createElement(tag); if (className) element.className = className; if (text !== undefined) element.textContent = text; return element; };
+  const text = (id, value) => { $(id).textContent = value; };
+  const button = (label, fn, className = 'quiet', disabled = false) => {
+    const element = node('button', className, label); element.type = 'button'; element.disabled = disabled; element.addEventListener('click', fn); return element;
+  };
+  let page = 'overview', card = 'climate', view = 'favorites', dashboard = null, weather = null, history = null, sonos = null;
+  let room = '', sonosError = '', message = '', commandBusy = false, generation = 0, sonosVersion = 0, explicitRoom = false;
+  let weatherAt = 0, historyAt = 0, sonosAt = 0, weatherPending = false, historyPending = false, sonosPending = false;
+  let draft = null, yearTotals = false, chargeUntil = 0, chargeMessage = '', chargeBusy = false, wasPlaying = false, chargeTarget = null;
+  const knownErrors = new Set(['sonosOffline', 'sonosUnconfigured', 'roomChanged', 'favoritesChanged', 'actionUnavailable', 'commandBusy', 'commandUnconfirmed', 'chargerNotReady', 'unconfigured', 'rateLimited', 'invalidGroup']);
+  const errorLabel = error => t(knownErrors.has(error?.code) ? error.code : 'commandFailed');
+  const dateKey = value => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Amsterdam', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(value));
+  async function request(path, body) {
+    const response = await api(path, body);
+    if (response.status === 401) { onUnauthorized(); throw { code: 'unauthorized' }; }
+    const result = await response.json();
+    if (!response.ok) throw { code: result.error, status: response.status };
+    return result;
+  }
+  function navigate(next, scroll = true) {
+    if (!['overview', 'energy', 'sonos', 'climate'].includes(next)) return;
+    page = next;
+    document.body.dataset.page = page;
+    for (const name of ['overview', 'energy', 'sonos', 'climate']) $(`page-${name}`).hidden = name !== page;
+    document.querySelectorAll('#page-nav [data-open]').forEach(element => {
+      if (element.dataset.open === page) element.setAttribute('aria-current', 'page'); else element.removeAttribute('aria-current');
+    });
+    $('shared-header').hidden = page === 'overview';
+    if (scroll) window.scrollTo({ top: 0, behavior: 'instant' });
+    if (dashboard) { render(); update(); onRefresh(); }
+  }
+  document.querySelectorAll('[data-open]').forEach(element => element.addEventListener('click', () => navigate(element.dataset.open)));
+  document.querySelectorAll('[data-card]').forEach(element => element.addEventListener('click', () => { card = element.dataset.card; renderCards(); if (card === 'sonos') { sonosVersion++; loadSonos(true); } }));
+  function renderCards() {
+    for (const name of ['gas', 'sonos', 'climate']) $(`card-${name}`).hidden = name !== card;
+    document.querySelectorAll('[data-card]').forEach(element => element.setAttribute('aria-pressed', String(element.dataset.card === card)));
+  }
+  async function loadWeather() {
+    if (weatherPending || !dashboard || Date.now() - weatherAt < 300000 && weather && dateKey(weather.updatedAt) === dateKey(Date.now())) return;
+    weatherPending = true; const version = generation;
+    try { const result = await request('/api/weather'); if (version === generation) { weather = result; weatherAt = Date.now(); renderWeather(); } }
+    catch { if (version === generation) { weather = null; renderWeather(); } }
+    finally { weatherPending = false; }
+  }
+  async function loadHistory(force = false) {
+    const sameDay = !history || Date.now() >= history.power.start && Date.now() < history.power.end;
+    if (historyPending || !dashboard || !force && sameDay && Date.now() - historyAt < 240000) return;
+    historyPending = true; $('history-refresh').disabled = true; const version = generation;
+    if (!history) renderHistory();
+    try { const result = await request('/api/history'); if (version === generation) { history = result; historyAt = Date.now(); renderHistory(); } }
+    catch { if (version === generation) { history = null; renderHistory(); } }
+    finally { historyPending = false; $('history-refresh').disabled = false; }
+  }
+  async function loadSonos(force = false) {
+    if (!dashboard || commandBusy || sonosPending || !force && Date.now() - sonosAt < 10000) return;
+    sonosPending = true; const version = generation, selection = sonosVersion, chosen = page === 'overview' ? '' : room;
+    try {
+      const result = await request(`/api/sonos?room=${encodeURIComponent(chosen)}&favorites=${page === 'sonos' && view === 'favorites' || page === 'overview' && card === 'sonos'}&combined=${!explicitRoom}`);
+      if (version !== generation || selection !== sonosVersion) return;
+      // Scope changes invalidate a grouping draft, never silently rebase its membership.
+      if (draft && draft.scope !== result.scope) draft.stale = true;
+      sonos = result; sonosError = ''; sonosAt = Date.now();
+      room = result.player.roomId;
+      const playing = result.rooms.some(room => room.state === 'PLAYING');
+      const stopped = result.rooms.length && result.rooms.every(room => ['STOPPED', 'PAUSED_PLAYBACK', 'NO_MEDIA_PRESENT'].includes(room.state));
+      if (page === 'overview' && playing && !wasPlaying) card = 'sonos';
+      if (page === 'overview' && stopped && wasPlaying && card === 'sonos') card = 'gas';
+      const returnToGas = page === 'sonos' && stopped && wasPlaying && !commandBusy && !draft;
+      if (playing || stopped) wasPlaying = playing;
+      if (returnToGas) { card = 'gas'; navigate('overview'); }
+      renderCards();
+      renderSonos();
+    } catch (error) {
+      if (version !== generation || selection !== sonosVersion) return;
+      sonos = null; sonosError = errorLabel(error); renderSonos();
+    } finally {
+      sonosPending = false;
+      if (selection !== sonosVersion && dashboard) loadSonos(true);
+    }
+  }
+  function update() {
+    if (!dashboard || dashboard.status === 'offline') return;
+    if (page === 'overview' || page === 'climate') loadWeather();
+    if (page === 'energy') loadHistory();
+    if (page === 'overview' || page === 'sonos') loadSonos();
+  }
+  function render() {
+    document.querySelector('.page-heading h1').textContent = page === 'overview' ? t('yourEnergy') : page === 'sonos' ? 'Sonos' : t(page === 'energy' ? 'energy' : 'climate');
+    renderCards(); renderTotals(); renderClimate(); renderWeather(); renderHistory(); renderSonos(); renderCharge();
+  }
+  function renderTotals() {
+    if (!dashboard) return;
+    const period = yearTotals ? 'year' : 'today';
+    text('electricity-day', format(dashboard.grid[period])); text('solar-day', format(dashboard.solar[period]));
+    $('electricity-day').previousElementSibling.textContent = t(yearTotals ? 'electricityYear' : 'electricityToday');
+    $('solar-day').previousElementSibling.textContent = t(yearTotals ? 'solarYear' : 'solarToday');
+    $('gas-summary').replaceChildren();
+    for (const key of ['today', 'month', 'year']) {
+      const cell = node('div'); cell.append(node('span', 'muted', t(key)), node('strong', '', format(dashboard.gas[key], key === 'year' ? 0 : 2)), node('small', 'muted', 'm³')); $('gas-summary').append(cell);
+    }
+    const table = node('table', 'totals-table'); const head = node('tr');
+    for (const label of ['', t('grid'), t('solar'), t('gas')]) head.append(node('th', '', label));
+    const header = node('thead'); header.append(head); table.append(header);
+    const body = node('tbody');
+    for (const key of ['today', 'yesterday', 'month', 'year']) {
+      const row = node('tr'); row.append(node('th', '', t(key)));
+      for (const metric of ['grid', 'solar', 'gas']) row.append(node('td', '', `${format(dashboard[metric][key], metric === 'gas' ? 2 : 1)} ${metric === 'gas' ? 'm³' : 'kWh'}`));
+      body.append(row);
+    }
+    table.append(body); $('energy-totals').replaceChildren(table);
+    const peaks = node('p', 'muted fine-print', `${t('powerPeak')}: ${format(dashboard.grid.peak, 0)} W · ${t('solarPeak')}: ${format(dashboard.solar.peak, 0)} W`); $('energy-totals').append(peaks);
+  }
+  function renderClimate() {
+    if (!dashboard) return;
+    const climate = dashboard.climate || { demand: 'unknown', mode: null };
+    const programme = $('climate-programme'); programme.className = `programme ${climate.demand}`;
+    programme.replaceChildren(node('strong', '', climate.mode ? t(`mode${climate.mode}`) : t('unavailable')), node('span', '', t(`heat${climate.demand}`)));
+    $('climate-rooms').replaceChildren();
+    for (const entry of dashboard.rooms) {
+      const demanding = climate.demand !== 'off' && climate.mode && entry.temperature !== null && entry.target !== null && entry.target - entry.temperature > .05;
+      const item = node('div', `climate-room${demanding ? ' heating' : ''}`);
+      item.append(node('h3', '', entry.name), node('strong', '', `${format(entry.temperature)} °C`),
+        node('small', 'muted', `${t('target')} ${format(entry.target)} °C`), node('span', 'room-demand', t(demanding ? 'heatdemand' : climate.demand === 'off' ? 'heatoff' : !climate.mode || entry.temperature === null || entry.target === null ? 'heatunknown' : 'heatidle')));
+      $('climate-rooms').append(item);
+    }
+    if (!dashboard.rooms.length) $('climate-rooms').append(node('p', 'empty', t('noRooms')));
+  }
+  function renderWeather() {
+    const fresh = weather && Date.now() - Date.parse(weather.updatedAt) < 900000 && dateKey(weather.updatedAt) === dateKey(Date.now());
+    const data = fresh ? weather : null;
+    const sun = data ? `↑ ${data.sunrise ? time(data.sunrise) : '—'}  ↓ ${data.sunset ? time(data.sunset) : '—'}` : '';
+    text('sun-times', sun); text('climate-sun-times', sun);
+    for (const id of ['weather-overview', 'weather-climate']) {
+      const container = $(id); container.replaceChildren();
+      const summary = node('div', 'weather-summary');
+      const current = node('div'); current.append(node('strong', '', `${format(data?.summary?.temperature)} °C`), node('span', 'muted', t(`weather${data?.summary?.condition || 'unknown'}`)));
+      const outlook = node('div'); outlook.append(node('span', 'muted', `${t('inThreeHours')} ${format(data?.temperature3h)} °C`),
+        node('span', 'muted', `${t('tomorrow')} ${format(data?.summary?.tomorrowMin, 0)} – ${format(data?.summary?.tomorrowMax, 0)} °C`));
+      summary.append(current, outlook); container.append(summary);
+      const points = data?.rain?.points?.filter(point => point.time + 300000 > Date.now()) || [];
+      const firstRain = points.findIndex(point => point.value >= .1);
+      const label = !points.length ? t('rainUnknown') : firstRain < 0 ? t('rainDry') : firstRain === 0 ? t('rainNow') : `${t('rainAt')} ${time(points[firstRain].time)}`;
+      container.append(node('p', 'rain-heading', label));
+      const chartWidth = Math.max(280, container.clientWidth || 720), step = (chartWidth - 20) / 24;
+      const svg = svgNode('svg', { viewBox: `0 0 ${chartWidth} 95`, role: 'img', 'aria-label': t('rainForecast'), class: 'rain-chart' });
+      points.forEach((point, i) => {
+        const level = point.value < 2.5 ? point.value / 2.5 : point.value < 7.5 ? 1 + (point.value - 2.5) / 5 : 2 + Math.min(1, (point.value - 7.5) / 12.5);
+        const height = point.value < .1 ? 2 : Math.max(3, level * 18);
+        const rect = svgNode('rect', { x: 10 + i * step, y: 60 - height, width: Math.max(2, step - 3), height, rx: 3, class: point.value < .1 ? 'dry-bar' : 'rain-bar' });
+        rect.append(svgNode('title', {}, `${time(point.time)} · ${format(point.value, 2)} mm/h`)); svg.append(rect);
+      });
+      if (points.length) {
+        svg.append(svgNode('text', { x: 10, y: 84 }, time(points[0].time)), svgNode('text', { x: chartWidth - 10, y: 84, 'text-anchor': 'end' }, time(points.at(-1).time + 300000)));
+      }
+      container.append(svg);
+      const sources = node('p', 'weather-sources');
+      for (const [title, url] of [['Buienradar', 'https://www.buienradar.nl'], ['Open-Meteo', 'https://open-meteo.com']]) {
+        const a = node('a', '', title); a.href = url; a.target = '_blank'; a.rel = 'noopener noreferrer'; sources.append(a);
+      }
+      container.append(sources);
+    }
+  }
+  function renderHistory() {
+    for (const type of ['power', 'gas']) {
+      const svg = $(`history-${type}`); svg.replaceChildren();
+      const chartWidth = Math.max(280, svg.clientWidth || 720), plotWidth = chartWidth - 46;
+      svg.setAttribute('viewBox', `0 0 ${chartWidth} 200`);
+      svg.setAttribute('preserveAspectRatio', 'none');
+      const series = history?.[type];
+      const points = series?.points || [];
+      const fresh = points.length && Date.now() - points.at(-1).time <= 900000 && Date.now() >= series.start && Date.now() < series.end;
+      text(`history-${type}-status`, fresh ? `${t('updated')} ${time(points.at(-1).time)} · ${t('fiveMinutes')}` : t(historyPending ? 'loading' : 'historyUnavailable'));
+      if (!fresh) continue;
+      const signed = type === 'power', maximum = Math.max(signed ? .5 : .1, ...points.map(point => Math.abs(point.value)));
+      const x = value => 38 + (value - series.start) / (series.end - series.start) * plotWidth;
+      const y = value => signed ? 88 - value / maximum * 72 : 160 - value / maximum * 144;
+      for (const value of signed ? [maximum, 0, -maximum] : [maximum, maximum / 2, 0]) {
+        svg.append(svgNode('line', { x1: 38, x2: chartWidth - 8, y1: y(value), y2: y(value), class: 'history-grid' }), svgNode('text', { x: 0, y: y(value) + 4 }, format(value, 1)));
+      }
+      const segment = (a, b) => svg.append(svgNode('line', { x1: x(a.time), x2: x(b.time), y1: y(a.value), y2: y(b.value), class: a.value < 0 || b.value < 0 ? 'history-export' : 'history-import' }));
+      for (const [a, b] of lineSegments(points, signed)) segment(a, b);
+      [0, .25, .5, .75, 1].forEach(fraction => svg.append(svgNode('text', { x: 38 + plotWidth * fraction, y: 188, 'text-anchor': fraction === 1 ? 'end' : 'start' }, fraction === 1 ? '24:00' : time(series.start + (series.end - series.start) * fraction))));
+    }
+  }
+  function cover(player, compact) {
+    const box = node('div', compact ? 'cover compact-cover' : 'cover');
+    const fallback = node('span', 'cover-fallback', '♫'); fallback.setAttribute('aria-hidden', 'true'); box.append(fallback);
+    if (/^\/(?:api\/sonos\/artwork\/[a-f0-9]{64}|stations\/[a-z0-9-]+\.jpg)$/.test(player.artwork || '')) {
+      const image = node('img'); image.src = player.artwork; image.alt = ''; image.addEventListener('error', () => image.remove(), { once: true }); box.append(image);
+    }
+    return box;
+  }
+  function playerControls(player, compact = false) {
+    const controls = node('div', 'player-controls');
+    const transportRow = node('div', 'transport-row'), volumeRow = node('div', 'volume-row');
+    const actions = player.actions || [], locked = commandBusy || sonos?.busy || Date.now() - player.updatedAt > 45000;
+    const volumeUnavailable = player.volume === null || player.volumeValues?.some(item => item.value === null);
+    const control = (symbol, label, action, extra, disabled = false) => {
+      const element = button(symbol, () => send(action, extra), action === 'play' || action === 'pause' ? 'transport play-button' : 'transport', locked || disabled);
+      element.setAttribute('aria-label', t(label)); (['volume', 'mute'].includes(action) ? volumeRow : transportRow).append(element);
+    };
+    if (!compact) control('⏮', 'previous', 'previous', {}, player.tv || !actions.includes('Previous'));
+    const playing = player.state === 'PLAYING';
+    control(playing ? 'Ⅱ' : '▶', playing ? 'pause' : 'play', playing ? 'pause' : 'play', {}, player.tv || !actions.includes(playing ? 'Pause' : 'Play'));
+    if (!compact) control('⏭', 'next', 'next', {}, player.tv || !actions.includes('Next'));
+    control('−', 'volumeDown', 'volume', { delta: -2 }, volumeUnavailable);
+    volumeRow.append(node('span', 'volume-value', player.volumeValues?.length > 1 ? `${player.volumeValues.map(item => item.value ?? '—').join('/')}%` : player.volume === null ? '—' : `${player.volume}%`));
+    control('+', 'volumeUp', 'volume', { delta: 2 }, volumeUnavailable);
+    if (!compact) {
+      control(player.mute ? '◉' : '◌', player.mute ? 'unmute' : 'mute', 'mute', { mute: !player.mute }, player.mute === null);
+    }
+    controls.append(transportRow, volumeRow); return controls;
+  }
+  function renderPlayer(id, compact) {
+    const container = $(id); container.replaceChildren();
+    if (!sonos?.player) { container.append(node('p', 'empty', sonosError || t('loading'))); return; }
+    const player = sonos.player, layout = node('div', compact ? 'player-layout compact-layout' : 'player-layout');
+    layout.append(cover(player, compact));
+    const track = node('div', 'track-details');
+    track.append(button(player.group, () => { view = 'rooms'; navigate('sonos'); renderSonos(); }, 'room-heading'), node(compact ? 'h3' : 'h2', '', player.title || t('ready')),
+      node('p', 'muted track-artist', player.artist || t(`state${player.state}`)), node('p', 'muted track-album', player.album || ''));
+    if (compact) track.append(playerControls(player, true));
+    layout.append(track); container.append(layout);
+    if (!compact) container.append(playerControls(player));
+    if (compact && player.state !== 'PLAYING') container.append(favoriteGrid(true));
+    if (compact && message) container.append(node('p', 'action-message', message));
+  }
+  function favoriteGrid(compact = false) {
+    const grid = node('div', compact ? 'favorites-grid compact-favorites' : 'favorites-grid');
+    for (const favorite of sonos?.favorites || []) {
+      const element = button('', () => send('favorite', { favoriteId: favorite.id }), 'favorite', commandBusy || sonos.busy);
+      element.append(cover({ artwork: favorite.artwork }, true), node('span', '', favorite.title)); element.setAttribute('aria-label', `${t('playFavorite')} ${favorite.title}`); grid.append(element);
+    }
+    if (!sonos?.favorites?.length) grid.append(node('p', 'empty', t('favoritesUnavailable')));
+    return grid;
+  }
+  function renderSonos() {
+    renderPlayer('full-player', false); renderPlayer('compact-player', true);
+    text('sonos-room-heading', sonos?.player?.name || t('rooms')); text('sonos-message', message || sonosError);
+    $('favorites-tab').setAttribute('aria-pressed', String(view === 'favorites')); $('rooms-tab').setAttribute('aria-pressed', String(view === 'rooms'));
+    $('favorites-grid').hidden = view !== 'favorites'; $('sonos-rooms').hidden = view !== 'rooms';
+    $('favorites-grid').replaceChildren(favoriteGrid());
+    const container = $('sonos-rooms'); container.replaceChildren();
+    if (!sonos) { container.append(node('p', 'empty', sonosError || t('loading'))); return; }
+    container.append(node('p', 'muted fine-print', t('groupHelp')));
+    for (const entry of sonos.rooms) {
+      const row = node('div', `sonos-room${entry.id === sonos.player.roomId ? ' selected' : ''}`);
+      const select = button('', () => selectRoom(entry.id), 'room-select', commandBusy);
+      select.append(node('strong', '', entry.name), node('small', 'muted', t(`state${entry.state}`))); row.append(select);
+      const anchor = entry.id === sonos.player.roomId;
+      const checked = draft ? draft.members.has(entry.id) : entry.coordinator === sonos.rooms.find(r => r.id === sonos.player.roomId)?.coordinator;
+      const label = node('label', 'group-choice');
+      const input = node('input'); input.type = 'checkbox'; input.checked = checked; input.disabled = anchor || commandBusy || draft?.stale === true;
+      input.setAttribute('aria-label', `${t('groupWith')} ${entry.name}`);
+      input.addEventListener('change', () => {
+        explicitRoom = true;
+        sonos.player.volumeValues = [{ id: sonos.player.roomId, value: sonos.player.volume }];
+        if (!draft) draft = { scope: sonos.scope, members: new Set(sonos.rooms.filter(r => r.coordinator === sonos.rooms.find(item => item.id === sonos.player.roomId)?.coordinator).map(r => r.id)), stale: false };
+        if (input.checked) draft.members.add(entry.id); else draft.members.delete(entry.id);
+        renderSonos();
+      });
+      label.append(input, node('span', '', t(anchor ? 'groupMain' : 'groupInclude'))); row.append(label); container.append(row);
+    }
+    if (draft) {
+      const actions = node('div', 'group-actions');
+      actions.append(button(t('applyGroup'), () => send('group', { members: [...draft.members], scope: draft.scope }), 'action-button', commandBusy || draft.stale), button(t('cancel'), () => { draft = null; renderSonos(); }, 'quiet', commandBusy)); container.append(actions);
+      if (draft.stale) container.append(node('p', 'error', t('roomChanged')));
+    }
+  }
+  function selectRoom(id) {
+    if (commandBusy) return;
+    explicitRoom = true;
+    room = id; sonosVersion++; sonos = null; draft = null; message = ''; renderSonos(); loadSonos(true);
+  }
+  async function send(action, extra = {}) {
+    if (!sonos?.player || commandBusy) return;
+    commandBusy = true; message = t('commandSending');
+    sonosVersion++;
+    const version = generation;
+    const body = { action, roomId: sonos.player.roomId, scope: sonos.scope, combined: !explicitRoom, ...extra };
+    renderSonos();
+    try {
+      await request('/api/sonos/command', body);
+      if (version !== generation) return;
+      message = t('commandDone'); if (action === 'group') draft = null;
+    } catch (error) { if (version === generation) message = errorLabel(error); }
+    finally { commandBusy = false; if (version === generation) { sonosAt = 0; await loadSonos(true); } }
+  }
+  function renderCharge() {
+    if (!dashboard) return;
+    const charger = dashboard.charger;
+    if (chargeUntil && charger.charging === chargeTarget) { chargeUntil = 0; chargeMessage = t(chargeTarget ? 'chargeStarted' : 'chargeStopped'); }
+    if (chargeUntil && chargeUntil <= Date.now()) { chargeUntil = 0; chargeMessage = t('chargeTimedOut'); }
+    if (charger.fault || charger.connected === false) chargeUntil = 0;
+    const pending = chargeUntil > Date.now();
+    $('charge-button').disabled = chargeBusy || pending || !charger.canStart || charger.connected !== true || typeof charger.charging !== 'boolean' || charger.fault !== false;
+    text('charge-button', t(charger.charging ? 'stopCharge' : 'startCharge'));
+    text('charge-message', pending ? t('chargePending') : !charger.canStart ? t('chargeUnconfigured') : chargeMessage);
+  }
+  $('charge-button').addEventListener('click', () => {
+    chargeTarget = !dashboard.charger.charging;
+    text('charge-dialog-title', t(chargeTarget ? 'startCharge' : 'stopCharge'));
+    text('charge-confirm', t(chargeTarget ? 'startCharge' : 'stopCharge'));
+    $('charge-dialog').querySelector('p').textContent = t(dashboard?.demo ? 'confirmChargeDemo' : chargeTarget ? 'confirmCharge' : 'confirmStopCharge');
+    $('charge-dialog').showModal();
+  });
+  $('charge-cancel').addEventListener('click', () => $('charge-dialog').close());
+  $('charge-confirm').addEventListener('click', async () => {
+    if (chargeBusy || chargeUntil > Date.now()) return;
+    $('charge-dialog').close(); chargeBusy = true; chargeMessage = ''; renderCharge();
+    const version = generation;
+    try { await request('/api/charge', { confirm: true, target: chargeTarget }); if (version === generation) chargeUntil = Date.now() + 180000; }
+    catch (error) { if (version === generation) { chargeMessage = errorLabel(error); if (!error.status || error.status >= 500) chargeUntil = Date.now() + 180000; } }
+    finally { chargeBusy = false; if (version === generation) { renderCharge(); onRefresh(); } }
+  });
+  $('history-refresh').addEventListener('click', () => loadHistory(true));
+  $('totals-toggle').addEventListener('click', () => { yearTotals = !yearTotals; renderTotals(); });
+  for (const id of ['electricity-day', 'solar-day']) {
+    const element = $(id).closest('.stat'); element.tabIndex = 0; element.setAttribute('role', 'button');
+    element.addEventListener('click', () => { yearTotals = !yearTotals; renderTotals(); });
+    element.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); yearTotals = !yearTotals; renderTotals(); } });
+  }
+  for (const next of ['favorites', 'rooms']) $(`${next}-tab`).addEventListener('click', () => { view = next; renderSonos(); if (next === 'favorites') { sonosVersion++; loadSonos(true); } });
+  $('sonos-room-heading').addEventListener('click', () => { view = 'rooms'; renderSonos(); });
+  const poll = () => { if (!document.hidden) update(); };
+  setInterval(poll, 10000); document.addEventListener('visibilitychange', poll);
+  return {
+    dashboard(next) {
+      dashboard = next;
+      text('shared-price', $('price-now').textContent); text('shared-grid', next.grid.power === null ? '—' : format(Math.abs(next.grid.power) / 1000, 1));
+      text('shared-battery', format(next.battery.percentage, 0)); text('shared-solar', next.solar.power === null ? '—' : format(next.solar.power / 1000, 1));
+      if (next.status === 'offline') { generation++; weather = null; history = null; sonos = null; weatherAt = historyAt = sonosAt = 0; sonosError = t('offline'); }
+      render(); update();
+    },
+    reset() {
+      generation++; sonosVersion++; dashboard = null; weather = null; history = null; sonos = null;
+      weatherAt = historyAt = sonosAt = 0; draft = null; room = ''; message = ''; chargeMessage = ''; chargeUntil = 0;
+      wasPlaying = false;
+      explicitRoom = false;
+      chargeTarget = null;
+      $('charge-dialog').close(); navigate('overview', false);
+      for (const id of ['full-player', 'compact-player', 'sonos-rooms', 'favorites-grid', 'climate-rooms', 'weather-overview', 'weather-climate']) $(id).replaceChildren();
+    },
+  };
+}

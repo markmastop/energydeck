@@ -1,27 +1,82 @@
-# Climate card
+# Evohome climate overview
 
-Opening the Climate tab immediately starts a refresh; the 60-second background
-interval and 20-second startup delay remain. Single mode coalesces repeated taps
-with any refresh already running. The six read-only requests remain sequential,
-with 80 ms between rooms (400 ms total deliberate delay instead of 3 seconds).
-New Sonos cover/favorite artwork downloads defer while this script runs; an
-already-started download is not cancelled. The shared HTTP timeout remains 8 s.
+Climate reads only the configured Honeywell EvoTouch controller and Evohome zone
+parts through Homey's device API. The controller driver must be
+`homey:app:com.honeywell:thermostat`; room drivers must be
+`homey:app:com.honeywell:zone`. A wrong driver, failed response, missing capability
+or invalid reading is rejected. Logic labels, Flow tags, generic room sensors,
+gas consumption and other brands are not climate sources.
 
-The Climate tab replaces Extra with up to six read-only temperature readings. It uses dedicated temperature sensors, not radiator setpoints, air-quality sensors or wall-panel temperature readings. Both the sensor names and sensor device IDs are fully configurable via 6 generic slots in `.env`:
+The controller provides `honeywell_thermostat_mode`: Auto, HeatingOff, Away,
+AutoWithEco, Custom and DayOff. HeatingOff is off; the other recognized modes
+allow the Evohome programme to operate. An unknown/stale mode stays unknown.
+Every zone provides measured `measure_temperature` and `target_temperature`, in °C.
 
-| Slot | Name variable (default) | Device ID variable | Default Homey sensor ID |
-| --- | --- | --- | --- |
-| Sensor 1 | `HOMEY_CLIMATE_SENSOR_1_NAME` (Woonkamer) | `HOMEY_CLIMATE_SENSOR_1_DEVICE_ID` | none |
-| Sensor 2 | `HOMEY_CLIMATE_SENSOR_2_NAME` (Aanbouw) | `HOMEY_CLIMATE_SENSOR_2_DEVICE_ID` | none |
-| Sensor 3 | `HOMEY_CLIMATE_SENSOR_3_NAME` (Bedroom 1) | `HOMEY_CLIMATE_SENSOR_3_DEVICE_ID` | none |
-| Sensor 4 | `HOMEY_CLIMATE_SENSOR_4_NAME` (Bedroom 2) | `HOMEY_CLIMATE_SENSOR_4_DEVICE_ID` | none |
-| Sensor 5 | `HOMEY_CLIMATE_SENSOR_5_NAME` (Office 1) | `HOMEY_CLIMATE_SENSOR_5_DEVICE_ID` | none |
-| Sensor 6 | `HOMEY_CLIMATE_SENSOR_6_NAME` (Office 2) | `HOMEY_CLIMATE_SENSOR_6_DEVICE_ID` | none |
+## Nine rooms on both views
 
-Slots without a configured device ID in `.env` are automatically hidden and skipped during polling. The active sensors are dynamically positioned and centered (supporting 1, 2, 3, 4, 5, or 6 sensors). If no sensors are configured, a placeholder message is displayed.
+The main dashboard opens with a compact 3-by-3 Evohome preview. Every cell shows
+its room name and **measured / target** temperature. The Climate detail page shows
+all nine rooms in a 3-by-3 grid with measured temperature, setpoint and inferred
+room demand, below the controller programme summary. No scrolling is needed.
 
-Polling uses six sequential GET requests separated by 80 ms. It never changes thermostats. Missing, unavailable, failed or implausible (-20 to 60 °C bounds) readings show `-- °C` rather than a stale value.
+The default slot names are Woonkamer, Aanbouw, Bedroom 1, Bedroom 2, Office 1, Office 2,
+Badkamer, Badkamer vl and Bijkeuken. Configure the nine zone device IDs with
+`HOMEY_ROOM_THERMOSTAT_1_ID` through `HOMEY_ROOM_THERMOSTAT_9_ID`; optional
+`HOMEY_ROOM_THERMOSTAT_1_NAME` through `_9_NAME` override their displayed names.
+The controller uses `HOMEY_THERMOSTAT_DEVICE_ID`. Unconfigured slots are hidden;
+there is no fallback to the retired `HOMEY_CLIMATE_SENSOR_*` sources.
 
-Heating status is explicitly unknown. The inspected Homey thermostats expose `target_temperature`, `measure_temperature` and `alarm_battery`, but no active-heating capability. A setpoint above measured temperature is not proof of actual heating. A confirmed per-room heating signal must be provided before active/inactive icons can be implemented.
+The selected main Climate card stays visible when Sonos playback starts or stops.
+Explicitly opening Sonos still opens the full player, and Back returns to the
+compact Sonos card. Returning from Climate selects the nine-room preview again.
+Existing charging and playback controls retain their explicitly clicked behavior.
 
-The simulator and physical firmware both include this package; flashing remains a separate user-authorized step.
+## Heat demand and icon colors
+
+- Gray: controller off, unknown/stale mode, or insufficient data to establish idle.
+- Green: programme enabled and all configured zones have valid measured/target
+  temperatures, with no room requesting heat.
+- Orange: programme enabled and at least one configured zone is below its target.
+  The affected zone is highlighted in orange on both views.
+
+A 0.05 °C comparison tolerance avoids floating-point noise for Homey's normal
+0.1 °C temperature precision. **Orange means inferred heat demand, not measured
+burner activity.** A room below target cannot establish that the boiler is
+continuously firing. HeatingOff overrides all room requests. If one room is
+unavailable, a known request in another room can still be shown; without a known
+request, missing data cannot be reported as confirmed idle.
+
+## Polling and validation
+
+One single-flight script reads the controller and up to nine zones sequentially,
+with 80 ms between requests. It runs every 30 seconds after a 20-second startup
+delay. Opening Climate paints the page first and requests a refresh; repeated
+taps coalesce with a running poll. The existing bounded background HTTP worker
+and 8-second request timeout remain. Sonos artwork defers while this poll runs.
+There are no extra requests on returning to the main preview.
+
+Temperatures outside -20 to 60 °C, targets outside 5 to 35 °C and non-numeric or
+unavailable values are rejected. Failures invalidate the affected readings
+immediately; otherwise readings expire after three minutes. The main and detail
+views share the same cached state and refresh it without network writes.
+
+Verification includes energy-state/demand scenarios (including the ninth zone,
+HeatingOff override, missing/stale values and float noise), production Sonos
+navigation guards, source/polling checks and simulator/hardware builds. All
+heating comparisons are read-only; no Flow, boiler or thermostat command is
+triggered for testing. Hardware upload remains separately user-authorized.
+
+## 2026-10-21 rollout
+
+Simulator and 5-inch builds passed. The native simulator main preview was visually
+checked with live Evohome data; the full nine-card Climate layout was separately
+rendered with built LVGL and synthetic data for layout inspection. The headless
+state/source/navigation/gauge tests and production LVGL room/input checks passed.
+The simulator's automated mouse clicks did not yield a reliable detail-page
+transition in this run, so physical touch navigation remains user-verifiable.
+
+The 5-inch upload passed flash hash verification. Its boot log confirmed build
+`2026-10-21 20:51:24 +0200` and `Controller Automatisch: 9/9 zones valid, demand
+state 2` (orange heat demand). No label variables were read for this change and no
+thermostat, charging or playback commands were issued. Existing unrelated sensor
+entries in the local environment remain preserved but are unused by Climate.

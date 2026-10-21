@@ -186,3 +186,13 @@ thermostat_auto: "Automatisch"
 thermostat_off: "Verwarming uit"
 thermostat_away: "Afwezig"
 header_grid: "Net"
+
+# EvoTouch controller and nine Evohome zones.
+evohome_title: "Evohome"
+evohome_demand_note: "Gemeten / ingesteld | Oranje = warmtevraag"
+climate_heat_demand: "Warmtevraag"
+climate_no_demand: "Geen warmtevraag"
+climate_at_target: "Op temperatuur"
+thermostat_eco: "Eco"
+thermostat_custom: "Speciale dag"
+thermostat_day_off: "Vrije dag"

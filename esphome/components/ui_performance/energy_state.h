@@ -30,9 +30,11 @@ struct StableMode {
   }
 };
 struct EnergyState {
-  Reading grid, solar, battery, battery_power, gas, car, connected, heating, heating_enabled;
+  Reading grid, solar, battery, battery_power, gas, car, connected, heating_enabled;
   Reading electricity_day, solar_day, gas_day, gas_yesterday;
-  Reading room_temperature[6], room_thermostat_temperature[6], room_target[6];
+  static constexpr int ROOM_COUNT = 9;
+  Reading room_temperature[ROOM_COUNT], room_target[ROOM_COUNT];
+  bool room_configured[ROOM_COUNT]{};
   StableMode grid_mode, gas_mode, source_mode;
   static constexpr uint32_t SUMMARY_TTL = 1200000;
   static constexpr uint32_t CLIMATE_TTL = 180000;
@@ -42,12 +44,30 @@ struct EnergyState {
     if (!connected.valid(now) || connected.value <= 0) return ICON_DIM;
     return car.valid(now) && car.value > 0 ? ICON_GREEN : ICON_BLUE;
   }
+  enum HeatStatus { HEAT_UNKNOWN = -1, HEAT_OFF = 0, HEAT_IDLE = 1, HEAT_DEMAND = 2 };
+  bool room_requests_heat(int room, uint32_t now) const {
+    if (room < 0 || room >= ROOM_COUNT || !room_configured[room] ||
+        !heating_enabled.valid(now, CLIMATE_TTL) || heating_enabled.value <= 0) return false;
+    // Evohome temperatures are in °C, normally at 0.1 °C precision. This is
+    // inferred room demand, not proof that the boiler burner is firing.
+    return room_temperature[room].valid(now, CLIMATE_TTL) && room_target[room].valid(now, CLIMATE_TTL) &&
+      room_target[room].value - room_temperature[room].value > 0.05f;
+  }
+  HeatStatus climate_status(uint32_t now) const {
+    if (!heating_enabled.valid(now, CLIMATE_TTL)) return HEAT_UNKNOWN;
+    if (heating_enabled.value <= 0) return HEAT_OFF;
+    bool any_room = false, complete = true;
+    for (int i = 0; i < ROOM_COUNT; ++i) {
+      if (!room_configured[i]) continue;
+      any_room = true;
+      if (room_requests_heat(i, now)) return HEAT_DEMAND;
+      if (!room_temperature[i].valid(now, CLIMATE_TTL) || !room_target[i].valid(now, CLIMATE_TTL)) complete = false;
+    }
+    return any_room && complete ? HEAT_IDLE : HEAT_UNKNOWN;
+  }
   uint32_t heating_icon_color(uint32_t now) const {
-    // A programme or setpoint never establishes that the boiler is enabled/firing.
-    if (heating_enabled.valid(now, CLIMATE_TTL) && heating_enabled.value <= 0) return ICON_DIM;
-    if (!heating.valid(now, CLIMATE_TTL)) return ICON_DIM;
-    if (heating.value > 0) return ICON_ORANGE;
-    return heating_enabled.valid(now, CLIMATE_TTL) && heating_enabled.value > 0 ? ICON_GREEN : ICON_DIM;
+    const auto status = climate_status(now);
+    return status == HEAT_DEMAND ? ICON_ORANGE : status == HEAT_IDLE ? ICON_GREEN : ICON_DIM;
   }
   uint32_t battery_icon_color(uint32_t now) const {
     if (!battery_power.valid(now)) return ICON_DIM;

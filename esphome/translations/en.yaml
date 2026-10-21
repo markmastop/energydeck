@@ -186,3 +186,13 @@ thermostat_auto: "Automatic"
 thermostat_off: "Heating off"
 thermostat_away: "Away"
 header_grid: "Grid"
+
+# EvoTouch controller and nine Evohome zones.
+evohome_title: "Evohome"
+evohome_demand_note: "Measured / target | Orange = heat demand"
+climate_heat_demand: "Heat demand"
+climate_no_demand: "No heat demand"
+climate_at_target: "At target"
+thermostat_eco: "Eco"
+thermostat_custom: "Custom day"
+thermostat_day_off: "Day off"

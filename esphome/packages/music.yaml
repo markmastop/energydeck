@@ -34,7 +34,7 @@ globals:
     type: energydeck_sonos::Favorite
   - id: detail_tab
     type: int
-    initial_value: "0"
+    initial_value: "2"
   - id: music_page_open
     type: bool
     initial_value: "false"
@@ -211,7 +211,7 @@ script:
       - lambda: |-
           if ((!id(music_page_open) && (id(detail_tab) != 1 || id(sonos).any_playing())) || id(favorite_artwork).busy || id(music_cover_downloading) ||
               (id(music_page_open) && id(music_content_tab) != 0) ||
-              (id(refresh_climate).is_running() || id(refresh_thermostats).is_running()) || id(music_busy) || id(music_favorites_loading) || !id(sonos_favorites).known) return;
+              id(refresh_climate).is_running() || id(music_busy) || id(music_favorites_loading) || !id(sonos_favorites).known) return;
           const auto &items = id(sonos_favorites).items;
           const int scroll = lv_obj_get_scroll_y(id(music_favorites_grid));
           const int height = lv_obj_get_height(id(music_favorites_grid));
@@ -384,7 +384,8 @@ script:
           // All-room activity must be available before consuming playback edges.
           // Close first: Back selects Sonos, then the stop edge selects home/Gas.
           if (id(music_page_open) && id(sonos).playback_stopped()) id(close_music_page).execute();
-          id(detail_tab) = id(sonos).follow_compact_tab(id(detail_tab));
+          // A deliberately selected climate overview must not be replaced by playback polling.
+          if (id(detail_tab) != 2) id(detail_tab) = id(sonos).follow_compact_tab(id(detail_tab));
       - script.execute: select_detail_tab
 
   - id: refresh_music_room_activity
@@ -567,7 +568,7 @@ script:
               return;
             }
             // Finish the higher-priority climate refresh before queuing artwork.
-            if (id(favorite_artwork).busy || (id(refresh_climate).is_running() || id(refresh_thermostats).is_running())) return;
+            if (id(favorite_artwork).busy || id(refresh_climate).is_running()) return;
             // Detach both consumers before the decoder mutates its shared buffer.
             lv_image_set_src(id(music_cover_widget), static_cast<const void *>(nullptr));
             lv_image_set_src(id(small_music_cover_widget), static_cast<const void *>(nullptr));

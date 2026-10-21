@@ -1,107 +1,20 @@
-# Read-only room temperatures. Heating status is unknown: current Homey
-# thermostats expose a setpoint, but no confirmed heating capability.
-esphome:
-  on_boot:
-    priority: -100
-    then:
-      - script.execute: layout_climate_sensors
-
+# Only EvoTouch controller and Evohome zone devices are read for climate.
 interval:
-  - interval: 60s
+  - interval: 30s
     startup_delay: 20s
     then:
       - script.execute: refresh_climate
 
 script:
-  - id: layout_climate_sensors
-    then:
-      - lambda: |-
-          const char *device_ids[6] = {
-            "${homey_climate_sensor_1_device_id}",
-            "${homey_climate_sensor_2_device_id}",
-            "${homey_climate_sensor_3_device_id}",
-            "${homey_climate_sensor_4_device_id}",
-            "${homey_climate_sensor_5_device_id}",
-            "${homey_climate_sensor_6_device_id}"
-          };
-          lv_obj_t *slots[6] = {
-            id(climate_sensor_1_slot),
-            id(climate_sensor_2_slot),
-            id(climate_sensor_3_slot),
-            id(climate_sensor_4_slot),
-            id(climate_sensor_5_slot),
-            id(climate_sensor_6_slot)
-          };
-          lv_obj_t *active_slots[6];
-          int num_active = 0;
-          for (int i = 0; i < 6; ++i) {
-            const char *id_str = device_ids[i];
-            const bool valid = (id_str != nullptr && strlen(id_str) > 0 &&
-                                strcmp(id_str, "none") != 0 && strcmp(id_str, "\"\"") != 0);
-            if (valid) {
-              active_slots[num_active++] = slots[i];
-              lv_obj_clear_flag(slots[i], LV_OBJ_FLAG_HIDDEN);
-            } else {
-              lv_obj_add_flag(slots[i], LV_OBJ_FLAG_HIDDEN);
-            }
-          }
-          if (num_active == 0) {
-            lv_obj_clear_flag(id(climate_no_sensors_label), LV_OBJ_FLAG_HIDDEN);
-            return;
-          }
-          lv_obj_add_flag(id(climate_no_sensors_label), LV_OBJ_FLAG_HIDDEN);
-
-          switch (num_active) {
-            case 1:
-              lv_obj_set_pos(active_slots[0], 84, 57);
-              break;
-            case 2:
-              lv_obj_set_pos(active_slots[0], 16, 57);
-              lv_obj_set_pos(active_slots[1], 153, 57);
-              break;
-            case 3:
-              lv_obj_set_pos(active_slots[0], 16, 36);
-              lv_obj_set_pos(active_slots[1], 153, 36);
-              lv_obj_set_pos(active_slots[2], 84, 74);
-              break;
-            case 4:
-              for (int k = 0; k < 4; ++k) {
-                int col = k % 2;
-                int row = k / 2;
-                lv_obj_set_pos(active_slots[k], (col == 0) ? 16 : 153, 36 + row * 38);
-              }
-              break;
-            case 5:
-              for (int k = 0; k < 4; ++k) {
-                int col = k % 2;
-                int row = k / 2;
-                lv_obj_set_pos(active_slots[k], (col == 0) ? 16 : 153, 27 + row * 30);
-              }
-              lv_obj_set_pos(active_slots[4], 84, 87);
-              break;
-            case 6:
-            default:
-              for (int k = 0; k < num_active && k < 6; ++k) {
-                int col = k % 2;
-                int row = k / 2;
-                lv_obj_set_pos(active_slots[k], (col == 0) ? 16 : 153, 27 + row * 30);
-              }
-              break;
-          }
-
   - id: refresh_climate
-    # Opening the tab also starts this script; single mode coalesces repeat taps.
     mode: single
     then:
-      - script.execute: layout_climate_sensors
       - if:
           condition:
-            lambda: |-
-              const char *id_str = "${homey_climate_sensor_1_device_id}";
-              return id_str != nullptr && strlen(id_str) > 0 && strcmp(id_str, "none") != 0 && strcmp(id_str, "\"\"") != 0;
+            lambda: return strlen("${homey_thermostat_device_id}") > 0 && strcmp("${homey_thermostat_device_id}", "none") != 0;
           then:
             - background_http.get:
-                url: "${homey_address}/api/manager/devices/device/${homey_climate_sensor_1_device_id}"
+                url: "${homey_address}/api/manager/devices/device/${homey_thermostat_device_id}"
                 request_headers:
                   Authorization: "Bearer ${homey_token}"
                   Accept: "application/json"
@@ -110,40 +23,31 @@ script:
                 on_response:
                   then:
                     - lambda: |-
-                        id(energy_state).room_temperature[0].set(NAN, millis());
-                        if (response->status_code != 200) {
-                          esphome::ui_performance::set_text(id(climate_sensor_1_value), "-- °C");
-                          return;
-                        }
-                        const bool parsed = json::parse_json(body, [](JsonObject device) -> bool {
+                        id(thermostat_mode_text) = "--";
+                        id(energy_state).heating_enabled.set(NAN, millis());
+                        json::parse_json(response->status_code == 200 ? body : "{}", [](JsonObject device) -> bool {
                           if (device["available"].is<bool>() && !device["available"].as<bool>()) return false;
-                          auto value = device["capabilitiesObj"]["measure_temperature"]["value"];
-                          if (!value.is<float>()) return false;
-                          const float temperature = value.as<float>();
-                          // Reject missing or corrupt indoor readings instead of displaying zero.
-                          if (!std::isfinite(temperature) || temperature < -20 || temperature > 60) return false;
-                          id(energy_state).room_temperature[0].set(temperature, millis());
-                          esphome::ui_performance::set_text_fmt(id(climate_sensor_1_value), "%.1f °C", temperature);
+                          const char *driver = device["driverId"] | "";
+                          if (strcmp(driver, "homey:app:com.honeywell:thermostat")) return false;
+                          const char *mode = device["capabilitiesObj"]["honeywell_thermostat_mode"]["value"] | "";
+                          const std::string raw = mode;
+                          const char *text = raw == "Auto" ? "${thermostat_auto}" : raw == "HeatingOff" ? "${thermostat_off}" : raw == "Away" ? "${thermostat_away}" : raw == "AutoWithEco" ? "${thermostat_eco}" : raw == "Custom" ? "${thermostat_custom}" : raw == "DayOff" ? "${thermostat_day_off}" : nullptr;
+                          if (!text) return false;
+                          id(thermostat_mode_text) = text;
+                          id(thermostat_mode_at) = millis();
+                          id(energy_state).heating_enabled.set(raw == "HeatingOff" ? 0 : 1, millis());
                           return true;
                         });
-                        if (!parsed) {
-                          esphome::ui_performance::set_text(id(climate_sensor_1_value), "-- °C");
-                        }
                 on_error:
                   then:
-                    - lambda: id(energy_state).room_temperature[0].set(NAN, millis());
-                    - lvgl.label.update:
-                        id: climate_sensor_1_value
-                        text: "-- °C"
+                    - lambda: id(energy_state).heating_enabled.set(NAN, millis()); id(thermostat_mode_text) = "--";
       - delay: 80ms
       - if:
           condition:
-            lambda: |-
-              const char *id_str = "${homey_climate_sensor_2_device_id}";
-              return id_str != nullptr && strlen(id_str) > 0 && strcmp(id_str, "none") != 0 && strcmp(id_str, "\"\"") != 0;
+            lambda: return strlen("${homey_room_thermostat_1_id}") > 0 && strcmp("${homey_room_thermostat_1_id}", "none") != 0;
           then:
             - background_http.get:
-                url: "${homey_address}/api/manager/devices/device/${homey_climate_sensor_2_device_id}"
+                url: "${homey_address}/api/manager/devices/device/${homey_room_thermostat_1_id}"
                 request_headers:
                   Authorization: "Bearer ${homey_token}"
                   Accept: "application/json"
@@ -152,40 +56,33 @@ script:
                 on_response:
                   then:
                     - lambda: |-
-                        id(energy_state).room_temperature[1].set(NAN, millis());
-                        if (response->status_code != 200) {
-                          esphome::ui_performance::set_text(id(climate_sensor_2_value), "-- °C");
-                          return;
-                        }
-                        const bool parsed = json::parse_json(body, [](JsonObject device) -> bool {
+                        auto &state = id(energy_state);
+                        state.room_temperature[0].set(NAN, millis());
+                        state.room_target[0].set(NAN, millis());
+                        if (response->status_code != 200) return;
+                        json::parse_json(body, [](JsonObject device) -> bool {
                           if (device["available"].is<bool>() && !device["available"].as<bool>()) return false;
-                          auto value = device["capabilitiesObj"]["measure_temperature"]["value"];
-                          if (!value.is<float>()) return false;
-                          const float temperature = value.as<float>();
-                          // Reject missing or corrupt indoor readings instead of displaying zero.
-                          if (!std::isfinite(temperature) || temperature < -20 || temperature > 60) return false;
-                          id(energy_state).room_temperature[1].set(temperature, millis());
-                          esphome::ui_performance::set_text_fmt(id(climate_sensor_2_value), "%.1f °C", temperature);
+                          const char *driver = device["driverId"] | "";
+                          if (strcmp(driver, "homey:app:com.honeywell:zone")) return false;
+                          auto caps = device["capabilitiesObj"];
+                          auto measured = caps["measure_temperature"]["value"];
+                          auto target = caps["target_temperature"]["value"];
+                          if (measured.is<float>() && std::isfinite(measured.as<float>()) && measured.as<float>() >= -20 && measured.as<float>() <= 60)
+                            id(energy_state).room_temperature[0].set(measured.as<float>(), millis());
+                          if (target.is<float>() && std::isfinite(target.as<float>()) && target.as<float>() >= 5 && target.as<float>() <= 35)
+                            id(energy_state).room_target[0].set(target.as<float>(), millis());
                           return true;
                         });
-                        if (!parsed) {
-                          esphome::ui_performance::set_text(id(climate_sensor_2_value), "-- °C");
-                        }
                 on_error:
                   then:
-                    - lambda: id(energy_state).room_temperature[1].set(NAN, millis());
-                    - lvgl.label.update:
-                        id: climate_sensor_2_value
-                        text: "-- °C"
+                    - lambda: id(energy_state).room_temperature[0].set(NAN, millis()); id(energy_state).room_target[0].set(NAN, millis());
       - delay: 80ms
       - if:
           condition:
-            lambda: |-
-              const char *id_str = "${homey_climate_sensor_3_device_id}";
-              return id_str != nullptr && strlen(id_str) > 0 && strcmp(id_str, "none") != 0 && strcmp(id_str, "\"\"") != 0;
+            lambda: return strlen("${homey_room_thermostat_2_id}") > 0 && strcmp("${homey_room_thermostat_2_id}", "none") != 0;
           then:
             - background_http.get:
-                url: "${homey_address}/api/manager/devices/device/${homey_climate_sensor_3_device_id}"
+                url: "${homey_address}/api/manager/devices/device/${homey_room_thermostat_2_id}"
                 request_headers:
                   Authorization: "Bearer ${homey_token}"
                   Accept: "application/json"
@@ -194,40 +91,33 @@ script:
                 on_response:
                   then:
                     - lambda: |-
-                        id(energy_state).room_temperature[2].set(NAN, millis());
-                        if (response->status_code != 200) {
-                          esphome::ui_performance::set_text(id(climate_sensor_3_value), "-- °C");
-                          return;
-                        }
-                        const bool parsed = json::parse_json(body, [](JsonObject device) -> bool {
+                        auto &state = id(energy_state);
+                        state.room_temperature[1].set(NAN, millis());
+                        state.room_target[1].set(NAN, millis());
+                        if (response->status_code != 200) return;
+                        json::parse_json(body, [](JsonObject device) -> bool {
                           if (device["available"].is<bool>() && !device["available"].as<bool>()) return false;
-                          auto value = device["capabilitiesObj"]["measure_temperature"]["value"];
-                          if (!value.is<float>()) return false;
-                          const float temperature = value.as<float>();
-                          // Reject missing or corrupt indoor readings instead of displaying zero.
-                          if (!std::isfinite(temperature) || temperature < -20 || temperature > 60) return false;
-                          id(energy_state).room_temperature[2].set(temperature, millis());
-                          esphome::ui_performance::set_text_fmt(id(climate_sensor_3_value), "%.1f °C", temperature);
+                          const char *driver = device["driverId"] | "";
+                          if (strcmp(driver, "homey:app:com.honeywell:zone")) return false;
+                          auto caps = device["capabilitiesObj"];
+                          auto measured = caps["measure_temperature"]["value"];
+                          auto target = caps["target_temperature"]["value"];
+                          if (measured.is<float>() && std::isfinite(measured.as<float>()) && measured.as<float>() >= -20 && measured.as<float>() <= 60)
+                            id(energy_state).room_temperature[1].set(measured.as<float>(), millis());
+                          if (target.is<float>() && std::isfinite(target.as<float>()) && target.as<float>() >= 5 && target.as<float>() <= 35)
+                            id(energy_state).room_target[1].set(target.as<float>(), millis());
                           return true;
                         });
-                        if (!parsed) {
-                          esphome::ui_performance::set_text(id(climate_sensor_3_value), "-- °C");
-                        }
                 on_error:
                   then:
-                    - lambda: id(energy_state).room_temperature[2].set(NAN, millis());
-                    - lvgl.label.update:
-                        id: climate_sensor_3_value
-                        text: "-- °C"
+                    - lambda: id(energy_state).room_temperature[1].set(NAN, millis()); id(energy_state).room_target[1].set(NAN, millis());
       - delay: 80ms
       - if:
           condition:
-            lambda: |-
-              const char *id_str = "${homey_climate_sensor_4_device_id}";
-              return id_str != nullptr && strlen(id_str) > 0 && strcmp(id_str, "none") != 0 && strcmp(id_str, "\"\"") != 0;
+            lambda: return strlen("${homey_room_thermostat_3_id}") > 0 && strcmp("${homey_room_thermostat_3_id}", "none") != 0;
           then:
             - background_http.get:
-                url: "${homey_address}/api/manager/devices/device/${homey_climate_sensor_4_device_id}"
+                url: "${homey_address}/api/manager/devices/device/${homey_room_thermostat_3_id}"
                 request_headers:
                   Authorization: "Bearer ${homey_token}"
                   Accept: "application/json"
@@ -236,40 +126,33 @@ script:
                 on_response:
                   then:
                     - lambda: |-
-                        id(energy_state).room_temperature[3].set(NAN, millis());
-                        if (response->status_code != 200) {
-                          esphome::ui_performance::set_text(id(climate_sensor_4_value), "-- °C");
-                          return;
-                        }
-                        const bool parsed = json::parse_json(body, [](JsonObject device) -> bool {
+                        auto &state = id(energy_state);
+                        state.room_temperature[2].set(NAN, millis());
+                        state.room_target[2].set(NAN, millis());
+                        if (response->status_code != 200) return;
+                        json::parse_json(body, [](JsonObject device) -> bool {
                           if (device["available"].is<bool>() && !device["available"].as<bool>()) return false;
-                          auto value = device["capabilitiesObj"]["measure_temperature"]["value"];
-                          if (!value.is<float>()) return false;
-                          const float temperature = value.as<float>();
-                          // Reject missing or corrupt indoor readings instead of displaying zero.
-                          if (!std::isfinite(temperature) || temperature < -20 || temperature > 60) return false;
-                          id(energy_state).room_temperature[3].set(temperature, millis());
-                          esphome::ui_performance::set_text_fmt(id(climate_sensor_4_value), "%.1f °C", temperature);
+                          const char *driver = device["driverId"] | "";
+                          if (strcmp(driver, "homey:app:com.honeywell:zone")) return false;
+                          auto caps = device["capabilitiesObj"];
+                          auto measured = caps["measure_temperature"]["value"];
+                          auto target = caps["target_temperature"]["value"];
+                          if (measured.is<float>() && std::isfinite(measured.as<float>()) && measured.as<float>() >= -20 && measured.as<float>() <= 60)
+                            id(energy_state).room_temperature[2].set(measured.as<float>(), millis());
+                          if (target.is<float>() && std::isfinite(target.as<float>()) && target.as<float>() >= 5 && target.as<float>() <= 35)
+                            id(energy_state).room_target[2].set(target.as<float>(), millis());
                           return true;
                         });
-                        if (!parsed) {
-                          esphome::ui_performance::set_text(id(climate_sensor_4_value), "-- °C");
-                        }
                 on_error:
                   then:
-                    - lambda: id(energy_state).room_temperature[3].set(NAN, millis());
-                    - lvgl.label.update:
-                        id: climate_sensor_4_value
-                        text: "-- °C"
+                    - lambda: id(energy_state).room_temperature[2].set(NAN, millis()); id(energy_state).room_target[2].set(NAN, millis());
       - delay: 80ms
       - if:
           condition:
-            lambda: |-
-              const char *id_str = "${homey_climate_sensor_5_device_id}";
-              return id_str != nullptr && strlen(id_str) > 0 && strcmp(id_str, "none") != 0 && strcmp(id_str, "\"\"") != 0;
+            lambda: return strlen("${homey_room_thermostat_4_id}") > 0 && strcmp("${homey_room_thermostat_4_id}", "none") != 0;
           then:
             - background_http.get:
-                url: "${homey_address}/api/manager/devices/device/${homey_climate_sensor_5_device_id}"
+                url: "${homey_address}/api/manager/devices/device/${homey_room_thermostat_4_id}"
                 request_headers:
                   Authorization: "Bearer ${homey_token}"
                   Accept: "application/json"
@@ -278,40 +161,33 @@ script:
                 on_response:
                   then:
                     - lambda: |-
-                        id(energy_state).room_temperature[4].set(NAN, millis());
-                        if (response->status_code != 200) {
-                          esphome::ui_performance::set_text(id(climate_sensor_5_value), "-- °C");
-                          return;
-                        }
-                        const bool parsed = json::parse_json(body, [](JsonObject device) -> bool {
+                        auto &state = id(energy_state);
+                        state.room_temperature[3].set(NAN, millis());
+                        state.room_target[3].set(NAN, millis());
+                        if (response->status_code != 200) return;
+                        json::parse_json(body, [](JsonObject device) -> bool {
                           if (device["available"].is<bool>() && !device["available"].as<bool>()) return false;
-                          auto value = device["capabilitiesObj"]["measure_temperature"]["value"];
-                          if (!value.is<float>()) return false;
-                          const float temperature = value.as<float>();
-                          // Reject missing or corrupt indoor readings instead of displaying zero.
-                          if (!std::isfinite(temperature) || temperature < -20 || temperature > 60) return false;
-                          id(energy_state).room_temperature[4].set(temperature, millis());
-                          esphome::ui_performance::set_text_fmt(id(climate_sensor_5_value), "%.1f °C", temperature);
+                          const char *driver = device["driverId"] | "";
+                          if (strcmp(driver, "homey:app:com.honeywell:zone")) return false;
+                          auto caps = device["capabilitiesObj"];
+                          auto measured = caps["measure_temperature"]["value"];
+                          auto target = caps["target_temperature"]["value"];
+                          if (measured.is<float>() && std::isfinite(measured.as<float>()) && measured.as<float>() >= -20 && measured.as<float>() <= 60)
+                            id(energy_state).room_temperature[3].set(measured.as<float>(), millis());
+                          if (target.is<float>() && std::isfinite(target.as<float>()) && target.as<float>() >= 5 && target.as<float>() <= 35)
+                            id(energy_state).room_target[3].set(target.as<float>(), millis());
                           return true;
                         });
-                        if (!parsed) {
-                          esphome::ui_performance::set_text(id(climate_sensor_5_value), "-- °C");
-                        }
                 on_error:
                   then:
-                    - lambda: id(energy_state).room_temperature[4].set(NAN, millis());
-                    - lvgl.label.update:
-                        id: climate_sensor_5_value
-                        text: "-- °C"
+                    - lambda: id(energy_state).room_temperature[3].set(NAN, millis()); id(energy_state).room_target[3].set(NAN, millis());
       - delay: 80ms
       - if:
           condition:
-            lambda: |-
-              const char *id_str = "${homey_climate_sensor_6_device_id}";
-              return id_str != nullptr && strlen(id_str) > 0 && strcmp(id_str, "none") != 0 && strcmp(id_str, "\"\"") != 0;
+            lambda: return strlen("${homey_room_thermostat_5_id}") > 0 && strcmp("${homey_room_thermostat_5_id}", "none") != 0;
           then:
             - background_http.get:
-                url: "${homey_address}/api/manager/devices/device/${homey_climate_sensor_6_device_id}"
+                url: "${homey_address}/api/manager/devices/device/${homey_room_thermostat_5_id}"
                 request_headers:
                   Authorization: "Bearer ${homey_token}"
                   Accept: "application/json"
@@ -320,28 +196,219 @@ script:
                 on_response:
                   then:
                     - lambda: |-
-                        id(energy_state).room_temperature[5].set(NAN, millis());
-                        if (response->status_code != 200) {
-                          esphome::ui_performance::set_text(id(climate_sensor_6_value), "-- °C");
-                          return;
-                        }
-                        const bool parsed = json::parse_json(body, [](JsonObject device) -> bool {
+                        auto &state = id(energy_state);
+                        state.room_temperature[4].set(NAN, millis());
+                        state.room_target[4].set(NAN, millis());
+                        if (response->status_code != 200) return;
+                        json::parse_json(body, [](JsonObject device) -> bool {
                           if (device["available"].is<bool>() && !device["available"].as<bool>()) return false;
-                          auto value = device["capabilitiesObj"]["measure_temperature"]["value"];
-                          if (!value.is<float>()) return false;
-                          const float temperature = value.as<float>();
-                          // Reject missing or corrupt indoor readings instead of displaying zero.
-                          if (!std::isfinite(temperature) || temperature < -20 || temperature > 60) return false;
-                          id(energy_state).room_temperature[5].set(temperature, millis());
-                          esphome::ui_performance::set_text_fmt(id(climate_sensor_6_value), "%.1f °C", temperature);
+                          const char *driver = device["driverId"] | "";
+                          if (strcmp(driver, "homey:app:com.honeywell:zone")) return false;
+                          auto caps = device["capabilitiesObj"];
+                          auto measured = caps["measure_temperature"]["value"];
+                          auto target = caps["target_temperature"]["value"];
+                          if (measured.is<float>() && std::isfinite(measured.as<float>()) && measured.as<float>() >= -20 && measured.as<float>() <= 60)
+                            id(energy_state).room_temperature[4].set(measured.as<float>(), millis());
+                          if (target.is<float>() && std::isfinite(target.as<float>()) && target.as<float>() >= 5 && target.as<float>() <= 35)
+                            id(energy_state).room_target[4].set(target.as<float>(), millis());
                           return true;
                         });
-                        if (!parsed) {
-                          esphome::ui_performance::set_text(id(climate_sensor_6_value), "-- °C");
-                        }
                 on_error:
                   then:
-                    - lambda: id(energy_state).room_temperature[5].set(NAN, millis());
-                    - lvgl.label.update:
-                        id: climate_sensor_6_value
-                        text: "-- °C"
+                    - lambda: id(energy_state).room_temperature[4].set(NAN, millis()); id(energy_state).room_target[4].set(NAN, millis());
+      - delay: 80ms
+      - if:
+          condition:
+            lambda: return strlen("${homey_room_thermostat_6_id}") > 0 && strcmp("${homey_room_thermostat_6_id}", "none") != 0;
+          then:
+            - background_http.get:
+                url: "${homey_address}/api/manager/devices/device/${homey_room_thermostat_6_id}"
+                request_headers:
+                  Authorization: "Bearer ${homey_token}"
+                  Accept: "application/json"
+                capture_response: true
+                max_response_buffer_size: 16384
+                on_response:
+                  then:
+                    - lambda: |-
+                        auto &state = id(energy_state);
+                        state.room_temperature[5].set(NAN, millis());
+                        state.room_target[5].set(NAN, millis());
+                        if (response->status_code != 200) return;
+                        json::parse_json(body, [](JsonObject device) -> bool {
+                          if (device["available"].is<bool>() && !device["available"].as<bool>()) return false;
+                          const char *driver = device["driverId"] | "";
+                          if (strcmp(driver, "homey:app:com.honeywell:zone")) return false;
+                          auto caps = device["capabilitiesObj"];
+                          auto measured = caps["measure_temperature"]["value"];
+                          auto target = caps["target_temperature"]["value"];
+                          if (measured.is<float>() && std::isfinite(measured.as<float>()) && measured.as<float>() >= -20 && measured.as<float>() <= 60)
+                            id(energy_state).room_temperature[5].set(measured.as<float>(), millis());
+                          if (target.is<float>() && std::isfinite(target.as<float>()) && target.as<float>() >= 5 && target.as<float>() <= 35)
+                            id(energy_state).room_target[5].set(target.as<float>(), millis());
+                          return true;
+                        });
+                on_error:
+                  then:
+                    - lambda: id(energy_state).room_temperature[5].set(NAN, millis()); id(energy_state).room_target[5].set(NAN, millis());
+      - delay: 80ms
+      - if:
+          condition:
+            lambda: return strlen("${homey_room_thermostat_7_id}") > 0 && strcmp("${homey_room_thermostat_7_id}", "none") != 0;
+          then:
+            - background_http.get:
+                url: "${homey_address}/api/manager/devices/device/${homey_room_thermostat_7_id}"
+                request_headers:
+                  Authorization: "Bearer ${homey_token}"
+                  Accept: "application/json"
+                capture_response: true
+                max_response_buffer_size: 16384
+                on_response:
+                  then:
+                    - lambda: |-
+                        auto &state = id(energy_state);
+                        state.room_temperature[6].set(NAN, millis());
+                        state.room_target[6].set(NAN, millis());
+                        if (response->status_code != 200) return;
+                        json::parse_json(body, [](JsonObject device) -> bool {
+                          if (device["available"].is<bool>() && !device["available"].as<bool>()) return false;
+                          const char *driver = device["driverId"] | "";
+                          if (strcmp(driver, "homey:app:com.honeywell:zone")) return false;
+                          auto caps = device["capabilitiesObj"];
+                          auto measured = caps["measure_temperature"]["value"];
+                          auto target = caps["target_temperature"]["value"];
+                          if (measured.is<float>() && std::isfinite(measured.as<float>()) && measured.as<float>() >= -20 && measured.as<float>() <= 60)
+                            id(energy_state).room_temperature[6].set(measured.as<float>(), millis());
+                          if (target.is<float>() && std::isfinite(target.as<float>()) && target.as<float>() >= 5 && target.as<float>() <= 35)
+                            id(energy_state).room_target[6].set(target.as<float>(), millis());
+                          return true;
+                        });
+                on_error:
+                  then:
+                    - lambda: id(energy_state).room_temperature[6].set(NAN, millis()); id(energy_state).room_target[6].set(NAN, millis());
+      - delay: 80ms
+      - if:
+          condition:
+            lambda: return strlen("${homey_room_thermostat_8_id}") > 0 && strcmp("${homey_room_thermostat_8_id}", "none") != 0;
+          then:
+            - background_http.get:
+                url: "${homey_address}/api/manager/devices/device/${homey_room_thermostat_8_id}"
+                request_headers:
+                  Authorization: "Bearer ${homey_token}"
+                  Accept: "application/json"
+                capture_response: true
+                max_response_buffer_size: 16384
+                on_response:
+                  then:
+                    - lambda: |-
+                        auto &state = id(energy_state);
+                        state.room_temperature[7].set(NAN, millis());
+                        state.room_target[7].set(NAN, millis());
+                        if (response->status_code != 200) return;
+                        json::parse_json(body, [](JsonObject device) -> bool {
+                          if (device["available"].is<bool>() && !device["available"].as<bool>()) return false;
+                          const char *driver = device["driverId"] | "";
+                          if (strcmp(driver, "homey:app:com.honeywell:zone")) return false;
+                          auto caps = device["capabilitiesObj"];
+                          auto measured = caps["measure_temperature"]["value"];
+                          auto target = caps["target_temperature"]["value"];
+                          if (measured.is<float>() && std::isfinite(measured.as<float>()) && measured.as<float>() >= -20 && measured.as<float>() <= 60)
+                            id(energy_state).room_temperature[7].set(measured.as<float>(), millis());
+                          if (target.is<float>() && std::isfinite(target.as<float>()) && target.as<float>() >= 5 && target.as<float>() <= 35)
+                            id(energy_state).room_target[7].set(target.as<float>(), millis());
+                          return true;
+                        });
+                on_error:
+                  then:
+                    - lambda: id(energy_state).room_temperature[7].set(NAN, millis()); id(energy_state).room_target[7].set(NAN, millis());
+      - delay: 80ms
+      - if:
+          condition:
+            lambda: return strlen("${homey_room_thermostat_9_id}") > 0 && strcmp("${homey_room_thermostat_9_id}", "none") != 0;
+          then:
+            - background_http.get:
+                url: "${homey_address}/api/manager/devices/device/${homey_room_thermostat_9_id}"
+                request_headers:
+                  Authorization: "Bearer ${homey_token}"
+                  Accept: "application/json"
+                capture_response: true
+                max_response_buffer_size: 16384
+                on_response:
+                  then:
+                    - lambda: |-
+                        auto &state = id(energy_state);
+                        state.room_temperature[8].set(NAN, millis());
+                        state.room_target[8].set(NAN, millis());
+                        if (response->status_code != 200) return;
+                        json::parse_json(body, [](JsonObject device) -> bool {
+                          if (device["available"].is<bool>() && !device["available"].as<bool>()) return false;
+                          const char *driver = device["driverId"] | "";
+                          if (strcmp(driver, "homey:app:com.honeywell:zone")) return false;
+                          auto caps = device["capabilitiesObj"];
+                          auto measured = caps["measure_temperature"]["value"];
+                          auto target = caps["target_temperature"]["value"];
+                          if (measured.is<float>() && std::isfinite(measured.as<float>()) && measured.as<float>() >= -20 && measured.as<float>() <= 60)
+                            id(energy_state).room_temperature[8].set(measured.as<float>(), millis());
+                          if (target.is<float>() && std::isfinite(target.as<float>()) && target.as<float>() >= 5 && target.as<float>() <= 35)
+                            id(energy_state).room_target[8].set(target.as<float>(), millis());
+                          return true;
+                        });
+                on_error:
+                  then:
+                    - lambda: id(energy_state).room_temperature[8].set(NAN, millis()); id(energy_state).room_target[8].set(NAN, millis());
+      - lambda: |-
+          auto &s = id(energy_state);
+          int configured = 0, valid = 0;
+          for (int i = 0; i < s.ROOM_COUNT; ++i) {
+            if (!s.room_configured[i]) continue;
+            ++configured;
+            if (s.room_temperature[i].valid(millis(), s.CLIMATE_TTL) && s.room_target[i].valid(millis(), s.CLIMATE_TTL)) ++valid;
+          }
+          ESP_LOGI("evohome", "Controller %s: %d/%d zones valid, demand state %d", id(thermostat_mode_text).c_str(), valid, configured, static_cast<int>(s.climate_status(millis())));
+
+  - id: render_climate
+    then:
+      - lambda: |-
+          using namespace esphome::ui_performance;
+          auto &s = id(energy_state);
+          const uint32_t now = millis();
+          const char *zones[] = {"${homey_room_thermostat_1_id}", "${homey_room_thermostat_2_id}", "${homey_room_thermostat_3_id}", "${homey_room_thermostat_4_id}", "${homey_room_thermostat_5_id}", "${homey_room_thermostat_6_id}", "${homey_room_thermostat_7_id}", "${homey_room_thermostat_8_id}", "${homey_room_thermostat_9_id}"};
+          lv_obj_t *slots[] = {id(climate_sensor_1_slot), id(climate_sensor_2_slot), id(climate_sensor_3_slot), id(climate_sensor_4_slot), id(climate_sensor_5_slot), id(climate_sensor_6_slot), id(climate_sensor_7_slot), id(climate_sensor_8_slot), id(climate_sensor_9_slot)};
+          lv_obj_t *compact[] = {id(climate_sensor_1_value), id(climate_sensor_2_value), id(climate_sensor_3_value), id(climate_sensor_4_value), id(climate_sensor_5_value), id(climate_sensor_6_value), id(climate_sensor_7_value), id(climate_sensor_8_value), id(climate_sensor_9_value)};
+          lv_obj_t *cards[] = {id(room_1_card), id(room_2_card), id(room_3_card), id(room_4_card), id(room_5_card), id(room_6_card), id(room_7_card), id(room_8_card), id(room_9_card)};
+          lv_obj_t *names[] = {id(room_1_name), id(room_2_name), id(room_3_name), id(room_4_name), id(room_5_name), id(room_6_name), id(room_7_name), id(room_8_name), id(room_9_name)};
+          lv_obj_t *temperatures[] = {id(room_1_temperature), id(room_2_temperature), id(room_3_temperature), id(room_4_temperature), id(room_5_temperature), id(room_6_temperature), id(room_7_temperature), id(room_8_temperature), id(room_9_temperature)};
+          lv_obj_t *targets[] = {id(room_1_target), id(room_2_target), id(room_3_target), id(room_4_target), id(room_5_target), id(room_6_target), id(room_7_target), id(room_8_target), id(room_9_target)};
+          lv_obj_t *demands[] = {id(room_1_demand), id(room_2_demand), id(room_3_demand), id(room_4_demand), id(room_5_demand), id(room_6_demand), id(room_7_demand), id(room_8_demand), id(room_9_demand)};
+          for (int i = 0; i < s.ROOM_COUNT; ++i) {
+            s.room_configured[i] = *zones[i] && strcmp(zones[i], "none");
+            for (auto *widget : {slots[i], cards[i], names[i], temperatures[i], targets[i], demands[i]}) {
+              if (s.room_configured[i]) lv_obj_clear_flag(widget, LV_OBJ_FLAG_HIDDEN);
+              else lv_obj_add_flag(widget, LV_OBJ_FLAG_HIDDEN);
+            }
+            const bool measured = s.room_temperature[i].valid(now, s.CLIMATE_TTL);
+            const bool target = s.room_target[i].valid(now, s.CLIMATE_TTL);
+            const bool demand = s.room_requests_heat(i, now);
+            const auto color = lv_color_hex(demand ? s.ICON_ORANGE : 0xEEF6F0);
+            if (measured && target) set_text_fmt(compact[i], "%.1f/%.1f°", s.room_temperature[i].value, s.room_target[i].value);
+            else if (measured) set_text_fmt(compact[i], "%.1f/--°", s.room_temperature[i].value);
+            else set_text(compact[i], "-- / --°");
+            set_style_text_color(compact[i], color, LV_PART_MAIN);
+            if (id(detail_page_open) != 2) continue;
+            if (measured) set_text_fmt(temperatures[i], "%.1f °C", s.room_temperature[i].value);
+            else set_text(temperatures[i], "-- °C");
+            if (target) set_text_fmt(targets[i], "${climate_target_format}", s.room_target[i].value);
+            else set_text(targets[i], "${climate_target_unknown}");
+            const bool enabled = s.heating_enabled.valid(now, s.CLIMATE_TTL);
+            set_text(demands[i], !enabled || !measured || !target ? "--" : s.heating_enabled.value <= 0 ? "${thermostat_off}" : demand ? "${climate_heat_demand}" : "${climate_at_target}");
+            set_style_text_color(demands[i], color, LV_PART_MAIN);
+            set_style_border_color(cards[i], lv_color_hex(demand ? s.ICON_ORANGE : 0x34463C), LV_PART_MAIN);
+          }
+          const auto status = s.climate_status(now);
+          const char *summary = status == s.HEAT_OFF ? "${thermostat_off}" : status == s.HEAT_DEMAND ? "${climate_heat_demand}" : status == s.HEAT_IDLE ? "${climate_no_demand}" : "${climate_heat_unknown}";
+          set_text(id(compact_climate_status), summary);
+          set_style_text_color(id(compact_climate_status), lv_color_hex(s.heating_icon_color(now)), LV_PART_MAIN);
+          if (id(detail_page_open) != 2) return;
+          set_text(id(thermostat_mode), s.heating_enabled.valid(now, s.CLIMATE_TTL) ? id(thermostat_mode_text).c_str() : "--");
+          set_text(id(thermostat_heat_state), summary);
+          set_style_text_color(id(thermostat_heat_state), lv_color_hex(s.heating_icon_color(now)), LV_PART_MAIN);

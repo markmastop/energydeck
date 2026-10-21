@@ -21,7 +21,7 @@ It connects directly over your local network to Homey and Sonos to provide a rea
 - **Home Battery (Sessy):** Live state of charge (SoC %), charge/discharge power, and operational status.
 - **EV Smart Charging:** Real-time go-eCharger connection and charging status, with one-touch button to trigger your Homey smart charging Flow.
 - **Direct Local Sonos Player:** Zero-cloud UPnP control on port 1400 directly to Sonos speakers. Features both a compact dashboard card and a full-screen player page with embedded high-resolution station artwork (e.g. Joe, Qmusic, Sky Radio, Radio 538, NPO Radio 2), volume controls, household room grouping, and a 4-row favorites grid.
-- **Multi-room Climate:** Up to 6 room temperature sensor cards with color-coded comfort badges.
+- **Multi-room Climate:** All 9 Evohome zones with measured/target temperatures and heat-demand highlights on the dashboard and Climate page.
 - **Local Weather & Rain Radar:** 2-hour Buienradar precipitation graph and 3-hour Open-Meteo temperature outlook.
 - **Automatic Night Dimming:** Time-based backlight dimming (e.g. 23:00 to 07:00) with instant touch-to-wake.
 - **Desktop Simulator:** Test and preview the exact UI on macOS or Linux with live data before touching hardware.
@@ -86,7 +86,7 @@ ENERGYDECK_WIFI_PASSWORD=your-wifi-password
    ```sh
    ./homey-setup.sh
    ```
-   This wizard scans your Homey for Sessy batteries, HomeWizard P1 meters, solar inverters, EV chargers, and climate sensors, and outputs the exact device IDs to add to your `.env`.
+   This wizard scans your Homey for Sessy batteries, HomeWizard P1 meters, solar inverters, EV chargers, and other devices, and outputs device IDs to add to your `.env`. Climate uses only EvoTouch/Evohome controller and zone IDs; see the [Climate setup](docs/CLIMATE.md).
 
 6. **Sync dynamic energy prices:** In the Homey Web App, go to **HomeyScript**, create a new script named `EnergyDeck Prices`, and paste the contents of [`homeyscript/energydeck-prices.js`](homeyscript/energydeck-prices.js). Create a Flow that runs this script every hour or when electricity prices update.
 
@@ -209,7 +209,7 @@ ENERGYDECK_BACKLIGHT_WAKE_DURATION_S=30
 
 - [Sonos Integration Architecture](docs/SONOS.md) — UPnP/SOAP protocol details, queue guards, embedded station artwork, and zero-cloud direct control.
 - [Homey Pro Integration](docs/HOMEY.md) — Local Web API token, rate limits, device schemas, and price bridging.
-- [Multi-room Climate Setup](docs/CLIMATE.md) — Configuring up to 6 room temperature sensors with Homey.
+- [Multi-room Climate Setup](docs/CLIMATE.md) — Configuring an EvoTouch controller and up to 9 Evohome zones.
 - [Rain Radar & Weather](docs/RAIN.md) — Buienradar 2-hour rain forecast and Open-Meteo temperature integration.
 - [Performance & Memory Architecture](docs/PERFORMANCE.md) — PSRAM heap routing, LVGL partial rendering, and benchmark diagnostics.
 - [Development & Contribution Guidelines](AGENTS.md) — Working agreements, code style, and Git commit policies.

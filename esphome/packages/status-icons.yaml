@@ -1,0 +1,109 @@
+- line:
+    id: status_heat_0
+    x: 1
+    y: 0
+    line_color: 0x46534B
+    line_width: 2
+    points:
+      - {x: 12, y: 0}
+      - {x: 14, y: 6}
+      - {x: 19, y: 11}
+      - {x: 20, y: 17}
+      - {x: 16, y: 23}
+      - {x: 9, y: 24}
+      - {x: 4, y: 20}
+      - {x: 3, y: 14}
+      - {x: 8, y: 7}
+      - {x: 8, y: 15}
+      - {x: 12, y: 11}
+      - {x: 12, y: 0}
+
+- line:
+    id: status_car_0
+    x: 1
+    y: 32
+    line_color: 0x46534B
+    line_width: 2
+    points:
+      - {x: 2, y: 12}
+      - {x: 5, y: 5}
+      - {x: 17, y: 5}
+      - {x: 20, y: 12}
+      - {x: 20, y: 21}
+      - {x: 17, y: 21}
+      - {x: 17, y: 18}
+      - {x: 5, y: 18}
+      - {x: 5, y: 21}
+      - {x: 2, y: 21}
+      - {x: 2, y: 12}
+      - {x: 20, y: 12}
+
+- line:
+    id: status_car_1
+    x: 1
+    y: 32
+    line_color: 0x46534B
+    line_width: 2
+    points:
+      - {x: 6, y: 15}
+      - {x: 8, y: 15}
+
+- line:
+    id: status_car_2
+    x: 1
+    y: 32
+    line_color: 0x46534B
+    line_width: 2
+    points:
+      - {x: 14, y: 15}
+      - {x: 16, y: 15}
+
+- line:
+    id: status_car_3
+    x: 1
+    y: 32
+    line_color: 0x46534B
+    line_width: 2
+    points:
+      - {x: 23, y: 4}
+      - {x: 23, y: 10}
+      - {x: 20, y: 10}
+
+- line:
+    id: status_car_4
+    x: 1
+    y: 32
+    line_color: 0x46534B
+    line_width: 2
+    points:
+      - {x: 21, y: 1}
+      - {x: 21, y: 4}
+      - {x: 25, y: 4}
+      - {x: 25, y: 1}
+
+- line:
+    id: status_battery_0
+    x: 1
+    y: 64
+    line_color: 0x46534B
+    line_width: 2
+    points:
+      - {x: 2, y: 7}
+      - {x: 20, y: 7}
+      - {x: 20, y: 11}
+      - {x: 23, y: 11}
+      - {x: 23, y: 17}
+      - {x: 20, y: 17}
+      - {x: 20, y: 21}
+      - {x: 2, y: 21}
+      - {x: 2, y: 7}
+
+- label:
+    id: status_battery_direction
+    x: 6
+    y: 72
+    width: 16
+    text: ""
+    text_font: montserrat_12
+    text_align: CENTER
+    text_color: 0x46534B

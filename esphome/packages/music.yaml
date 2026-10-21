@@ -211,7 +211,7 @@ script:
       - lambda: |-
           if ((!id(music_page_open) && (id(detail_tab) != 1 || id(sonos).any_playing())) || id(favorite_artwork).busy || id(music_cover_downloading) ||
               (id(music_page_open) && id(music_content_tab) != 0) ||
-              id(refresh_climate).is_running() || id(music_busy) || id(music_favorites_loading) || !id(sonos_favorites).known) return;
+              (id(refresh_climate).is_running() || id(refresh_thermostats).is_running()) || id(music_busy) || id(music_favorites_loading) || !id(sonos_favorites).known) return;
           const auto &items = id(sonos_favorites).items;
           const int scroll = lv_obj_get_scroll_y(id(music_favorites_grid));
           const int height = lv_obj_get_height(id(music_favorites_grid));
@@ -228,12 +228,13 @@ script:
   - id: open_music_page
     then:
       - lambda: |-
+          id(detail_page_open) = 0;
           id(music_page_open) = true;
           id(detail_tab) = 1;
           lv_obj_set_parent(id(shared_energy_header), id(sonos_page)->obj);
           lv_obj_set_pos(id(shared_energy_header), 0, 0);
       - lvgl.page.show: sonos_page
-      - script.execute: render_sonos_energy_header
+      - script.execute: render_energy_header
       - script.execute: render_music
       # Show the new page before synchronous HTTP work can block touch/render.
       - delay: 100ms
@@ -252,50 +253,8 @@ script:
           lv_obj_set_parent(id(shared_energy_header), id(energydeck_main_page)->obj);
           lv_obj_set_pos(id(shared_energy_header), 0, 0);
       - lvgl.page.show: energydeck_main_page
-      - script.execute: render_sonos_energy_header
+      - script.execute: render_energy_header
       - script.execute: select_detail_tab
-
-  # Reuse live dashboard widgets and colors; changing pages adds no requests.
-  - id: render_sonos_energy_header
-    then:
-      - lambda: |-
-          const bool detail = id(music_page_open);
-          const std::string status = lv_label_get_text(id(battery_status_label));
-          const std::string percentage_text = lv_label_get_text(id(battery_percentage_label));
-          const int level = lv_bar_get_value(id(battery_level_bar));
-          const uint32_t level_rgb = lv_color_to_u32(lv_obj_get_style_bg_color(id(battery_level_bar), LV_PART_INDICATOR));
-          const uint32_t state_rgb = lv_color_to_u32(lv_obj_get_style_text_color(id(battery_status_label), LV_PART_MAIN));
-          static std::string previous;
-          const std::string snapshot = std::to_string(detail) + "|" + status + "|" + percentage_text + "|" +
-            std::to_string(level) + "|" + std::to_string(level_rgb) + "|" + std::to_string(state_rgb);
-          if (snapshot == previous) return;
-          previous = snapshot;
-          for (auto *widget : {id(electricity_today_arc), id(electricity_today_value_label),
-              id(electricity_today_unit_label), id(electricity_ytd_label)}) {
-            if (detail) lv_obj_add_flag(widget, LV_OBJ_FLAG_HIDDEN);
-            else lv_obj_clear_flag(widget, LV_OBJ_FLAG_HIDDEN);
-          }
-          // Solar stays in its familiar right-hand position on both pages.
-          if (!detail) {
-            lv_obj_add_flag(id(sonos_battery_gauge), LV_OBJ_FLAG_HIDDEN);
-            return;
-          }
-          lv_obj_clear_flag(id(sonos_battery_gauge), LV_OBJ_FLAG_HIDDEN);
-          const auto separator = status.find(" | ");
-          const bool known = separator != std::string::npos;
-          std::string percentage = known ? lv_label_get_text(id(battery_percentage_label)) : "--";
-          const auto percent = percentage.find('%');
-          if (percent != std::string::npos) percentage.resize(percent);
-          esphome::ui_performance::set_text(id(sonos_battery_value), percentage.c_str());
-          lv_arc_set_value(id(sonos_battery_arc), known ? lv_bar_get_value(id(battery_level_bar)) : 0);
-          const auto level_color = known ? lv_obj_get_style_bg_color(id(battery_level_bar), LV_PART_INDICATOR) : lv_color_hex(0xA9B8AE);
-          const auto state_color = lv_obj_get_style_text_color(id(battery_status_label), LV_PART_MAIN);
-          lv_obj_set_style_arc_color(id(sonos_battery_arc), level_color, LV_PART_INDICATOR);
-          lv_obj_set_style_text_color(id(sonos_battery_unit), level_color, 0);
-          esphome::ui_performance::set_text(id(sonos_battery_power), known ? status.substr(separator + 3).c_str() : "-- W");
-          esphome::ui_performance::set_text(id(sonos_battery_state), known ? status.substr(0, separator).c_str() : status.c_str());
-          lv_obj_set_style_text_color(id(sonos_battery_power), state_color, 0);
-          lv_obj_set_style_text_color(id(sonos_battery_state), state_color, 0);
 
   # Read-only polls and explicitly clicked commands share one serialized queue.
   - id: sonos_requests
@@ -608,7 +567,7 @@ script:
               return;
             }
             // Finish the higher-priority climate refresh before queuing artwork.
-            if (id(favorite_artwork).busy || id(refresh_climate).is_running()) return;
+            if (id(favorite_artwork).busy || (id(refresh_climate).is_running() || id(refresh_thermostats).is_running())) return;
             // Detach both consumers before the decoder mutates its shared buffer.
             lv_image_set_src(id(music_cover_widget), static_cast<const void *>(nullptr));
             lv_image_set_src(id(small_music_cover_widget), static_cast<const void *>(nullptr));

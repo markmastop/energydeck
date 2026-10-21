@@ -1,0 +1,69 @@
+#pragma once
+
+#include <cmath>
+#include <cstdint>
+
+namespace energydeck {
+struct Reading {
+  float value{NAN};
+  uint32_t at{0};
+  int day{0};
+  void set(float v, uint32_t now, int date = 0) {
+    value = std::isfinite(v) ? v : NAN;
+    at = now;
+    day = date;
+  }
+  bool valid(uint32_t now, uint32_t ttl = 45000, int date = 0) const {
+    // Unsigned subtraction also handles the millis() rollover.
+    return std::isfinite(value) && uint32_t(now - at) <= ttl && (!date || day == date);
+  }
+};
+struct StableMode {
+  int value{-1}, candidate{-1};
+  uint32_t since{0};
+  int update(int next, uint32_t now) {
+    if (value < 0) value = next;
+    if (candidate != next) { candidate = next; since = now; }
+    // Keep labels/units together and prevent clouds or near-zero noise flicker.
+    if (uint32_t(now - since) >= 10000) value = candidate;
+    return value;
+  }
+};
+struct EnergyState {
+  Reading grid, solar, battery, battery_power, gas, car, connected, heating;
+  Reading electricity_day, solar_day, gas_day, gas_yesterday;
+  Reading room_temperature[6], room_thermostat_temperature[6], room_target[6];
+  StableMode grid_mode, gas_mode, source_mode;
+  static constexpr uint32_t SUMMARY_TTL = 1200000;
+  static constexpr uint32_t CLIMATE_TTL = 180000;
+  int grid_view(uint32_t now) {
+    if (!grid.valid(now)) { grid_mode = {}; return -1; }
+    const int next = grid.value < -50 ? 1 : grid.value > 50 ? 0 : (grid_mode.value < 0 ? 0 : grid_mode.value);
+    return grid_mode.update(next, now);
+  }
+  int gas_view(uint32_t now) {
+    if (!gas.valid(now)) { gas_mode = {}; return -1; }
+    return gas_mode.update(gas.value > 0.005f ? 1 : 0, now);
+  }
+  int source_view(uint32_t now) {
+    const bool sun = solar.valid(now), storage = battery.valid(now) && battery_power.valid(now);
+    if (!sun && !storage) { source_mode = {}; return -1; }
+    const bool discharge = storage && battery_power.value > 50;
+    const bool sunshine = sun && solar.value > 50;
+    // Sessy battery power is positive on discharge, negative on charge.
+    int next = storage && (discharge || !sunshine) ? 1 : 0;
+    if (!storage) next = 0;
+    if (!sun) next = 1;
+    const int result = source_mode.update(next, now);
+    // Missing data must disappear immediately, even during a mode hold.
+    return result == 1 && !storage ? 0 : result == 0 && !sun ? 1 : result;
+  }
+  float house_power(uint32_t now) const {
+    if (!grid.valid(now) || !solar.valid(now) || !battery_power.valid(now)) return NAN;
+    // Grid import + solar + battery discharge = total site demand, including EV.
+    // Polls are not simultaneous: suppress a negative balance instead of clamping it.
+    const float sum = grid.value + solar.value + battery_power.value;
+    return sum >= 0 ? sum : NAN;
+  }
+};
+}  // namespace energydeck

@@ -2,8 +2,14 @@ const fs = require('node:fs'), path = require('node:path'), assert = require('no
 const read = name => fs.readFileSync(path.join(__dirname, '../esphome/packages', name), 'utf8');
 const climate = read('climate.yaml'), music = read('music.yaml'), dashboard = read('dashboard.yaml');
 const tab = dashboard.split('id: extra_tab\n')[1].split('\n        - obj:')[0];
-assert(tab.includes('script.execute: refresh_climate'));
-assert(tab.indexOf('script.execute: select_detail_tab') < tab.indexOf('script.execute: refresh_climate'));
+assert(tab.includes('script.execute: open_climate_page'));
+const details = read('energy-details.yaml');
+const open = details.split('id: open_climate_page\n')[1].split('  - id: close_detail_page')[0];
+assert(open.includes('script.execute: refresh_climate'));
+assert(open.indexOf('lvgl.page.show: climate_page') < open.indexOf('script.execute: refresh_climate'));
+assert(open.includes('script.execute: refresh_thermostats'));
+assert.equal((details.match(/- background_http.get:/g) || []).length, 7);
+assert(!details.includes('background_http.post:'));
 assert(climate.includes('mode: single'));
 assert(climate.includes('interval: 60s') && climate.includes('startup_delay: 20s'));
 assert.equal((climate.match(/- background_http.get:/g) || []).length, 6);

@@ -1,0 +1,206 @@
+- arc:
+    id: header_grid_arc
+    x: 6
+    y: 11
+    width: 66
+    height: 66
+    value: 0
+    adjustable: false
+    arc_width: 6
+    arc_color: 0x303A33
+    indicator:
+      arc_width: 6
+      arc_color: 0x3AA7D8
+    knob:
+      bg_opa: TRANSP
+- label:
+    id: header_grid_title
+    x: 0
+    y: 0
+    width: 78
+    height: 13
+    text: "--"
+    text_font: montserrat_10
+    text_align: CENTER
+    text_color: 0x3AA7D8
+- label:
+    id: header_grid_value
+    x: 9
+    y: 31
+    width: 60
+    height: 24
+    long_mode: DOT
+    text: "--"
+    text_font: montserrat_18
+    text_color: 0xEEF6F0
+    text_align: CENTER
+- label:
+    id: header_grid_unit
+    x: 9
+    y: 54
+    width: 60
+    height: 13
+    text: ""
+    text_font: montserrat_10
+    text_align: CENTER
+    text_color: 0x3AA7D8
+- label:
+    id: header_grid_sub
+    x: 0
+    y: 81
+    width: 78
+    height: 14
+    long_mode: DOT
+    text: "--"
+    text_font: montserrat_10
+    text_align: CENTER
+    text_color: 0xA9B8AE
+- label:
+    id: header_grid_extra
+    x: 0
+    y: 98
+    width: 78
+    height: 13
+    long_mode: DOT
+    text: ""
+    text_font: montserrat_10
+    text_align: CENTER
+    text_color: 0xA9B8AE
+
+- arc:
+    id: header_gas_arc
+    x: 84
+    y: 11
+    width: 66
+    height: 66
+    value: 0
+    adjustable: false
+    arc_width: 6
+    arc_color: 0x303A33
+    indicator:
+      arc_width: 6
+      arc_color: 0xFF3485
+    knob:
+      bg_opa: TRANSP
+- label:
+    id: header_gas_title
+    x: 78
+    y: 0
+    width: 78
+    height: 13
+    text: "--"
+    text_font: montserrat_10
+    text_align: CENTER
+    text_color: 0xFF3485
+- label:
+    id: header_gas_value
+    x: 87
+    y: 31
+    width: 60
+    height: 24
+    long_mode: DOT
+    text: "--"
+    text_font: montserrat_18
+    text_color: 0xEEF6F0
+    text_align: CENTER
+- label:
+    id: header_gas_unit
+    x: 87
+    y: 54
+    width: 60
+    height: 13
+    text: ""
+    text_font: montserrat_10
+    text_align: CENTER
+    text_color: 0xFF3485
+- label:
+    id: header_gas_sub
+    x: 78
+    y: 81
+    width: 78
+    height: 14
+    long_mode: DOT
+    text: "--"
+    text_font: montserrat_10
+    text_align: CENTER
+    text_color: 0xA9B8AE
+- label:
+    id: header_gas_extra
+    x: 78
+    y: 98
+    width: 78
+    height: 13
+    long_mode: DOT
+    text: ""
+    text_font: montserrat_10
+    text_align: CENTER
+    text_color: 0xA9B8AE
+
+- arc:
+    id: header_source_arc
+    x: 162
+    y: 11
+    width: 66
+    height: 66
+    value: 0
+    adjustable: false
+    arc_width: 6
+    arc_color: 0x303A33
+    indicator:
+      arc_width: 6
+      arc_color: 0x48BD70
+    knob:
+      bg_opa: TRANSP
+- label:
+    id: header_source_title
+    x: 156
+    y: 0
+    width: 78
+    height: 13
+    text: "--"
+    text_font: montserrat_10
+    text_align: CENTER
+    text_color: 0x48BD70
+- label:
+    id: header_source_value
+    x: 165
+    y: 31
+    width: 60
+    height: 24
+    long_mode: DOT
+    text: "--"
+    text_font: montserrat_18
+    text_color: 0xEEF6F0
+    text_align: CENTER
+- label:
+    id: header_source_unit
+    x: 165
+    y: 54
+    width: 60
+    height: 13
+    text: ""
+    text_font: montserrat_10
+    text_align: CENTER
+    text_color: 0x48BD70
+- label:
+    id: header_source_sub
+    x: 156
+    y: 81
+    width: 78
+    height: 14
+    long_mode: DOT
+    text: "--"
+    text_font: montserrat_10
+    text_align: CENTER
+    text_color: 0xA9B8AE
+- label:
+    id: header_source_extra
+    x: 156
+    y: 98
+    width: 78
+    height: 13
+    long_mode: DOT
+    text: ""
+    text_font: montserrat_10
+    text_align: CENTER
+    text_color: 0xA9B8AE

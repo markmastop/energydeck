@@ -80,8 +80,8 @@ interval:
     startup_delay: 10s
     then:
       - script.execute: refresh_homey_fast_cycle
-  - interval: 15min
-    startup_delay: 905s
+  - interval: 60s
+    startup_delay: 35s
     then:
       - script.execute: refresh_homey_electricity_day
       - script.wait: refresh_homey_electricity_day
@@ -621,6 +621,7 @@ script:
           on_response:
             then:
               - lambda: |-
+                  id(energy_state).battery.set(NAN, millis()); id(energy_state).battery_power.set(NAN, millis());
                   ESP_LOGD("network_performance", "refresh_homey_sessy: %u ms", static_cast<unsigned>(response->duration_ms));
                   if (response->status_code != 200) {
                     esphome::ui_performance::set_text(id(battery_status_label), "${battery_unavailable}");
@@ -630,19 +631,23 @@ script:
                   }
 
                   bool parsed = json::parse_json(body, [](JsonObject device) -> bool {
+                    if (device["available"].is<bool>() && !device["available"].as<bool>()) return false;
                     JsonObject capabilities = device["capabilitiesObj"].as<JsonObject>();
                     JsonVariant battery_value = capabilities["measure_battery"]["value"];
                     JsonVariant battery_power = capabilities["measure_power.battery"]["value"];
                     JsonVariant device_power = capabilities["measure_power"]["value"];
 
-                    if (battery_value.isNull() || (battery_power.isNull() && device_power.isNull())) {
+                    if (!battery_value.is<float>() || (!battery_power.is<float>() && !device_power.is<float>())) {
                       return false;
                     }
 
                     const float battery = battery_value.as<float>();
-                    const float power = !battery_power.isNull()
+                    const float power = battery_power.is<float>()
                       ? battery_power.as<float>()
                       : device_power.as<float>();
+                    if (!std::isfinite(battery) || !std::isfinite(power) || battery < 0 || battery > 100) return false;
+                    id(energy_state).battery.set(battery, millis());
+                    id(energy_state).battery_power.set(power, millis());
                     const int percentage = std::max(0, std::min(100, static_cast<int>(roundf(battery))));
                     const int watts = static_cast<int>(roundf(fabsf(power)));
                     ESP_LOGI("homey", "Sessy: %d%%, %.0f W", percentage, power);
@@ -675,14 +680,15 @@ script:
                     esphome::ui_performance::set_style_text_color(id(battery_status_label), lv_color_hex(0xEA665F), LV_PART_MAIN);
                     ESP_LOGW("homey", "Could not parse Sessy device capabilities");
                   }
-              - script.execute: render_sonos_energy_header
+              - script.execute: render_energy_header
           on_error:
             then:
+              - lambda: id(energy_state).battery.set(NAN, millis()); id(energy_state).battery_power.set(NAN, millis());
               - lvgl.label.update:
                   id: battery_status_label
                   text: "${battery_unavailable}"
                   text_color: 0xEA665F
-              - script.execute: render_sonos_energy_header
+              - script.execute: render_energy_header
 
   - id: refresh_homey_charger
     mode: restart
@@ -697,6 +703,7 @@ script:
           on_response:
             then:
               - lambda: |-
+                  id(energy_state).car.set(NAN, millis()); id(energy_state).connected.set(NAN, millis());
                   ESP_LOGD("network_performance", "refresh_homey_charger: %u ms", static_cast<unsigned>(response->duration_ms));
                   auto set_button = [](bool enabled, const char *text, uint32_t color) {
                     if (id(charge_pending)) {
@@ -742,9 +749,10 @@ script:
                   }
 
                   bool parsed = json::parse_json(body, [set_button](JsonObject device) -> bool {
+                    if (device["available"].is<bool>() && !device["available"].as<bool>()) return false;
                     JsonObject capabilities = device["capabilitiesObj"].as<JsonObject>();
                     JsonVariant connected_value = capabilities["is_connected"]["value"];
-                    if (connected_value.isNull()) return false;
+                    if (!connected_value.is<bool>()) return false;
 
                     const bool connected = connected_value.as<bool>();
                     const bool charging = capabilities["is_charging"]["value"].as<bool>();
@@ -754,6 +762,10 @@ script:
                     const std::string status = status_raw != nullptr ? status_raw : "";
                     const bool complete = status.find("finished") != std::string::npos ||
                                           status.find("complete") != std::string::npos;
+                    if (!capabilities["is_charging"]["value"].is<bool>() ||
+                        !capabilities["measure_power"]["value"].is<float>() || !std::isfinite(power_w)) return false;
+                    id(energy_state).connected.set(connected ? 1 : 0, millis());
+                    id(energy_state).car.set(connected && !fault && (charging || power_w > 50.0f) ? 1 : 0, millis());
                     id(charger_is_charging) = charging || power_w > 50.0f;
                     if (id(charge_pending) &&
                         (!connected || fault || id(charger_is_charging) == id(charge_target))) {
@@ -799,6 +811,7 @@ script:
                   }
           on_error:
             then:
+              - lambda: id(energy_state).car.set(NAN, millis()); id(energy_state).connected.set(NAN, millis());
               - lvgl.label.update:
                   id: ev_status_label
                   text: "${car_unavailable}"
@@ -827,6 +840,7 @@ script:
           on_response:
             then:
               - lambda: |-
+                  id(energy_state).grid.set(NAN, millis()); id(energy_state).gas.set(NAN, millis());
                   ESP_LOGD("network_performance", "refresh_homey_electricity_now: %u ms", static_cast<unsigned>(response->duration_ms));
                   if (response->status_code != 200) {
                     esphome::ui_performance::set_text(id(electricity_now_value_label), "--");
@@ -836,10 +850,17 @@ script:
                   }
 
                   bool parsed = json::parse_json(body, [](JsonObject device) -> bool {
+                    if (device["available"].is<bool>() && !device["available"].as<bool>()) return false;
                     JsonVariant power_value = device["capabilitiesObj"]["measure_power"]["value"];
-                    if (power_value.isNull()) return false;
+                    if (!power_value.is<float>() || !std::isfinite(power_value.as<float>())) return false;
 
                     const float power_w = power_value.as<float>();
+                    id(energy_state).grid.set(power_w, millis());
+                    auto gas = device["capabilitiesObj"]["measure_gas"]["value"];
+                    // HomeWizard P1 measure_gas is already m³/hour; do not use the
+                    // summary device's similarly named litres/minute capability.
+                    if (gas.is<float>() && gas.as<float>() >= 0)
+                      id(energy_state).gas.set(gas.as<float>(), millis());
                     // This HomeWizard P1 source reports grid consumption as
                     // positive and export as negative, matching the gauge:
                     // consumption right/blue, export left/green.
@@ -875,6 +896,7 @@ script:
                   }
           on_error:
             then:
+              - lambda: id(energy_state).grid.set(NAN, millis()); id(energy_state).gas.set(NAN, millis());
               - lvgl.label.update:
                   id: electricity_now_value_label
                   text: "--"
@@ -895,6 +917,7 @@ script:
           on_response:
             then:
               - lambda: |-
+                  id(energy_state).electricity_day.set(NAN, millis());
                   if (response->status_code != 200) {
                     esphome::ui_performance::set_text(id(electricity_today_value_label), "--");
                     esphome::ui_performance::set_text_fmt(id(electricity_ytd_label), "${energy_ytd_format}", 0.0);
@@ -904,15 +927,19 @@ script:
                   }
 
                   bool parsed = json::parse_json(body, [](JsonObject device) -> bool {
+                    if (device["available"].is<bool>() && !device["available"].as<bool>()) return false;
                     JsonObject capabilities = device["capabilitiesObj"].as<JsonObject>();
                     JsonVariant day_value = capabilities["meter_kwh_this_day"]["value"];
                     JsonVariant year_value = capabilities["meter_kwh_this_year"]["value"];
                     JsonVariant peak_value = capabilities["measure_watt_max"]["value"];
-                    if (day_value.isNull() || year_value.isNull() || peak_value.isNull()) return false;
+                    if (!day_value.is<float>() || !year_value.is<float>() || !peak_value.is<float>() ||
+                        !std::isfinite(day_value.as<float>()) || !std::isfinite(year_value.as<float>()) || !std::isfinite(peak_value.as<float>())) return false;
 
                     const float day_kwh = day_value.as<float>();
                     const float year_kwh = year_value.as<float>();
                     const float peak_w = std::max(0.0f, peak_value.as<float>());
+                    const auto now = id(energydeck_time).now();
+                    if (now.is_valid()) id(energy_state).electricity_day.set(day_kwh, millis(), now.year * 10000 + now.month * 100 + now.day_of_month);
                     id(electricity_peak_w) = std::max(1000.0f, peak_w);
 
                     esphome::ui_performance::set_text_fmt(id(electricity_today_value_label), "%.1f", day_kwh);
@@ -935,6 +962,7 @@ script:
                   }
           on_error:
             then:
+              - lambda: id(energy_state).electricity_day.set(NAN, millis());
               - lvgl.label.update:
                   id: electricity_today_value_label
                   text: "--"
@@ -958,6 +986,7 @@ script:
           on_response:
             then:
               - lambda: |-
+                  id(energy_state).solar.set(NAN, millis());
                   ESP_LOGD("network_performance", "refresh_homey_solar_now: %u ms", static_cast<unsigned>(response->duration_ms));
                   if (response->status_code != 200) {
                     esphome::ui_performance::set_text(id(solar_now_value_label), "${solar_unavailable}");
@@ -966,10 +995,12 @@ script:
                   }
 
                   bool parsed = json::parse_json(body, [](JsonObject device) -> bool {
+                    if (device["available"].is<bool>() && !device["available"].as<bool>()) return false;
                     JsonVariant power_value = device["capabilitiesObj"]["measure_power"]["value"];
-                    if (power_value.isNull()) return false;
+                    if (!power_value.is<float>() || !std::isfinite(power_value.as<float>())) return false;
 
                     const float power_w = std::max(0.0f, power_value.as<float>());
+                    id(energy_state).solar.set(power_w, millis());
                     esphome::ui_performance::set_text_fmt(id(solar_now_value_label), "%.1f", power_w / 1000.0f);
 
                     // A 5 kW reference makes the ring readable; the numeric value remains exact.
@@ -986,6 +1017,7 @@ script:
                   }
           on_error:
             then:
+              - lambda: id(energy_state).solar.set(NAN, millis());
               - lvgl.label.update:
                   id: solar_now_value_label
                   text: "${solar_unavailable}"
@@ -1003,6 +1035,7 @@ script:
           on_response:
             then:
               - lambda: |-
+                  id(energy_state).solar_day.set(NAN, millis());
                   if (response->status_code != 200) {
                     esphome::ui_performance::set_text(id(solar_today_label), "${solar_unavailable}");
                     ESP_LOGW("homey", "Solar summary request returned HTTP %d", response->status_code);
@@ -1011,8 +1044,10 @@ script:
 
                   bool parsed = json::parse_json(body, [](JsonObject device) -> bool {
                     JsonVariant day_value = device["capabilitiesObj"]["meter_kwh_this_day"]["value"];
-                    if (day_value.isNull()) return false;
+                    if (!day_value.is<float>() || !std::isfinite(day_value.as<float>())) return false;
                     const float day_kwh = std::max(0.0f, day_value.as<float>());
+                    const auto now = id(energydeck_time).now();
+                    if (now.is_valid()) id(energy_state).solar_day.set(day_kwh, millis(), now.year * 10000 + now.month * 100 + now.day_of_month);
                     esphome::ui_performance::set_text_fmt(id(solar_today_label), "${solar_today_format}", day_kwh);
                     ESP_LOGI("homey", "Solar: %.3f kWh today", day_kwh);
                     return true;
@@ -1024,6 +1059,7 @@ script:
                   }
           on_error:
             then:
+              - lambda: id(energy_state).solar_day.set(NAN, millis());
               - lvgl.label.update:
                   id: solar_today_label
                   text: "${solar_unavailable}"
@@ -1041,6 +1077,7 @@ script:
           on_response:
             then:
               - lambda: |-
+                  id(energy_state).gas_day.set(NAN, millis()); id(energy_state).gas_yesterday.set(NAN, millis());
                   if (response->status_code != 200) {
                     esphome::ui_performance::set_text(id(gas_today_value_label), "--");
                     esphome::ui_performance::set_text(id(gas_month_value_label), "--");
@@ -1050,15 +1087,24 @@ script:
                   }
 
                   bool parsed = json::parse_json(body, [](JsonObject device) -> bool {
+                    if (device["available"].is<bool>() && !device["available"].as<bool>()) return false;
                     JsonObject capabilities = device["capabilitiesObj"].as<JsonObject>();
                     JsonVariant today_value = capabilities["meter_m3_this_day"]["value"];
                     JsonVariant month_value = capabilities["meter_m3_this_month"]["value"];
                     JsonVariant year_value = capabilities["meter_m3_this_year"]["value"];
-                    if (today_value.isNull() || month_value.isNull() || year_value.isNull()) return false;
+                    if (!today_value.is<float>() || !month_value.is<float>() || !year_value.is<float>() ||
+                        !std::isfinite(today_value.as<float>()) || !std::isfinite(month_value.as<float>()) || !std::isfinite(year_value.as<float>())) return false;
 
                     const float today_m3 = std::max(0.0f, today_value.as<float>());
                     const float month_m3 = std::max(0.0f, month_value.as<float>());
                     const float year_m3 = std::max(0.0f, year_value.as<float>());
+                    const auto now = id(energydeck_time).now();
+                    if (now.is_valid()) {
+                      const int date = now.year * 10000 + now.month * 100 + now.day_of_month;
+                      id(energy_state).gas_day.set(today_m3, millis(), date);
+                      auto yesterday = capabilities["meter_m3_last_day"]["value"];
+                      if (yesterday.is<float>() && yesterday.as<float>() >= 0) id(energy_state).gas_yesterday.set(yesterday.as<float>(), millis(), date);
+                    }
                     esphome::ui_performance::set_text_fmt(id(gas_today_value_label), "%.1f", today_m3);
                     esphome::ui_performance::set_text_fmt(id(gas_month_value_label), "%.1f", month_m3);
                     esphome::ui_performance::set_text_fmt(id(gas_year_value_label), "%.0f", year_m3);
@@ -1082,6 +1128,7 @@ script:
                   }
           on_error:
             then:
+              - lambda: id(energy_state).gas_day.set(NAN, millis()); id(energy_state).gas_yesterday.set(NAN, millis());
               - lvgl.label.update:
                   id: gas_today_value_label
                   text: "--"

@@ -88,14 +88,12 @@ try {
   if (!detail?.includes('script.execute: open_music_page') || !detail.includes('clickable: true') ||
       dashboard.includes('music_page_button'))
     throw new Error('The cover/title must open detail without a separate Detail button');
-  const close = music.split('  - id: close_music_page\n')[1].split('  - id: render_sonos_energy_header')[0];
+  const close = music.split('  - id: close_music_page\n')[1].split('  # Read-only polls')[0];
   if (!close.includes('id(detail_tab) = 1')) throw new Error('Back must return to the compact Sonos card');
-  const header = music.split('  - id: render_sonos_energy_header\n')[1].split('  # Read-only polls')[0];
-  if (header.includes('lv_obj_set_x(id(solar_') || !dashboard.includes('id: sonos_battery_gauge\n                  hidden: true\n                  x: 314') || !header.includes('id(electricity_today_unit_label)') ||
-      !header.includes('lv_bar_get_value(id(battery_level_bar))') ||
-      !header.includes('lv_obj_get_style_bg_color(id(battery_level_bar), LV_PART_INDICATOR)') ||
-      !header.includes('lv_obj_get_style_text_color(id(battery_status_label), LV_PART_MAIN)'))
-    throw new Error('Sonos header must keep solar right, battery middle and reuse battery values/colors');
+  const energyDetails = fs.readFileSync(path.join(__dirname, '../esphome/packages/energy-details.yaml'), 'utf8');
+  if (music.includes('render_sonos_energy_header') || !music.includes('script.execute: render_energy_header') ||
+      !energyDetails.includes('id: render_energy_header') || !energyDetails.includes('s.source_view(now)'))
+    throw new Error('All pages must share the same live smart header and source selection');
   const tab = dashboard.split('id: music_tab\n')[1].split('        - button:')[0];
   if (!tab.includes('script.execute: open_music_page'))
     throw new Error('Right Sonos button must open detail directly in every playback state');

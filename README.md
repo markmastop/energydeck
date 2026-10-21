@@ -219,3 +219,6 @@ ENERGYDECK_BACKLIGHT_WAKE_DURATION_S=30
 ## License
 
 This project is open-source under the MIT License.
+
+See [Smart header and detail pages](docs/SMART_HEADER.md) for gauge behavior,
+Energy/Climate details and optional read-only thermostat configuration.

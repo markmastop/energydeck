@@ -118,12 +118,21 @@ The Docker build context excludes `.env`, Wi-Fi details, tests and development d
 Use Node.js 22 or newer. From the repository root:
 
 ```sh
-npm ci --prefix web --ignore-scripts
-node --env-file=.env web/server.mjs
+./run.sh web
+# Equivalent: ./web/run.sh
+```
+
+The launcher reads the repository `.env` and installs the pinned npm dependencies on first use or after a lock-file change. Configure `ENERGYDECK_WEB_ACCESS_CODE` and your device settings as described above. It works from any working directory. Open the printed URL (normally `http://127.0.0.1:8080`), enter your access code and stop with Ctrl+C. Override the port with `ENERGYDECK_WEB_PORT=8081 ./run.sh web`. Running `./run.sh` without `web` still starts the display simulator.
+
+Local mode always binds to `127.0.0.1` and uses HTTP cookies and the matching local Origin, overriding deployment host, HTTPS Origin and Secure-cookie settings in memory. Your `.env` remains unchanged. This launcher is for the computer running it; use the HTTPS Docker/reverse-proxy setup for access from your phone and PWA installation.
+
+Run the automated checks with:
+
+```sh
 npm test --prefix web
 ```
 
-Direct Node execution uses `ENERGYDECK_WEB_PORT` (default 8080) and `ENERGYDECK_WEB_HOST` (default `0.0.0.0`). Set the latter to `127.0.0.1` for local-only development. Compose instead controls publication with `ENERGYDECK_WEB_BIND_ADDRESS`.
+Advanced direct execution (`node --env-file=.env web/server.mjs`) uses `ENERGYDECK_WEB_PORT` (default 8080) and `ENERGYDECK_WEB_HOST` (default `0.0.0.0`) and keeps the configured Origin and Secure-cookie settings. Compose controls publication with `ENERGYDECK_WEB_BIND_ADDRESS`.
 
 `ENERGYDECK_WEB_DEMO=true` provides explicitly labelled data, nine climate zones, simulated Sonos controls and fake history/weather without any upstream request. Demo still requires login and is never enabled on failure. Set a demo Flow ID to enable simulated charging. Turn demo off before normal use.
 

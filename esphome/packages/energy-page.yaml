@@ -356,3 +356,11 @@ widgets:
       text: "${energy_history_source}"
       text_font: montserrat_10
       text_color: 0xA9B8AE
+  - label:
+      x: 24
+      y: 344
+      width: 16
+      height: 18
+      text: "0"
+      text_font: montserrat_10
+      text_color: 0x82958A

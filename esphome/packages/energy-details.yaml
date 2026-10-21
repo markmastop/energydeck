@@ -110,19 +110,19 @@ script:
           energydeck::set_power_arc(id(header_source_arc), source_watts, storage);
           if (storage) lv_obj_clear_flag(id(header_source_zero), LV_OBJ_FLAG_HIDDEN);
           else lv_obj_add_flag(id(header_source_zero), LV_OBJ_FLAG_HIDDEN);
-          const auto dim = lv_color_hex(0x46534B);
-          // Unknown heating stays dim. Gas use or a temperature deficit is not a boiler signal.
+          // Unknown heating stays gray until a confirmed enabled/firing signal exists.
           auto line_color = [](esphome::lvgl::LvLineType *wrapper, lv_color_t color) {
             auto *line = wrapper->obj;
             if (!lv_color_eq(lv_obj_get_style_line_color(line, LV_PART_MAIN), color)) lv_obj_set_style_line_color(line, color, 0);
           };
-          line_color(id(status_heat_0), s.heating.valid(now, s.CLIMATE_TTL) && s.heating.value > 0 ? lv_color_hex(0xFF3485) : dim);
-          const auto car_color = s.car.valid(now) && s.car.value > 0 ? lv_color_hex(0x3AA7D8) : dim;
+          line_color(id(status_heat_0), lv_color_hex(s.heating_icon_color(now)));
+          const auto car_color = lv_color_hex(s.car_icon_color(now));
           for (auto *line : {id(status_car_0), id(status_car_1), id(status_car_2), id(status_car_3), id(status_car_4)})
             line_color(line, car_color);
-          line_color(id(status_battery_0), battery_known && fabsf(s.battery_power.value) > 25 ? lv_color_hex(0x48BD70) : dim);
-          set_text(id(status_battery_direction), battery_direction);
-          set_style_text_color(id(status_battery_direction), battery_known && fabsf(s.battery_power.value) > 25 ? lv_color_hex(0x48BD70) : dim, LV_PART_MAIN);
+          const auto battery_color = lv_color_hex(s.battery_icon_color(now));
+          line_color(id(status_battery_0), battery_color);
+          set_bar_value(id(status_battery_fill), s.battery_fill_percent(now), LV_ANIM_OFF);
+          set_style_bg_color(id(status_battery_fill), battery_color, LV_PART_INDICATOR);
 
   - id: render_detail_pages
     then:
@@ -188,7 +188,7 @@ script:
                   then:
                     - lambda: |-
                         id(thermostat_mode_text) = "--";
-                        id(energy_state).heating.set(NAN, millis());
+                        id(energy_state).heating.set(NAN, millis()); id(energy_state).heating_enabled.set(NAN, millis());
                         if (response->status_code != 200) return;
                         json::parse_json(body, [](JsonObject device) -> bool {
                           if (device["available"].is<bool>() && !device["available"].as<bool>()) return false;
@@ -203,14 +203,16 @@ script:
                           auto heating = caps["thermostat_state"]["value"];
                           if (heating.is<const char *>()) {
                             const std::string state = heating.as<const char *>();
-                            if (state == "heating" || state == "idle" || state == "off")
+                            if (state == "heating" || state == "idle" || state == "off") {
                               id(energy_state).heating.set(state == "heating" ? 1 : 0, millis());
+                              id(energy_state).heating_enabled.set(state == "off" ? 0 : 1, millis());
+                            }
                           }
                           return true;
                         });
                 on_error:
                   then:
-                    - lambda: id(energy_state).heating.set(NAN, millis()); id(thermostat_mode_text) = "--";
+                    - lambda: id(energy_state).heating.set(NAN, millis()); id(energy_state).heating_enabled.set(NAN, millis()); id(thermostat_mode_text) = "--";
       - delay: 80ms
       - if:
           condition:

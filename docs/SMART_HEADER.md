@@ -35,11 +35,19 @@ instantaneous value. The power arcs react directly to the signed reading even
 while the title/source mode is debounced. Ring reference ranges are 5 kW per
 direction for grid/battery, 5 kW PV, 3 m3/hour active gas and 10 m3 daily gas; they are not goals or limits.
 
-The three permanently positioned icons between price and gauges have no text:
-heating (pink), EV charging (blue) and battery activity (green, with a direction
-arrow). The roughly 20 px icons use a compact 24 px vertical pitch, centered
-beside the gauge row. Inactive or unknown states stay dim. Charger faults or
-disconnection never light the charging icon. Icon colors only change when their state changes.
+The three permanently positioned icons between price and gauges have no text.
+Their roughly 20 px drawings use a compact 24 px vertical pitch beside the gauges:
+
+- Car: gray when disconnected/unknown, blue when connected, green when charging.
+  A disconnected or faulted charger never produces a green charging icon.
+- Heating: gray when off/unknown, green when enabled but not firing, orange while
+  firing. Both enabled and firing must be confirmed for the green idle state.
+- Battery: blue while charging, green while discharging, gray in standby or when
+  power is unavailable. The outline contains a proportional horizontal SOC fill
+  from 0 to 100%, in the same color, without a number or direction glyph. A fresh
+  SOC remains visible in gray during standby; missing/stale SOC leaves it empty.
+
+Icon colors and battery fill update only when their displayed state changes.
 
 Heating is never inferred from gas usage, setpoint or indoor temperature.
 A recognized `thermostat_state` value (`heating`, `idle`, `off`) is required on the
@@ -136,3 +144,14 @@ Simulator and 5-inch builds passed; visual simulator inspection confirmed import
 on the right and an empty battery arc in standby. The serial upload was
 hash-verified and the device boot log confirmed `2026-10-21 20:18:08 +0200`.
 No charging or battery operation was triggered to obtain those test cases.
+
+The icon-color/SOC follow-up adds separate connected/charging car colors,
+off/enabled/firing heating colors and charge/discharge battery colors. The old
+in-icon direction glyph is replaced by a proportional SOC bar with no text.
+Heating remains unknown on the current controller; no boiler source was inferred
+or added. State tests cover colors, freshness and SOC bounds. Simulator and
+5-inch builds passed. Native simulator appearance and a standalone rendering of
+the actual icon geometry at 0/25/65/100% were visually inspected with synthetic
+status cases. The serial upload was hash-verified and the device confirmed build
+`2026-10-21 20:32:36 +0200`. No real charging, battery or thermostat commands were
+issued for the synthetic test cases.

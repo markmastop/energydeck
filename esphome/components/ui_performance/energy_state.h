@@ -30,12 +30,34 @@ struct StableMode {
   }
 };
 struct EnergyState {
-  Reading grid, solar, battery, battery_power, gas, car, connected, heating;
+  Reading grid, solar, battery, battery_power, gas, car, connected, heating, heating_enabled;
   Reading electricity_day, solar_day, gas_day, gas_yesterday;
   Reading room_temperature[6], room_thermostat_temperature[6], room_target[6];
   StableMode grid_mode, gas_mode, source_mode;
   static constexpr uint32_t SUMMARY_TTL = 1200000;
   static constexpr uint32_t CLIMATE_TTL = 180000;
+  static constexpr uint32_t ICON_DIM = 0x46534B, ICON_BLUE = 0x3AA7D8;
+  static constexpr uint32_t ICON_GREEN = 0x48BD70, ICON_ORANGE = 0xF29A38;
+  uint32_t car_icon_color(uint32_t now) const {
+    if (!connected.valid(now) || connected.value <= 0) return ICON_DIM;
+    return car.valid(now) && car.value > 0 ? ICON_GREEN : ICON_BLUE;
+  }
+  uint32_t heating_icon_color(uint32_t now) const {
+    // A programme or setpoint never establishes that the boiler is enabled/firing.
+    if (heating_enabled.valid(now, CLIMATE_TTL) && heating_enabled.value <= 0) return ICON_DIM;
+    if (!heating.valid(now, CLIMATE_TTL)) return ICON_DIM;
+    if (heating.value > 0) return ICON_ORANGE;
+    return heating_enabled.valid(now, CLIMATE_TTL) && heating_enabled.value > 0 ? ICON_GREEN : ICON_DIM;
+  }
+  uint32_t battery_icon_color(uint32_t now) const {
+    if (!battery_power.valid(now)) return ICON_DIM;
+    // Sessy reports charging as negative, discharging as positive battery power.
+    return battery_power.value < -25 ? ICON_BLUE : battery_power.value > 25 ? ICON_GREEN : ICON_DIM;
+  }
+  int battery_fill_percent(uint32_t now) const {
+    if (!battery.valid(now)) return 0;
+    return static_cast<int>(std::round(std::fmax(0.0f, std::fmin(100.0f, battery.value))));
+  }
   int grid_view(uint32_t now) {
     if (!grid.valid(now)) { grid_mode = {}; return -1; }
     const int next = grid.value < -50 ? 1 : grid.value > 50 ? 0 : (grid_mode.value < 0 ? 0 : grid_mode.value);

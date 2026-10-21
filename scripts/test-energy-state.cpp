@@ -45,5 +45,28 @@ int main() {
   assert(r.valid(100) && !r.valid(50000));
   r.set(std::numeric_limits<float>::infinity(), 0); assert(!r.valid(0));
   assert(!s.heating.valid(0)); // Neither gas nor a setpoint is a heating signal.
-  std::cout << "PASS: energy direction, debounce, stale/missing values, day rollover, units and battery balance\n";
+  EnergyState icons;
+  assert(icons.car_icon_color(0) == EnergyState::ICON_DIM);
+  icons.connected.set(1, 100); icons.car.set(0, 100);
+  assert(icons.car_icon_color(100) == EnergyState::ICON_BLUE);
+  icons.car.set(1, 100); assert(icons.car_icon_color(100) == EnergyState::ICON_GREEN);
+  icons.connected.set(0, 100); assert(icons.car_icon_color(100) == EnergyState::ICON_DIM);
+  icons.connected.set(1, 100); assert(icons.car_icon_color(45101) == EnergyState::ICON_DIM);
+  assert(icons.heating_icon_color(100) == EnergyState::ICON_DIM);
+  icons.heating_enabled.set(1, 100); icons.heating.set(0, 100);
+  assert(icons.heating_icon_color(100) == EnergyState::ICON_GREEN);
+  icons.heating.set(1, 100); assert(icons.heating_icon_color(100) == EnergyState::ICON_ORANGE);
+  icons.heating_enabled.set(0, 100); assert(icons.heating_icon_color(100) == EnergyState::ICON_DIM);
+  icons.heating_enabled.set(1, 100); assert(icons.heating_icon_color(180101) == EnergyState::ICON_DIM);
+  icons.heating.set(NAN, 100); assert(icons.heating_icon_color(100) == EnergyState::ICON_DIM);
+  icons.battery_power.set(-500, 100); icons.battery.set(45, 100);
+  assert(icons.battery_icon_color(100) == EnergyState::ICON_BLUE && icons.battery_fill_percent(100) == 45);
+  icons.battery_power.set(500, 100); assert(icons.battery_icon_color(100) == EnergyState::ICON_GREEN);
+  icons.battery_power.set(25, 100); assert(icons.battery_icon_color(100) == EnergyState::ICON_DIM);
+  icons.battery.set(0, 100); assert(icons.battery_fill_percent(100) == 0);
+  icons.battery.set(100, 100); assert(icons.battery_fill_percent(100) == 100);
+  icons.battery.set(150, 100); assert(icons.battery_fill_percent(100) == 100);
+  assert(icons.battery_fill_percent(45101) == 0 && icons.battery_icon_color(45101) == EnergyState::ICON_DIM);
+  icons.battery.set(NAN, 100); assert(icons.battery_fill_percent(100) == 0);
+  std::cout << "PASS: energy direction, debounce, stale/missing values, day rollover, units, battery balance and icon colors/fill\n";
 }

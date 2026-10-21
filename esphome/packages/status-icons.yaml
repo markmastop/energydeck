@@ -99,13 +99,21 @@
       - {x: 2, y: 17}
       - {x: 2, y: 6}
 
-- label:
-    id: status_battery_direction
-    x: 4
-    y: 53
-    width: 14
-    height: 12
-    text: ""
-    text_font: montserrat_10
-    text_align: CENTER
-    text_color: 0x46534B
+# The fill stays inside the outline and never contains text or a direction glyph.
+- bar:
+    id: status_battery_fill
+    x: 5
+    y: 56
+    width: 11
+    height: 7
+    min_value: 0
+    max_value: 100
+    value: 0
+    pad_all: 0
+    radius: 0
+    border_width: 0
+    bg_opa: TRANSP
+    indicator:
+      bg_color: 0x46534B
+      bg_opa: COVER
+      radius: 0

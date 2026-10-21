@@ -162,10 +162,10 @@ lvgl:
                   scrollable: false
                   widgets: !include energy-header-widgets.yaml
               - obj:
-                  x: 202
-                  y: 40
-                  width: 28
-                  height: 99
+                  x: 204
+                  y: 45
+                  width: 24
+                  height: 70
                   pad_all: 0
                   border_width: 0
                   bg_opa: TRANSP

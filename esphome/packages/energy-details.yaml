@@ -28,6 +28,9 @@ script:
           lv_obj_set_pos(id(shared_energy_header), 0, 0);
       - script.execute: render_detail_pages
       - lvgl.page.show: energy_page
+      - script.execute: render_energy_history
+      - delay: 100ms
+      - script.execute: refresh_energy_history
   - id: open_climate_page
     then:
       - lambda: |-
@@ -127,28 +130,5 @@ script:
 
   - id: render_detail_pages
     then:
-      - lambda: |-
-          using namespace esphome::ui_performance;
-          auto &s = id(energy_state);
-          const uint32_t now = millis();
-          const auto time = id(energydeck_time).now();
-          const int date = time.is_valid() ? time.year * 10000 + time.month * 100 + time.day_of_month : -1;
-          if (id(detail_page_open) == 1) {
-            const float house = s.house_power(now);
-            if (std::isfinite(house)) set_text_fmt(id(energy_house_value), "%.2f kW", house / 1000);
-            else set_text(id(energy_house_value), "-- kW");
-            set_text(id(energy_grid_title), s.grid.valid(now) && s.grid.value < 0 ? "${header_export}" : "${header_import}");
-            for (auto pair : {std::make_pair(id(energy_grid_value), &s.grid), std::make_pair(id(energy_solar_value), &s.solar)}) {
-              if (pair.second->valid(now)) set_text_fmt(pair.first, "%.2f kW", fabsf(pair.second->value) / 1000);
-              else set_text(pair.first, "-- kW");
-            }
-            if (s.battery.valid(now) && s.battery_power.valid(now)) set_text_fmt(id(energy_battery_value), "%.0f%%  %s %.0f W", s.battery.value,
-              s.battery_power.value < -25 ? LV_SYMBOL_DOWN : s.battery_power.value > 25 ? LV_SYMBOL_UP : "", fabsf(s.battery_power.value));
-            else set_text(id(energy_battery_value), "--");
-            set_text(id(energy_car_value), s.car.valid(now) ? (s.car.value > 0 ? "${header_car_charging}" : "${header_car_idle}") : "--");
-            for (auto pair : {std::make_pair(id(energy_day_grid_value), &s.electricity_day), std::make_pair(id(energy_day_solar_value), &s.solar_day), std::make_pair(id(energy_day_gas_value), &s.gas_day)}) {
-              if (pair.second->valid(now, s.SUMMARY_TTL, date)) set_text_fmt(pair.first, pair.first == id(energy_day_gas_value) ? "%.2f m3" : "%.1f kWh", pair.second->value);
-              else set_text(pair.first, "--");
-            }
-          }
       - script.execute: render_climate
+      - script.execute: render_energy_history

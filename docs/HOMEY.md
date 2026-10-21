@@ -3,6 +3,8 @@
 EnergyDeck will use the local Homey Pro Web API. Energy data therefore stays
 inside the home network and no separate cloud server is required.
 
+For the hourly electricity and gas charts, see [Energy history](ENERGY-HISTORY.md).
+
 ## Integration scope
 
 - 96 dynamic electricity prices per day;
@@ -24,13 +26,15 @@ guide for the original instructions.
    then go to **Settings → API Keys → New API Key**.
 2. Name the key `EnergyDeck` and select these permissions:
    - **Devices — Read only** (`homey.device.readonly`)
+   - **Insights — Read only** (`homey.insights.readonly`)
    - **Flows — Read only** (`homey.flow.readonly`)
    - **Flows — Start** (`homey.flow.start`)
    - **Logic / Variables — Read only** (`homey.logic.readonly`)
    - **Location — Read only** (`homey.geolocation.readonly`)
 
-   When Homey is set to Dutch, select these five indented rows:
+   When Homey is set to Dutch, select these six indented rows:
    - **Apparaten weergeven** (`homey.device.readonly`)
+   - **Insights / Inzichten weergeven** (`homey.insights.readonly`)
    - **Flows weergeven** (`homey.flow.readonly`)
    - **Flows starten** (`homey.flow.start`)
    - **Variabelen weergeven** (`homey.logic.readonly`)

@@ -1,5 +1,6 @@
 #include "lvgl.h"
 #include "../esphome/components/ui_performance/energy_gauges.h"
+#include "../esphome/components/ui_performance/energy_history_chart.h"
 #include <cassert>
 #include <cstdlib>
 #include <cstring>
@@ -53,5 +54,24 @@ int main() {
   assert(lv_arc_get_angle_start(source) == 135 && lv_arc_get_angle_end(source) == 135);
   energydeck::set_power_arc(source, -2500, false);
   assert(lv_arc_get_value(source) == 0);
+  // Partial electricity failures must hide only the missing series, retain the
+  // shared scale, and never leave old export bars behind in a single-series draw.
+  auto *plot = lv_obj_create(lv_screen_active());
+  energydeck::HourlyHistory imported, exported;
+  imported.loaded = exported.loaded = true;
+  imported.values[0] = 1; exported.values[0] = .5;
+  imported.seconds[0] = exported.seconds[0] = 300;
+  imported.seconds[1] = 300;
+  const auto scale = energydeck::draw_history(plot, &imported, &exported, 0x3AA7D8, 0x48BD70, .25, true);
+  assert(scale == 1 && lv_obj_get_child_count(plot) == 48);
+  assert(!lv_obj_has_flag(lv_obj_get_child(plot, 0), LV_OBJ_FLAG_HIDDEN));
+  assert(!lv_obj_has_flag(lv_obj_get_child(plot, 1), LV_OBJ_FLAG_HIDDEN));
+  assert(!lv_obj_has_flag(lv_obj_get_child(plot, 2), LV_OBJ_FLAG_HIDDEN)); // Known zero.
+  assert(lv_obj_has_flag(lv_obj_get_child(plot, 4), LV_OBJ_FLAG_HIDDEN)); // Future hour.
+  energydeck::draw_history(plot, &imported, nullptr, 0x3AA7D8, 0x48BD70, .25, true);
+  for (int i = 1; i < 48; i += 2) assert(lv_obj_has_flag(lv_obj_get_child(plot, i), LV_OBJ_FLAG_HIDDEN));
+  energydeck::draw_history(plot, nullptr, nullptr, 0x3AA7D8, 0x48BD70, .25, true);
+  for (int i = 0; i < 48; ++i) assert(lv_obj_has_flag(lv_obj_get_child(plot, i), LV_OBJ_FLAG_HIDDEN));
+  std::cout << "PASS: production history bars retain paired scale, known zeros, future gaps and independent failure clearing\n";
   std::cout << "PASS: production LVGL arcs start at top, export/charge left, import/discharge right; standby, bounds, missing data and solar transitions\n";
 }

@@ -53,6 +53,8 @@ This loopback binding works for a proxy on the Docker host. A proxy in another c
 
 You can add the app to your phone's home screen using the browser menu. Manifest support is included; installation availability depends on the browser and HTTPS. No service worker caches private data, and there is no offline dashboard.
 
+The energy-dial/bolt logo includes an SVG favicon, a multi-size ICO fallback, a 180 px Apple touch icon, and 192/512 px maskable app icons. Regenerate these assets with `.venv/bin/python scripts/generate-web-icons.py` (Pillow required). Phone icons use a full background so the operating system can apply its own corner shape.
+
 ## Authentication design
 
 - A shared, random code of at least 32 characters is required at startup. Generate 32 random bytes as 64 hexadecimal characters using the command above. Keep it in `.env` or your deployment's environment, never in Git.

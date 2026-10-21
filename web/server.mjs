@@ -13,6 +13,10 @@ const staticFiles = new Map([
   ['/translations.json', ['translations.json', 'application/json; charset=utf-8']],
   ['/manifest.webmanifest', ['manifest.webmanifest', 'application/manifest+json']],
   ['/icon.svg', ['icon.svg', 'image/svg+xml']],
+  ['/favicon.ico', ['favicon.ico', 'image/vnd.microsoft.icon']],
+  ['/apple-touch-icon.png', ['apple-touch-icon.png', 'image/png']],
+  ['/icon-192.png', ['icon-192.png', 'image/png']],
+  ['/icon-512.png', ['icon-512.png', 'image/png']],
 ]);
 
 export function createApp(config, { service = createDataService(config), clock = Date.now } = {}) {

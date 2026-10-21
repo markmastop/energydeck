@@ -2,37 +2,48 @@
 #include <cassert>
 #include <cmath>
 #include <iostream>
-using energydeck::HourlyHistory;
+using energydeck::LineHistory;
 int main() {
-  HourlyHistory h;
-  h.add(0, 40692.693633333336, 23);
-  for (int i = 1; i <= 12; ++i) h.add(i * 300, 40692.693633333336 + i * .0123, 0);
-  h.loaded = true; h.date = 20261021; h.fetched_at = 1000;
-  assert(h.valid(0) && !h.valid(1));
-  assert(std::abs(h.values[0] - .1476) < 1e-8);
-  assert(h.seconds[0] == 3600);
-  h.add(3600, 50000, 0); h.add(3300, 50000, 0);
-  assert(std::abs(h.values[0] - .1476) < 1e-8);
-  h.add(3900, h.previous_value, 1);
-  assert(h.valid(1) && h.values[1] == 0);  // Known zero differs from absent data.
-  h.add(4500, h.previous_value + .1, 1);
-  assert(!h.valid(1));  // Missing five-minute interval, no invented spike.
-  h.add(4800, 1, 1); assert(!h.valid(1));  // Counter reset.
-  assert(h.fresh(20261021, 2000));
-  assert(!h.fresh(20261022, 2000));
-  assert(!h.fresh(20261021, 1000000));
-  HourlyHistory wrap; wrap.loaded = true; wrap.date = 1; wrap.fetched_at = UINT32_MAX - 100;
-  assert(wrap.fresh(1, 100));
-  HourlyHistory gas;
-  gas.add(0, 11787.183000000006, 23); gas.add(300, 11787.18399999999, 0);
-  gas.loaded = true; assert(std::abs(gas.values[0] - .001) < 1e-8);
-  gas.add(600, NAN, 0); gas.add(900, 11787.2, 0);
-  assert(gas.seconds[0] == 300);  // Never bridge invalid/missing readings.
-  std::array<unsigned, 24> coverage{}; coverage[0] = 900;
-  gas.verify_coverage(coverage); assert(!gas.valid(0));
-  // DST's repeated local hour accumulates both sets of UTC intervals.
-  HourlyHistory dst;
-  for (int i = 0; i <= 24; ++i) dst.add(i * 300, 100 + i * .01, 2);
-  dst.loaded = true; assert(dst.seconds[2] == 7200 && std::abs(dst.values[2] - .24) < 1e-8);
-  std::cout << "PASS: hourly meter deltas, precision, zeros, gaps, resets, duplicates, DST, day rollover and expiry\n";
+  LineHistory power;
+  power.day_start = 1000; power.day_end = 1000 + 86400;
+  power.date = 20261021; power.loaded = true; power.fetched_at = 100;
+  power.add(1000, 2, true); power.add(1300, -1, true);
+  assert(power.count == 2 && power.scale(.5f) == 2);
+  int segments = 0;
+  power.segments(true, 2, [&](float x1, float y1, float x2, float y2, bool negative) {
+    assert(x1 <= x2 && x1 >= 0 && x2 <= 1);
+    if (segments++ == 0) { assert(!negative && y1 == 0 && y2 == .5f); }
+    else { assert(negative && y1 == .5f && y2 == .75f); }
+  });
+  assert(segments == 2); // Both sides of a zero crossing keep their own color.
+  power.add(1300, 99, true); power.add(1200, 99, true);
+  power.add(1600, NAN, true); power.add(1900, .2f, true);
+  assert(power.count == 3);
+  segments = 0;
+  power.segments(true, 2, [&](float, float, float, float, bool) { ++segments; });
+  assert(segments == 2); // A missing five-minute point leaves a real gap.
+  assert(power.fresh(20261021, 200, 1900));
+  assert(!power.fresh(20261022, 200, 1900));
+  assert(!power.fresh(20261021, 1000000, 1900));
+  assert(!power.fresh(20261021, 200, 2801));
+  assert(!power.fresh(20261021, 200, 1800));
+  power.fetched_at = UINT32_MAX - 100;
+  assert(power.fresh(20261021, 100, 1900));
+  LineHistory gas; gas.day_start = 1000; gas.day_end = 87400; gas.loaded = true;
+  gas.add(1000, 0, false); gas.add(1300, 0, false); gas.add(1600, -1, false);
+  assert(gas.count == 2 && gas.scale(.1f) == .1f);
+  segments = 0;
+  gas.segments(false, .1f, [&](float, float y1, float, float y2, bool negative) {
+    ++segments; assert(y1 == 1 && y2 == 1 && !negative);
+  });
+  assert(segments == 1); // A measured zero is a flat line, not a missing sample.
+  // UTC elapsed positions remain monotonic on a repeated local-time hour.
+  LineHistory dst; dst.day_start = 1000; dst.day_end = 91000; dst.loaded = true;
+  for (int i = 0; i < 301; ++i) dst.add(1000 + 300 * i, .5f, true);
+  assert(dst.count == 300); // Exclude the next day's midnight.
+  float last_x = -1;
+  dst.segments(true, 1, [&](float x1, float, float x2, float, bool) {
+    assert(x1 >= last_x && x2 > x1); last_x = x2;
+  });
+  std::cout << "PASS: signed line geometry, zero crossings, gas units/zeros, missing samples, duplicate rejection, DST and expiry\n";
 }

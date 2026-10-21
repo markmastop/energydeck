@@ -1,9 +1,7 @@
-# Lazy, read-only Homey Insights polling. Today is Homey's local calendar day.
+# Read-only five-minute power/rate samples from Homey Insights.
 globals:
   - id: energy_history
     type: energydeck::EnergyHistory
-    initial_value: 'energydeck::EnergyHistory{}'
-
 interval:
   - interval: 5min
     then:
@@ -12,7 +10,6 @@ interval:
             lambda: return id(detail_page_open) == 1;
           then:
             - script.execute: refresh_energy_history
-
 script:
   - id: refresh_energy_history
     mode: single
@@ -24,12 +21,12 @@ script:
               if (!now.is_valid()) return false;
               const int date = now.year * 10000 + now.month * 100 + now.day_of_month;
               const auto &h = id(energy_history);
-              return !h.imported.fresh(date, millis()) || !h.exported.fresh(date, millis()) ||
-                !h.gas.fresh(date, millis()) || millis() - h.imported.fetched_at >= 240000;
+              return !h.power.fresh(date, millis(), now.timestamp) || !h.gas.fresh(date, millis(), now.timestamp) ||
+                millis() - h.power.fetched_at >= 240000;
           then:
             - background_http.get:
-                # Local Homey needs the full returned log ID as well as ownerUri.
-                url: "${homey_address}/api/manager/insights/log/homey:device:${homey_homewizard_device_id}/homey:device:${homey_homewizard_device_id}:meter_power.imported/entry?resolution=today"
+                # Local Homey requires ownerUri AND the full returned log ID.
+                url: "${homey_address}/api/manager/insights/log/homey:device:${homey_homewizard_device_id}/homey:device:${homey_homewizard_device_id}:energy_power/entry?resolution=today"
                 request_headers:
                   Authorization: "Bearer ${homey_token}"
                   Accept: "application/json"
@@ -37,66 +34,52 @@ script:
                 max_response_buffer_size: 32768
                 on_error:
                   then:
-                    - lambda: id(energy_history).imported = {};
+                    - lambda: id(energy_history).power.clear();
                 on_response:
                   then:
                     - lambda: |-
-                        auto &destination = id(energy_history).imported;
-                        destination = {};
+                        auto &destination = id(energy_history).power;
+                        destination.clear();
                         const auto now = id(energydeck_time).now();
                         if (response->status_code != 200 || !now.is_valid()) return;
-                        const int date = now.year * 10000 + now.month * 100 + now.day_of_month;
-                        energydeck::HourlyHistory next;
-                        next.date = date;
+                        auto &next = destination;
+                        next.date = now.year * 10000 + now.month * 100 + now.day_of_month;
+                        auto midnight = now;
+                        midnight.hour = 0; midnight.minute = 0; midnight.second = 0;
+                        midnight.recalc_timestamp_local();
+                        next.day_start = midnight.timestamp;
+                        // Local days can last 23 or 25 real hours across DST.
+                        auto tomorrow = ESPTime::from_epoch_local(midnight.timestamp + 36 * 3600);
+                        tomorrow.hour = 0; tomorrow.minute = 0; tomorrow.second = 0;
+                        tomorrow.recalc_timestamp_local();
+                        next.day_end = tomorrow.timestamp;
                         bool parsed = json::parse_json(body, [&](JsonObject root) -> bool {
                           JsonArray values = root["values"].as<JsonArray>();
-                          if (values.isNull() || values.size() > 310) return false;
+                          if (values.isNull() || values.size() > next.samples.size()) return false;
                           for (JsonObject point : values) {
                             const char *stamp = point["t"] | "";
                             int year, month, day, hour, minute, second;
-                            if (!point["v"].is<double>() ||
+                            if (!point["v"].is<float>() ||
                                 sscanf(stamp, "%d-%d-%dT%d:%d:%d", &year, &month, &day, &hour, &minute, &second) != 6 ||
                                 year < 2020 || year > 2100 || month < 1 || month > 12 || day < 1 || day > 31 ||
-                                hour < 0 || hour > 23 || minute < 0 || minute > 59 || second != 0) {
-                              next.previous_valid = false;
-                              continue;
-                            }
+                                hour < 0 || hour > 23 || minute < 0 || minute > 59 || second != 0) continue;
                             ESPTime utc{};
                             utc.year = year; utc.month = month; utc.day_of_month = day;
                             utc.hour = hour; utc.minute = minute; utc.second = second;
                             if (!utc.is_valid(false, false)) continue;
                             utc.recalc_timestamp_utc(false);
                             if (utc.timestamp > now.timestamp) continue;
-                            const auto local = ESPTime::from_epoch_local(utc.timestamp);
-                            if (local.year * 10000 + local.month * 100 + local.day_of_month != date) continue;
-                            // The difference ending at 01:00 belongs to 00:00–01:00.
-                            // Convert each UTC timestamp separately to respect DST.
-                            const auto interval = ESPTime::from_epoch_local(utc.timestamp - 1);
-                            next.add(utc.timestamp, point["v"].as<double>(), interval.hour);
+                            next.add(utc.timestamp, point["v"].as<float>() / 1000.0f, true);
                           }
-                          if (!next.previous_valid || now.timestamp - next.previous_time > 900) return false;
-                          // Missing intervals invalidate the affected hour, rather than
-                          // presenting incomplete coverage as a low-consumption hour.
-                          // Count real UTC intervals: a DST repeat adds to the same slot.
-                          auto midnight = now;
-                          midnight.hour = 0; midnight.minute = 0; midnight.second = 0;
-                          midnight.recalc_timestamp_local();
-                          std::array<unsigned, 24> expected{};
-                          for (auto t = midnight.timestamp + 300; t <= next.previous_time; t += 300)
-                            expected[ESPTime::from_epoch_local(t - 1).hour] += 300;
-                          next.verify_coverage(expected);
-                          return true;
+                          return next.count > 0 && now.timestamp - next.latest() <= 900;
                         });
-                        if (!parsed) return;
-                        next.loaded = true;
-                        next.fetched_at = millis();
-                        destination = next;
-                        ESP_LOGI("energy_history", "imported: loaded %u five-minute intervals", static_cast<unsigned>(
-                          [&](){ unsigned count = 0; for (auto seconds : next.seconds) count += seconds / 300; return count; }()));
+                        if (!parsed) { next.clear(); return; }
+                        next.loaded = true; next.fetched_at = millis();
+                        ESP_LOGI("energy_history", "power: loaded %u five-minute samples", next.count);
             - delay: 80ms
             - background_http.get:
-                # Local Homey needs the full returned log ID as well as ownerUri.
-                url: "${homey_address}/api/manager/insights/log/homey:device:${homey_homewizard_device_id}/homey:device:${homey_homewizard_device_id}:meter_power.exported/entry?resolution=today"
+                # Local Homey requires ownerUri AND the full returned log ID.
+                url: "${homey_address}/api/manager/insights/log/homey:device:${homey_homewizard_device_id}/homey:device:${homey_homewizard_device_id}:measure_gas/entry?resolution=today"
                 request_headers:
                   Authorization: "Bearer ${homey_token}"
                   Accept: "application/json"
@@ -104,131 +87,49 @@ script:
                 max_response_buffer_size: 32768
                 on_error:
                   then:
-                    - lambda: id(energy_history).exported = {};
-                on_response:
-                  then:
-                    - lambda: |-
-                        auto &destination = id(energy_history).exported;
-                        destination = {};
-                        const auto now = id(energydeck_time).now();
-                        if (response->status_code != 200 || !now.is_valid()) return;
-                        const int date = now.year * 10000 + now.month * 100 + now.day_of_month;
-                        energydeck::HourlyHistory next;
-                        next.date = date;
-                        bool parsed = json::parse_json(body, [&](JsonObject root) -> bool {
-                          JsonArray values = root["values"].as<JsonArray>();
-                          if (values.isNull() || values.size() > 310) return false;
-                          for (JsonObject point : values) {
-                            const char *stamp = point["t"] | "";
-                            int year, month, day, hour, minute, second;
-                            if (!point["v"].is<double>() ||
-                                sscanf(stamp, "%d-%d-%dT%d:%d:%d", &year, &month, &day, &hour, &minute, &second) != 6 ||
-                                year < 2020 || year > 2100 || month < 1 || month > 12 || day < 1 || day > 31 ||
-                                hour < 0 || hour > 23 || minute < 0 || minute > 59 || second != 0) {
-                              next.previous_valid = false;
-                              continue;
-                            }
-                            ESPTime utc{};
-                            utc.year = year; utc.month = month; utc.day_of_month = day;
-                            utc.hour = hour; utc.minute = minute; utc.second = second;
-                            if (!utc.is_valid(false, false)) continue;
-                            utc.recalc_timestamp_utc(false);
-                            if (utc.timestamp > now.timestamp) continue;
-                            const auto local = ESPTime::from_epoch_local(utc.timestamp);
-                            if (local.year * 10000 + local.month * 100 + local.day_of_month != date) continue;
-                            // The difference ending at 01:00 belongs to 00:00–01:00.
-                            // Convert each UTC timestamp separately to respect DST.
-                            const auto interval = ESPTime::from_epoch_local(utc.timestamp - 1);
-                            next.add(utc.timestamp, point["v"].as<double>(), interval.hour);
-                          }
-                          if (!next.previous_valid || now.timestamp - next.previous_time > 900) return false;
-                          // Missing intervals invalidate the affected hour, rather than
-                          // presenting incomplete coverage as a low-consumption hour.
-                          // Count real UTC intervals: a DST repeat adds to the same slot.
-                          auto midnight = now;
-                          midnight.hour = 0; midnight.minute = 0; midnight.second = 0;
-                          midnight.recalc_timestamp_local();
-                          std::array<unsigned, 24> expected{};
-                          for (auto t = midnight.timestamp + 300; t <= next.previous_time; t += 300)
-                            expected[ESPTime::from_epoch_local(t - 1).hour] += 300;
-                          next.verify_coverage(expected);
-                          return true;
-                        });
-                        if (!parsed) return;
-                        next.loaded = true;
-                        next.fetched_at = millis();
-                        destination = next;
-                        ESP_LOGI("energy_history", "exported: loaded %u five-minute intervals", static_cast<unsigned>(
-                          [&](){ unsigned count = 0; for (auto seconds : next.seconds) count += seconds / 300; return count; }()));
-            - delay: 80ms
-            - background_http.get:
-                # Local Homey needs the full returned log ID as well as ownerUri.
-                url: "${homey_address}/api/manager/insights/log/homey:device:${homey_homewizard_device_id}/homey:device:${homey_homewizard_device_id}:meter_gas/entry?resolution=today"
-                request_headers:
-                  Authorization: "Bearer ${homey_token}"
-                  Accept: "application/json"
-                capture_response: true
-                max_response_buffer_size: 32768
-                on_error:
-                  then:
-                    - lambda: id(energy_history).gas = {};
+                    - lambda: id(energy_history).gas.clear();
                 on_response:
                   then:
                     - lambda: |-
                         auto &destination = id(energy_history).gas;
-                        destination = {};
+                        destination.clear();
                         const auto now = id(energydeck_time).now();
                         if (response->status_code != 200 || !now.is_valid()) return;
-                        const int date = now.year * 10000 + now.month * 100 + now.day_of_month;
-                        energydeck::HourlyHistory next;
-                        next.date = date;
+                        auto &next = destination;
+                        next.date = now.year * 10000 + now.month * 100 + now.day_of_month;
+                        auto midnight = now;
+                        midnight.hour = 0; midnight.minute = 0; midnight.second = 0;
+                        midnight.recalc_timestamp_local();
+                        next.day_start = midnight.timestamp;
+                        // Local days can last 23 or 25 real hours across DST.
+                        auto tomorrow = ESPTime::from_epoch_local(midnight.timestamp + 36 * 3600);
+                        tomorrow.hour = 0; tomorrow.minute = 0; tomorrow.second = 0;
+                        tomorrow.recalc_timestamp_local();
+                        next.day_end = tomorrow.timestamp;
                         bool parsed = json::parse_json(body, [&](JsonObject root) -> bool {
                           JsonArray values = root["values"].as<JsonArray>();
-                          if (values.isNull() || values.size() > 310) return false;
+                          if (values.isNull() || values.size() > next.samples.size()) return false;
                           for (JsonObject point : values) {
                             const char *stamp = point["t"] | "";
                             int year, month, day, hour, minute, second;
-                            if (!point["v"].is<double>() ||
+                            if (!point["v"].is<float>() ||
                                 sscanf(stamp, "%d-%d-%dT%d:%d:%d", &year, &month, &day, &hour, &minute, &second) != 6 ||
                                 year < 2020 || year > 2100 || month < 1 || month > 12 || day < 1 || day > 31 ||
-                                hour < 0 || hour > 23 || minute < 0 || minute > 59 || second != 0) {
-                              next.previous_valid = false;
-                              continue;
-                            }
+                                hour < 0 || hour > 23 || minute < 0 || minute > 59 || second != 0) continue;
                             ESPTime utc{};
                             utc.year = year; utc.month = month; utc.day_of_month = day;
                             utc.hour = hour; utc.minute = minute; utc.second = second;
                             if (!utc.is_valid(false, false)) continue;
                             utc.recalc_timestamp_utc(false);
                             if (utc.timestamp > now.timestamp) continue;
-                            const auto local = ESPTime::from_epoch_local(utc.timestamp);
-                            if (local.year * 10000 + local.month * 100 + local.day_of_month != date) continue;
-                            // The difference ending at 01:00 belongs to 00:00–01:00.
-                            // Convert each UTC timestamp separately to respect DST.
-                            const auto interval = ESPTime::from_epoch_local(utc.timestamp - 1);
-                            next.add(utc.timestamp, point["v"].as<double>(), interval.hour);
+                            next.add(utc.timestamp, point["v"].as<float>(), false);
                           }
-                          if (!next.previous_valid || now.timestamp - next.previous_time > 900) return false;
-                          // Missing intervals invalidate the affected hour, rather than
-                          // presenting incomplete coverage as a low-consumption hour.
-                          // Count real UTC intervals: a DST repeat adds to the same slot.
-                          auto midnight = now;
-                          midnight.hour = 0; midnight.minute = 0; midnight.second = 0;
-                          midnight.recalc_timestamp_local();
-                          std::array<unsigned, 24> expected{};
-                          for (auto t = midnight.timestamp + 300; t <= next.previous_time; t += 300)
-                            expected[ESPTime::from_epoch_local(t - 1).hour] += 300;
-                          next.verify_coverage(expected);
-                          return true;
+                          return next.count > 0 && now.timestamp - next.latest() <= 900;
                         });
-                        if (!parsed) return;
-                        next.loaded = true;
-                        next.fetched_at = millis();
-                        destination = next;
-                        ESP_LOGI("energy_history", "gas: loaded %u five-minute intervals", static_cast<unsigned>(
-                          [&](){ unsigned count = 0; for (auto seconds : next.seconds) count += seconds / 300; return count; }()));
+                        if (!parsed) { next.clear(); return; }
+                        next.loaded = true; next.fetched_at = millis();
+                        ESP_LOGI("energy_history", "gas: loaded %u five-minute samples", next.count);
       - script.execute: render_energy_history
-
   - id: render_energy_history
     then:
       - lambda: |-
@@ -237,26 +138,35 @@ script:
           const auto now = id(energydeck_time).now();
           const int date = now.is_valid() ? now.year * 10000 + now.month * 100 + now.day_of_month : 0;
           const auto &h = id(energy_history);
-          const auto *a = h.imported.fresh(date, millis()) && now.timestamp - h.imported.previous_time <= 900 ? &h.imported : nullptr;
-          const auto *b = h.exported.fresh(date, millis()) && now.timestamp - h.exported.previous_time <= 900 ? &h.exported : nullptr;
-          const auto *gas = h.gas.fresh(date, millis()) && now.timestamp - h.gas.previous_time <= 900 ? &h.gas : nullptr;
-          // Redraw only when a response arrives or cached data expires.
-          static uint32_t last_a = UINT32_MAX, last_b = UINT32_MAX, last_g = UINT32_MAX;
-          const uint32_t ka = a ? a->fetched_at : 0, kb = b ? b->fetched_at : 0, kg = gas ? gas->fetched_at : 0;
-          if (last_a == ka && last_b == kb && last_g == kg) return;
-          last_a = ka; last_b = kb; last_g = kg;
-          const double electricity_scale = energydeck::draw_history(id(history_electricity_plot), a, b, 0x3AA7D8, 0x48BD70, 0.25, true);
-          const double gas_scale = energydeck::draw_history(id(history_gas_plot), gas, nullptr, 0xFF3485, 0, 0.1);
-          set_text_fmt(id(history_electricity_scale), "0 - %.2f kWh", electricity_scale);
-          set_text_fmt(id(history_gas_scale), "0 - %.1f m3", gas_scale);
+          const auto *power = h.power.fresh(date, millis(), now.timestamp) ? &h.power : nullptr;
+          const auto *gas = h.gas.fresh(date, millis(), now.timestamp) ? &h.gas : nullptr;
+          static energydeck::HistoryChart power_chart, gas_chart;
+          power_chart.attach(id(history_electricity_plot), true);
+          gas_chart.attach(id(history_gas_plot), false);
+          static uint32_t last_p = UINT32_MAX, last_g = UINT32_MAX;
+          const uint32_t kp = power ? power->fetched_at : 0, kg = gas ? gas->fetched_at : 0;
+          if (last_p == kp && last_g == kg) return;
+          last_p = kp; last_g = kg;
+          const float power_scale = power_chart.update(power), gas_scale = gas_chart.update(gas);
+          set_text_fmt(id(history_electricity_scale), "+/- %.1f kW", power_scale);
+          set_text_fmt(id(history_gas_scale), "0 - %.1f m3/u", gas_scale);
           set_text(id(history_electricity_summary), "${energy_history_electricity}");
           set_text(id(history_gas_summary), "${energy_history_gas}");
-          auto status = [&](lv_obj_t *label, const energydeck::HourlyHistory *data, const char *format) {
+          auto status = [&](lv_obj_t *label, const energydeck::LineHistory *data, const char *format) {
             if (!data) { set_text(label, "${energy_history_unavailable}"); return; }
-            const auto latest = ESPTime::from_epoch_local(data->previous_time);
+            const auto latest = ESPTime::from_epoch_local(data->latest());
             set_text_fmt(label, format, latest.hour, latest.minute);
           };
-          status(id(history_electricity_status), a ? a : b, "${energy_history_ready}");
+          status(id(history_electricity_status), power, "${energy_history_ready}");
           status(id(history_gas_status), gas, "${energy_history_gas_ready}");
-          if ((a == nullptr) != (b == nullptr))
-            set_text(id(history_electricity_status), "${energy_history_incomplete}");
+          // Place local-time labels using actual elapsed time, including DST days.
+          const auto *axis = power ? power : gas;
+          if (axis) {
+            auto position = [&](lv_obj_t *label, int hour) {
+              auto t = now; t.hour = hour; t.minute = 0; t.second = 0; t.recalc_timestamp_local();
+              const int x = 42 + int(404.0 * (t.timestamp - axis->day_start) / (axis->day_end - axis->day_start));
+              set_pos(label, x - 2, lv_obj_get_y(label));
+            };
+            position(id(history_electricity_time_6), 6); position(id(history_electricity_time_12), 12); position(id(history_electricity_time_18), 18);
+            position(id(history_gas_time_6), 6); position(id(history_gas_time_12), 12); position(id(history_gas_time_18), 18);
+          }

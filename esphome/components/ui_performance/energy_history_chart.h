@@ -1,41 +1,47 @@
 #pragma once
 #include "energy_history.h"
 #include "lvgl.h"
-#include <cstdio>
 
 namespace energydeck {
-// Fixed hour slots share one scale; future/missing hours remain empty. The two
-// electricity bars show volumes independently rather than cancelling export.
-inline double draw_history(lv_obj_t *plot, const HourlyHistory *a, const HourlyHistory *b,
-                           uint32_t color_a, uint32_t color_b, double step, bool dual = false) {
-  const int series = dual || b ? 2 : 1;
-  const int count = 24 * series;
-  if (lv_obj_get_child_count(plot) == 0) {
-    for (int i = 0; i < count; ++i) {
-      auto *bar = lv_obj_create(plot);
-      lv_obj_remove_style_all(bar);
-      lv_obj_remove_flag(bar, LV_OBJ_FLAG_CLICKABLE);
-      lv_obj_set_style_bg_opa(bar, LV_OPA_COVER, 0);
-      lv_obj_set_style_radius(bar, 1, 0);
-    }
+struct HistoryChart {
+  lv_obj_t *plot{nullptr};
+  const LineHistory *data{nullptr};
+  bool signed_power{false};
+  float maximum{1};
+
+  void attach(lv_obj_t *object, bool power) {
+    if (plot) return;
+    plot = object; signed_power = power;
+    // Draw into the existing object instead of allocating hundreds of line
+    // widgets. The chart and source model outlive the registered draw callback.
+    lv_obj_add_event_cb(plot, [](lv_event_t *event) {
+      auto *chart = static_cast<HistoryChart *>(lv_event_get_user_data(event));
+      lv_area_t area; lv_obj_get_coords(chart->plot, &area);
+      const float width = lv_area_get_width(&area) - 4, height = lv_area_get_height(&area) - 4;
+      auto *layer = lv_event_get_layer(event);
+      auto line = [&](float x1, float y1, float x2, float y2, uint32_t color, int thickness) {
+        lv_draw_line_dsc_t dsc; lv_draw_line_dsc_init(&dsc);
+        dsc.p1 = {static_cast<lv_value_precise_t>(std::round(area.x1 + 2 + x1 * width)),
+                  static_cast<lv_value_precise_t>(std::round(area.y1 + 2 + y1 * height))};
+        dsc.p2 = {static_cast<lv_value_precise_t>(std::round(area.x1 + 2 + x2 * width)),
+                  static_cast<lv_value_precise_t>(std::round(area.y1 + 2 + y2 * height))};
+        dsc.color = lv_color_hex(color); dsc.width = thickness;
+        lv_draw_line(layer, &dsc);
+      };
+      const float zero = chart->signed_power ? .5f : 1.f;
+      line(0, zero, 1, zero, 0x82958A, 1);
+      if (!chart->data) return;
+      chart->data->segments(chart->signed_power, chart->maximum,
+        [&](float x1, float y1, float x2, float y2, bool negative) {
+          line(x1, y1, x2, y2, chart->signed_power ? (negative ? 0x48BD70 : 0x3AA7D8) : 0xFF3485, 2);
+        });
+    }, LV_EVENT_DRAW_MAIN, this);
   }
-  const double peak = std::max(a ? a->maximum() : 0, b ? b->maximum() : 0);
-  const double scale = std::max(step, std::ceil(peak / step) * step);
-  for (int hour = 0; hour < 24; ++hour) {
-    for (int s = 0; s < series; ++s) {
-      auto *bar = lv_obj_get_child(plot, hour * series + s);
-      const auto *data = s ? b : a;
-      if (!data || !data->valid(hour)) {
-        lv_obj_add_flag(bar, LV_OBJ_FLAG_HIDDEN);
-        continue;
-      }
-      lv_obj_remove_flag(bar, LV_OBJ_FLAG_HIDDEN);
-      const int height = std::max(1, static_cast<int>(std::round(data->values[hour] / scale * 126)));
-      lv_obj_set_pos(bar, hour * 17 + s * 7, 128 - height);
-      lv_obj_set_size(bar, series == 2 ? 6 : 12, height);
-      lv_obj_set_style_bg_color(bar, lv_color_hex(s ? color_b : color_a), 0);
-    }
+  float update(const LineHistory *source) {
+    data = source;
+    maximum = source ? source->scale(signed_power ? .5f : .1f) : (signed_power ? .5f : .1f);
+    lv_obj_invalidate(plot);
+    return maximum;
   }
-  return scale;
-}
+};
 }  // namespace energydeck

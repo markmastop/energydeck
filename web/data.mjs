@@ -1,0 +1,179 @@
+// All external requests are server-side, read-only, and restricted to configured IDs.
+export function configuration(env = process.env) {
+  const number = (key, fallback) => {
+    const value = env[key]?.trim() ? Number(env[key]) : fallback;
+    if (!Number.isFinite(value)) throw new Error(`Invalid ${key}`);
+    return value;
+  };
+  const accessCode = env.ENERGYDECK_WEB_ACCESS_CODE || '';
+  if (accessCode.length < 32 || accessCode.length > 512) {
+    throw new Error('ENERGYDECK_WEB_ACCESS_CODE must contain 32–512 characters');
+  }
+  const address = (env.HOMEY_ADDRESS || '').trim().replace(/\/$/, '');
+  if (address) {
+    const url = new URL(address);
+    if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password ||
+        url.search || url.hash || url.pathname !== '/') throw new Error('Invalid HOMEY_ADDRESS');
+  }
+  const origin = env.ENERGYDECK_WEB_ORIGIN || '';
+  if (origin && new URL(origin).origin !== origin) throw new Error('Invalid ENERGYDECK_WEB_ORIGIN');
+  const secureCookie = env.ENERGYDECK_WEB_SECURE_COOKIE !== 'false';
+  if (origin && new URL(origin).protocol === 'https:' && !secureCookie) {
+    throw new Error('HTTPS requires ENERGYDECK_WEB_SECURE_COOKIE=true');
+  }
+  return {
+    accessCode, address, origin, secureCookie,
+    token: env.HOMEY_TOKEN || '',
+    demo: env.ENERGYDECK_WEB_DEMO === 'true',
+    tax: number('ENERGYDECK_ENERGY_TAX_EX_VAT_CT', 9.161),
+    vat: number('ENERGYDECK_VAT_PERCENT', 21),
+    fee: number('ENERGYDECK_SUPPLIER_FEE_INCL_VAT_CT', 2),
+    devices: Object.fromEntries([
+      ['grid', 'HOMEY_HOMEWIZARD_DEVICE_ID'], ['electricity', 'HOMEY_ELECTRICITY_SUMMARY_DEVICE_ID'],
+      ['solar', 'HOMEY_SOLAR_DEVICE_ID'], ['solarDay', 'HOMEY_SOLAR_SUMMARY_DEVICE_ID'],
+      ['battery', 'HOMEY_SESSY_DEVICE_ID'], ['charger', 'HOMEY_CHARGER_DEVICE_ID'],
+      ['gas', 'HOMEY_GAS_SUMMARY_DEVICE_ID'],
+    ].map(([name, key]) => [name, env[key]?.trim() || ''])),
+    prices: env.HOMEY_PRICES_VARIABLE_ID?.trim() || '',
+    rooms: Array.from({ length: 9 }, (_, i) => ({
+      id: env[`HOMEY_ROOM_THERMOSTAT_${i + 1}_ID`]?.trim() || '',
+      name: env[`HOMEY_ROOM_THERMOSTAT_${i + 1}_NAME`] || '',
+    })).filter(room => room.id && room.id !== 'none'),
+  };
+}
+
+export function localDay(now = new Date(), offset = 0) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Amsterdam', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(now);
+  const part = key => parts.find(p => p.type === key).value;
+  const date = new Date(`${part('year')}-${part('month')}-${part('day')}T12:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + offset);
+  return date.toISOString().slice(0, 10);
+}
+
+export function priceDay(bridge, date, config) {
+  const day = [bridge?.today, bridge?.tomorrow].find(item => item?.date === date);
+  // Match the display contract: never stretch 92/100-quarter DST days into 96 values.
+  if (!Array.isArray(day?.values) || day.values.length !== 96 ||
+      !day.values.every(v => typeof v === 'number' && Number.isFinite(v))) return null;
+  const values = day.values.map(v => (v * 100 + config.tax) * (1 + config.vat / 100) + config.fee);
+  let cheapest = 0;
+  for (let i = 1; i <= values.length - 12; i++) {
+    if (values.slice(i, i + 12).reduce((a, b) => a + b, 0) <
+        values.slice(cheapest, cheapest + 12).reduce((a, b) => a + b, 0)) cheapest = i;
+  }
+  return {
+    date, values, source: ['homey', 'epexprijzen'].includes(day.source) ? day.source : 'unknown',
+    cached: bridge.cachedDays?.includes(date) === true,
+    fetchedAt: typeof bridge.fetchedAt?.[date] === 'string' ? bridge.fetchedAt[date] : null,
+    minimum: Math.min(...values), maximum: Math.max(...values),
+    average: values.reduce((a, b) => a + b, 0) / values.length, cheapest,
+  };
+}
+
+const cap = (device, name) => device?.available === false ? null : device?.capabilitiesObj?.[name]?.value;
+const metric = (device, name) => {
+  const value = cap(device, name);
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+};
+const ranged = (value, low, high) => value !== null && value >= low && value <= high ? value : null;
+const bool = (device, name) => typeof cap(device, name) === 'boolean' ? cap(device, name) : null;
+
+export function normalize(devices, rooms, bridge, config, now = new Date()) {
+  const [grid, electricity, solar, solarDay, battery, charger, gas] =
+    ['grid', 'electricity', 'solar', 'solarDay', 'battery', 'charger', 'gas'].map(key => devices[key]);
+  return {
+    grid: { power: metric(grid, 'measure_power'), today: metric(electricity, 'meter_kwh_this_day') },
+    solar: { power: metric(solar, 'measure_power'), today: metric(solarDay, 'meter_kwh_this_day') },
+    battery: {
+      percentage: ranged(metric(battery, 'measure_battery'), 0, 100),
+      // Sessy uses negative watts for charging and positive watts for discharge.
+      power: metric(battery, 'measure_power.battery') ?? metric(battery, 'measure_power'),
+    },
+    charger: { power: metric(charger, 'measure_power'), connected: bool(charger, 'is_connected'),
+      charging: bool(charger, 'is_charging'), fault: bool(charger, 'alarm_device') },
+    gas: { today: metric(gas, 'meter_m3_this_day'), rate: metric(grid, 'measure_gas') },
+    rooms: rooms.map(({ device, name }, i) => {
+      // Keep the same Evohome-only source restriction as the physical display.
+      const room = device?.driverId === 'homey:app:com.honeywell:zone' ? device : null;
+      return { name: name || device?.name || `Zone ${i + 1}`,
+        temperature: ranged(metric(room, 'measure_temperature'), -20, 60),
+        target: ranged(metric(room, 'target_temperature'), 5, 35) };
+    }),
+    prices: { today: priceDay(bridge, localDay(now), config), tomorrow: priceDay(bridge, localDay(now, 1), config) },
+  };
+}
+
+export function createDataService(config, fetcher = fetch, clock = () => new Date()) {
+  let cached, expires = 0, pending;
+  async function request(path) {
+    const response = await fetcher(`${config.address}${path}`, {
+      headers: { Authorization: `Bearer ${config.token}`, Accept: 'application/json' },
+      signal: AbortSignal.timeout(6000), redirect: 'error',
+    });
+    if (!response.ok) throw new Error('Homey request failed');
+    // Bound responses before parsing so unexpected upstream data cannot fill memory.
+    let size = 0;
+    const chunks = [];
+    for await (const chunk of response.body) {
+      size += chunk.length;
+      if (size > 1024 * 1024) throw new Error('Homey response too large');
+      chunks.push(chunk);
+    }
+    return JSON.parse(Buffer.concat(chunks).toString());
+  }
+  async function refresh() {
+    const now = clock();
+    if (config.demo) return demoData(config, now);
+    const errors = [];
+    const devices = {};
+    const rooms = config.rooms.map(room => ({ name: room.name, device: null }));
+    let bridge = null;
+    const jobs = [];
+    const queue = (name, path, apply) => jobs.push(async () => {
+      try { apply(await request(path)); } catch { errors.push(name); }
+    });
+    if (config.address && config.token) {
+      for (const [key, id] of Object.entries(config.devices)) {
+        if (id && id !== 'none') queue(key, `/api/manager/devices/device/${encodeURIComponent(id)}`, d => { devices[key] = d; });
+      }
+      config.rooms.forEach((room, i) => queue('climate', `/api/manager/devices/device/${encodeURIComponent(room.id)}`, d => { rooms[i].device = d; }));
+      if (config.prices && config.prices !== 'none') queue('prices', `/api/manager/logic/variable/${encodeURIComponent(config.prices)}`, d => {
+        bridge = JSON.parse(d.value);
+      });
+    }
+    const configured = jobs.length > 0;
+    // Three workers cap load on Homey, regardless of how many phones are open.
+    await Promise.all(Array.from({ length: Math.min(3, jobs.length) }, async () => {
+      while (jobs.length) await jobs.shift()();
+    }));
+    return { ...normalize(devices, rooms, bridge, config, now), demo: false,
+      status: !configured ? 'unconfigured' : errors.length ? 'partial' : 'online',
+      errors: [...new Set(errors)], updatedAt: now.toISOString(), day: localDay(now) };
+  }
+  return {
+    async get() {
+      const now = clock();
+      if (cached && now.getTime() < expires && cached.day === localDay(now)) return cached;
+      if (!pending) pending = refresh().then(value => {
+        cached = value; expires = clock().getTime() + 15000; return value;
+      }).finally(() => { pending = null; });
+      return pending;
+    },
+  };
+}
+
+function demoData(config, now) {
+  const device = values => ({ capabilitiesObj: Object.fromEntries(Object.entries(values).map(([key, value]) => [key, { value }])) });
+  const day = offset => ({ date: localDay(now, offset), source: 'homey',
+    values: Array.from({ length: 96 }, (_, i) => .065 + .045 * Math.sin((i - 22) / 12) + .018 * Math.cos(i / 5)) });
+  const rooms = [['Living room', 20.8, 21], ['Kitchen', 20.2, 20], ['Bedroom', 18.4, 18]].map(([name, temperature, target]) => ({ name,
+    device: { ...device({ measure_temperature: temperature, target_temperature: target }), driverId: 'homey:app:com.honeywell:zone' } }));
+  return { ...normalize({ grid: device({ measure_power: -940, measure_gas: .12 }),
+    electricity: device({ meter_kwh_this_day: 8.4 }), solar: device({ measure_power: 2460 }),
+    solarDay: device({ meter_kwh_this_day: 14.2 }), battery: device({ measure_battery: 74, 'measure_power.battery': -860 }),
+    charger: device({ measure_power: 0, is_connected: true, is_charging: false, alarm_device: false }),
+    gas: device({ meter_m3_this_day: .83 }) }, rooms, { today: day(0), tomorrow: day(1) }, config, now),
+    demo: true, status: 'demo', errors: [], updatedAt: now.toISOString(), day: localDay(now) };
+}

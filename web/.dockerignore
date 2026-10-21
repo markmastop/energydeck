@@ -1,0 +1,6 @@
+*
+!package.json
+!server.mjs
+!data.mjs
+!public/
+!public/**

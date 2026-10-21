@@ -74,7 +74,7 @@ script:
           set_text(id(header_grid_unit), "kW");
           text(id(header_grid_sub), s.electricity_day, now, s.SUMMARY_TTL, "%.1f kWh", date);
           set_text(id(header_grid_extra), "${header_net_today}");
-          set_arc_value(id(header_grid_arc), s.grid.valid(now) ? std::min(100, int(fabsf(s.grid.value) / 50)) : 0);
+          energydeck::set_power_arc(id(header_grid_arc), s.grid.valid(now) ? s.grid.value : NAN, true);
           set_text(id(header_gas_title), gas_mode == 1 ? "${header_gas_now}" : "${header_gas_today}");
           const bool gas_live = gas_mode == 1 && s.gas.valid(now);
           if (gas_live) {
@@ -104,7 +104,12 @@ script:
           else set_text(id(header_source_sub), "${header_battery_short} --");
           if (battery_known) set_text_fmt(id(header_source_extra), "%s %.0f W", battery_direction, fabsf(s.battery_power.value));
           else set_text(id(header_source_extra), "-- W");
-          set_arc_value(id(header_source_arc), source_mode < 0 ? 0 : storage ? int(s.battery.value) : std::min(100, int(s.solar.value / 50)));
+          // Keep SOC as the central number; the battery arc shows signed power,
+          // using Sessy's negative charging / positive discharging convention.
+          const float source_watts = source_mode < 0 ? NAN : storage ? s.battery_power.value : s.solar.value;
+          energydeck::set_power_arc(id(header_source_arc), source_watts, storage);
+          if (storage) lv_obj_clear_flag(id(header_source_zero), LV_OBJ_FLAG_HIDDEN);
+          else lv_obj_add_flag(id(header_source_zero), LV_OBJ_FLAG_HIDDEN);
           const auto dim = lv_color_hex(0x46534B);
           // Unknown heating stays dim. Gas use or a temperature deficit is not a boiler signal.
           auto line_color = [](esphome::lvgl::LvLineType *wrapper, lv_color_t color) {

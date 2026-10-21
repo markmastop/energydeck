@@ -7,8 +7,9 @@ The right-hand buttons open Energy, Sonos and Climate respectively.
 
 ## Gauges and status icons
 
-- Blue: current grid import/export in kW. The smaller value is **net electricity
-  today**, because the configured Homey summary supplies a net day total, not
+- Blue: current grid import/export in kW. A zero tick at 12 o'clock anchors
+  the directional arc: export fills left, import fills right. The smaller value
+  is **net electricity today**, because the configured Homey summary supplies a net day total, not
   separate daily import and export totals. It must not be labelled as gross
   consumption or as a separate returned total.
 - Pink: current gas rate in m3/hour while gas is used; otherwise today's gas
@@ -20,14 +21,19 @@ The right-hand buttons open Energy, Sonos and Climate respectively.
   percentage when discharging or when there is no solar production. The smaller
   lines retain the other source and the battery's absolute power with a down
   arrow for charging or up arrow for discharging. Sessy reports charging as
-  negative power and discharging as positive power.
+  negative power and discharging as positive power. In battery view the arc
+  shows **power**, not percentage: charging fills left from 12 o'clock and
+  discharging fills right, with the same zero tick. The number remains SOC in
+  percent and standby leaves both halves empty. Solar view retains its normal
+  production arc and hides the directional zero tick.
 
 Mode changes require ten seconds of sustained readings. Grid direction has a
 50 W deadband; gas becomes active above 0.005 m3/hour. PV production and battery
 source switching use 50 W thresholds. During an unconfirmed grid direction change
 its title temporarily reads Grid, so the direction label cannot misrepresent the
-instantaneous value. Ring reference ranges are 5 kW grid/PV, 3 m3/hour active gas,
-10 m3 daily gas and 100% battery; they are not goals or limits.
+instantaneous value. The power arcs react directly to the signed reading even
+while the title/source mode is debounced. Ring reference ranges are 5 kW per
+direction for grid/battery, 5 kW PV, 3 m3/hour active gas and 10 m3 daily gas; they are not goals or limits.
 
 The three permanently positioned icons between price and gauges have no text:
 heating (pink), EV charging (blue) and battery activity (green, with a direction
@@ -86,6 +92,7 @@ c++ -std=c++17 -Wall -Wextra -Werror scripts/test-energy-state.cpp -o /tmp/test-
 node scripts/test-music-controls.cjs
 node scripts/test-climate-priority.cjs
 .venv/bin/python scripts/test-sonos-room-widgets.py
+.venv/bin/python scripts/test-energy-gauges.py
 ```
 
 Inspect the simulator on all four pages, including live solar, battery, gas and
@@ -121,3 +128,11 @@ The compact-icon follow-up on 2026-10-21 scales the drawings to 80% and reduces
 vertical pitch from 32 to 24 px. Simulator and 5-inch builds passed, the simulator
 was visually checked, and the serial upload was hash-verified. The device boot
 log confirmed the follow-up build `2026-10-21 20:04:46 +0200`.
+
+The directional-arc follow-up uses a top-center zero for signed grid and battery
+power. Production-LVGL tests cover both directions, neutral/unknown values,
+saturation and source-mode changes (including zero-to-zero transitions).
+Simulator and 5-inch builds passed; visual simulator inspection confirmed import
+on the right and an empty battery arc in standby. The serial upload was
+hash-verified and the device boot log confirmed `2026-10-21 20:18:08 +0200`.
+No charging or battery operation was triggered to obtain those test cases.

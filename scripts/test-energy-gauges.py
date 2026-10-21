@@ -20,6 +20,8 @@ source = (root / "scripts/test-energy-gauges.cpp").read_text()
 source = source.replace("// PRODUCTION_ARC_CONFIG", "\n".join(config))
 source = source.replace('../esphome/components/ui_performance/energy_gauges.h',
                         str(root / 'esphome/components/ui_performance/energy_gauges.h'))
+source = source.replace('../esphome/components/ui_performance/energy_history_chart.h',
+                        str(root / 'esphome/components/ui_performance/energy_history_chart.h'))
 with tempfile.TemporaryDirectory(prefix="energydeck-energy-gauges-") as temp:
     cpp, binary = Path(temp) / "gauges.cpp", Path(temp) / "test"
     cpp.write_text(source)

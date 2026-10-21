@@ -259,6 +259,7 @@ script:
 
 packages:
   energy_details: !include packages/energy-details.yaml
+  energy_history: !include packages/energy-history.yaml
   climate: !include packages/climate.yaml
   music: !include packages/music.yaml
   temperature: !include packages/temperature.yaml

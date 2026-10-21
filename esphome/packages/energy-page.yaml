@@ -53,15 +53,14 @@ widgets:
       width: 398
       height: 21
       long_mode: DOT
-      text: "${energy_live_subtitle}"
+      text: "${energy_history_subtitle}"
       text_font: montserrat_12
       text_color: 0xA9B8AE
   - obj:
-      id: energy_house_card
       x: 14
       y: 218
       width: 452
-      height: 112
+      height: 246
       radius: 10
       pad_all: 0
       bg_color: 0x18231E
@@ -69,41 +68,139 @@ widgets:
       border_width: 1
       scrollable: false
   - label:
-      id: energy_house_title
-      x: 30
-      y: 233
-      width: 410
-      height: 23
+      id: history_electricity_title
+      x: 28
+      y: 230
+      width: 260
+      height: 22
       long_mode: DOT
-      text: "${energy_house_title}"
-      text_font: montserrat_14
+      text: "${energy_electricity_graph}"
+      text_font: montserrat_16
+      text_color: 0x3AA7D8
+  - label:
+      id: history_electricity_scale
+      x: 300
+      y: 232
+      width: 148
+      height: 22
+      long_mode: DOT
+      text: "--"
+      text_font: montserrat_10
+      text_color: 0xA9B8AE
+      text_align: RIGHT
+  - label:
+      id: history_electricity_summary
+      x: 28
+      y: 257
+      width: 420
+      height: 22
+      long_mode: DOT
+      text: "${energy_history_loading}"
+      text_font: montserrat_10
+      text_color: 0xA9B8AE
+  - line:
+      x: 42
+      y: 290
+      clickable: false
+      line_color: 0x34463C
+      line_width: 1
+      points:
+        - {x: 0, y: 0}
+        - {x: 408, y: 0}
+  - line:
+      x: 42
+      y: 354
+      clickable: false
+      line_color: 0x34463C
+      line_width: 1
+      points:
+        - {x: 0, y: 0}
+        - {x: 408, y: 0}
+  - line:
+      x: 42
+      y: 418
+      clickable: false
+      line_color: 0x34463C
+      line_width: 1
+      points:
+        - {x: 0, y: 0}
+        - {x: 408, y: 0}
+  - obj:
+      id: history_electricity_plot
+      x: 42
+      y: 290
+      width: 408
+      height: 128
+      pad_all: 0
+      border_width: 0
+      radius: 0
+      bg_opa: TRANSP
+      scrollable: false
+  - label:
+      id: history_electricity_time_0
+      x: 40
+      y: 422
+      width: 34
+      height: 22
+      long_mode: DOT
+      text: "00:00"
+      text_font: montserrat_10
       text_color: 0xA9B8AE
   - label:
-      id: energy_house_value
-      x: 30
-      y: 258
-      width: 410
-      height: 45
+      id: history_electricity_time_6
+      x: 142
+      y: 422
+      width: 34
+      height: 22
       long_mode: DOT
-      text: "-- kW"
-      text_font: montserrat_36
-      text_color: 0xEEF6F0
+      text: "06:00"
+      text_font: montserrat_10
+      text_color: 0xA9B8AE
   - label:
-      id: energy_house_note
-      x: 30
-      y: 302
-      width: 410
-      height: 19
+      id: history_electricity_time_12
+      x: 244
+      y: 422
+      width: 34
+      height: 22
       long_mode: DOT
-      text: "${energy_house_note}"
+      text: "12:00"
+      text_font: montserrat_10
+      text_color: 0xA9B8AE
+  - label:
+      id: history_electricity_time_18
+      x: 346
+      y: 422
+      width: 34
+      height: 22
+      long_mode: DOT
+      text: "18:00"
+      text_font: montserrat_10
+      text_color: 0xA9B8AE
+  - label:
+      id: history_electricity_time_24
+      x: 424
+      y: 422
+      width: 34
+      height: 22
+      long_mode: DOT
+      text: "24:00"
+      text_font: montserrat_10
+      text_color: 0xA9B8AE
+  - label:
+      id: history_electricity_status
+      x: 28
+      y: 442
+      width: 420
+      height: 22
+      long_mode: DOT
+      text: "${energy_history_loading}"
       text_font: montserrat_10
       text_color: 0xA9B8AE
   - obj:
-      id: energy_grid_card
       x: 14
-      y: 342
+      y: 476
       width: 452
-      height: 51
+      height: 246
       radius: 10
       pad_all: 0
       bg_color: 0x18231E
@@ -111,198 +208,151 @@ widgets:
       border_width: 1
       scrollable: false
   - label:
-      id: energy_grid_title
+      id: history_gas_title
       x: 28
-      y: 356
-      width: 214
-      height: 23
+      y: 488
+      width: 260
+      height: 22
       long_mode: DOT
-      text: "${header_import}"
-      text_font: montserrat_14
-      text_color: 0x3AA7D8
-  - label:
-      id: energy_grid_value
-      x: 246
-      y: 354
-      width: 202
-      height: 27
-      long_mode: DOT
-      text: "--"
-      text_font: montserrat_18
-      text_color: 0xEEF6F0
-  - obj:
-      id: energy_solar_card
-      x: 14
-      y: 401
-      width: 452
-      height: 51
-      radius: 10
-      pad_all: 0
-      bg_color: 0x18231E
-      border_color: 0x34463C
-      border_width: 1
-      scrollable: false
-  - label:
-      id: energy_solar_title
-      x: 28
-      y: 415
-      width: 214
-      height: 23
-      long_mode: DOT
-      text: "${header_solar}"
-      text_font: montserrat_14
-      text_color: 0x48BD70
-  - label:
-      id: energy_solar_value
-      x: 246
-      y: 413
-      width: 202
-      height: 27
-      long_mode: DOT
-      text: "--"
-      text_font: montserrat_18
-      text_color: 0xEEF6F0
-  - obj:
-      id: energy_battery_card
-      x: 14
-      y: 460
-      width: 452
-      height: 51
-      radius: 10
-      pad_all: 0
-      bg_color: 0x18231E
-      border_color: 0x34463C
-      border_width: 1
-      scrollable: false
-  - label:
-      id: energy_battery_title
-      x: 28
-      y: 474
-      width: 214
-      height: 23
-      long_mode: DOT
-      text: "${header_battery}"
-      text_font: montserrat_14
-      text_color: 0x48BD70
-  - label:
-      id: energy_battery_value
-      x: 246
-      y: 472
-      width: 202
-      height: 27
-      long_mode: DOT
-      text: "--"
-      text_font: montserrat_18
-      text_color: 0xEEF6F0
-  - obj:
-      id: energy_car_card
-      x: 14
-      y: 519
-      width: 452
-      height: 51
-      radius: 10
-      pad_all: 0
-      bg_color: 0x18231E
-      border_color: 0x34463C
-      border_width: 1
-      scrollable: false
-  - label:
-      id: energy_car_title
-      x: 28
-      y: 533
-      width: 214
-      height: 23
-      long_mode: DOT
-      text: "${energy_car_title}"
-      text_font: montserrat_14
-      text_color: 0x3AA7D8
-  - label:
-      id: energy_car_value
-      x: 246
-      y: 531
-      width: 202
-      height: 27
-      long_mode: DOT
-      text: "--"
-      text_font: montserrat_18
-      text_color: 0xEEF6F0
-  - label:
-      id: energy_day_title
-      x: 20
-      y: 591
-      width: 440
-      height: 25
-      long_mode: DOT
-      text: "${energy_today_title}"
+      text: "${energy_gas_graph}"
       text_font: montserrat_16
-      text_color: 0xEEF6F0
-  - label:
-      id: energy_day_grid_title
-      x: 28
-      y: 625
-      width: 225
-      height: 21
-      long_mode: DOT
-      text: "${energy_net_today}"
-      text_font: montserrat_12
-      text_color: 0x3AA7D8
-  - label:
-      id: energy_day_grid_value
-      x: 260
-      y: 623
-      width: 192
-      height: 27
-      long_mode: DOT
-      text: "--"
-      text_font: montserrat_18
-      text_color: 0xEEF6F0
-  - label:
-      id: energy_day_solar_title
-      x: 28
-      y: 668
-      width: 225
-      height: 21
-      long_mode: DOT
-      text: "${energy_solar_today}"
-      text_font: montserrat_12
-      text_color: 0x48BD70
-  - label:
-      id: energy_day_solar_value
-      x: 260
-      y: 666
-      width: 192
-      height: 27
-      long_mode: DOT
-      text: "--"
-      text_font: montserrat_18
-      text_color: 0xEEF6F0
-  - label:
-      id: energy_day_gas_title
-      x: 28
-      y: 711
-      width: 225
-      height: 21
-      long_mode: DOT
-      text: "${gas_title}"
-      text_font: montserrat_12
       text_color: 0xFF3485
   - label:
-      id: energy_day_gas_value
-      x: 260
-      y: 709
-      width: 192
-      height: 27
+      id: history_gas_scale
+      x: 300
+      y: 490
+      width: 148
+      height: 22
       long_mode: DOT
       text: "--"
-      text_font: montserrat_18
-      text_color: 0xEEF6F0
+      text_font: montserrat_10
+      text_color: 0xA9B8AE
+      text_align: RIGHT
   - label:
-      id: energy_balance_note
-      x: 20
-      y: 766
-      width: 440
-      height: 19
+      id: history_gas_summary
+      x: 28
+      y: 515
+      width: 420
+      height: 22
       long_mode: DOT
-      text: "${energy_balance_note}"
+      text: "${energy_history_loading}"
+      text_font: montserrat_10
+      text_color: 0xA9B8AE
+  - line:
+      x: 42
+      y: 548
+      clickable: false
+      line_color: 0x34463C
+      line_width: 1
+      points:
+        - {x: 0, y: 0}
+        - {x: 408, y: 0}
+  - line:
+      x: 42
+      y: 612
+      clickable: false
+      line_color: 0x34463C
+      line_width: 1
+      points:
+        - {x: 0, y: 0}
+        - {x: 408, y: 0}
+  - line:
+      x: 42
+      y: 676
+      clickable: false
+      line_color: 0x34463C
+      line_width: 1
+      points:
+        - {x: 0, y: 0}
+        - {x: 408, y: 0}
+  - obj:
+      id: history_gas_plot
+      x: 42
+      y: 548
+      width: 408
+      height: 128
+      pad_all: 0
+      border_width: 0
+      radius: 0
+      bg_opa: TRANSP
+      scrollable: false
+  - label:
+      id: history_gas_time_0
+      x: 40
+      y: 680
+      width: 34
+      height: 22
+      long_mode: DOT
+      text: "00:00"
+      text_font: montserrat_10
+      text_color: 0xA9B8AE
+  - label:
+      id: history_gas_time_6
+      x: 142
+      y: 680
+      width: 34
+      height: 22
+      long_mode: DOT
+      text: "06:00"
+      text_font: montserrat_10
+      text_color: 0xA9B8AE
+  - label:
+      id: history_gas_time_12
+      x: 244
+      y: 680
+      width: 34
+      height: 22
+      long_mode: DOT
+      text: "12:00"
+      text_font: montserrat_10
+      text_color: 0xA9B8AE
+  - label:
+      id: history_gas_time_18
+      x: 346
+      y: 680
+      width: 34
+      height: 22
+      long_mode: DOT
+      text: "18:00"
+      text_font: montserrat_10
+      text_color: 0xA9B8AE
+  - label:
+      id: history_gas_time_24
+      x: 424
+      y: 680
+      width: 34
+      height: 22
+      long_mode: DOT
+      text: "24:00"
+      text_font: montserrat_10
+      text_color: 0xA9B8AE
+  - label:
+      id: history_gas_status
+      x: 28
+      y: 700
+      width: 420
+      height: 22
+      long_mode: DOT
+      text: "${energy_history_loading}"
+      text_font: montserrat_10
+      text_color: 0xA9B8AE
+  - label:
+      id: energy_history_note
+      x: 20
+      y: 734
+      width: 440
+      height: 22
+      long_mode: DOT
+      text: "${energy_history_note}"
+      text_font: montserrat_10
+      text_color: 0xA9B8AE
+  - label:
+      id: energy_history_source
+      x: 20
+      y: 760
+      width: 440
+      height: 22
+      long_mode: DOT
+      text: "${energy_history_source}"
       text_font: montserrat_10
       text_color: 0xA9B8AE

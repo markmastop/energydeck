@@ -73,6 +73,13 @@ substitutions:
   climate_sensor_4_name: !env_var HOMEY_CLIMATE_SENSOR_4_NAME Saar
   climate_sensor_5_name: !env_var HOMEY_CLIMATE_SENSOR_5_NAME Werk Renate
   climate_sensor_6_name: !env_var HOMEY_CLIMATE_SENSOR_6_NAME Werk Mark
+  homey_room_thermostat_1_id: !env_var HOMEY_ROOM_THERMOSTAT_1_ID none
+  homey_room_thermostat_2_id: !env_var HOMEY_ROOM_THERMOSTAT_2_ID none
+  homey_room_thermostat_3_id: !env_var HOMEY_ROOM_THERMOSTAT_3_ID none
+  homey_room_thermostat_4_id: !env_var HOMEY_ROOM_THERMOSTAT_4_ID none
+  homey_room_thermostat_5_id: !env_var HOMEY_ROOM_THERMOSTAT_5_ID none
+  homey_room_thermostat_6_id: !env_var HOMEY_ROOM_THERMOSTAT_6_ID none
+  homey_thermostat_device_id: !env_var HOMEY_THERMOSTAT_DEVICE_ID none
   sonos_bootstrap_address: !env_var SONOS_BOOTSTRAP_ADDRESS http://192.168.0.190:1400
   sonos_bootstrap_fallback_address: !env_var SONOS_BOOTSTRAP_FALLBACK_ADDRESS http://192.168.0.191:1400
   backlight_day_brightness: !env_var ENERGYDECK_BACKLIGHT_DAY_BRIGHTNESS 48
@@ -251,6 +258,7 @@ script:
           id(set_display_brightness).execute(target);
 
 packages:
+  energy_details: !include packages/energy-details.yaml
   climate: !include packages/climate.yaml
   music: !include packages/music.yaml
   temperature: !include packages/temperature.yaml

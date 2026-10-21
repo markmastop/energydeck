@@ -8,7 +8,7 @@ interval:
           // Initialize after LVGL setup; alignment persists across text updates.
           static bool aligned = false;
           if (aligned) return;
-          lv_obj_t *buttons[] = {id(force_charge_button), id(music_back),
+          lv_obj_t *buttons[] = {id(force_charge_button), id(music_back), id(energy_back), id(climate_back),
             id(small_music_room_select), id(small_music_minus),
             id(small_music_plus), id(small_music_play),
             id(music_previous), id(music_next), id(music_mute),
@@ -113,7 +113,9 @@ lvgl:
                   id: current_price_source_label
                   x: 20
                   y: 34
-                  width: 220
+                  width: 182
+                  height: 14
+                  long_mode: DOT
                   text: "${price_source_unknown}"
                   text_font: montserrat_10
                   text_color: 0xE8B94C
@@ -148,6 +150,33 @@ lvgl:
                   text: "${sunset}"
                   text_font: montserrat_12
                   text_color: 0xA9B8AE
+              - obj:
+                  id: header_gauges
+                  x: 242
+                  y: 34
+                  width: 238
+                  height: 114
+                  pad_all: 0
+                  border_width: 0
+                  bg_opa: TRANSP
+                  scrollable: false
+                  widgets: !include energy-header-widgets.yaml
+              - obj:
+                  x: 202
+                  y: 40
+                  width: 28
+                  height: 99
+                  pad_all: 0
+                  border_width: 0
+                  bg_opa: TRANSP
+                  scrollable: false
+                  widgets: !include status-icons.yaml
+
+        - obj:
+            hidden: true
+            width: 480
+            height: 148
+            widgets:
               - arc:
                   id: electricity_today_arc
                   x: 326
@@ -281,68 +310,6 @@ lvgl:
                   text_font: montserrat_12
                   text_color: 0xA9B8AE
 
-              - obj:
-                  id: sonos_battery_gauge
-                  hidden: true
-                  x: 314
-                  y: 40
-                  width: 90
-                  height: 108
-                  pad_all: 0
-                  border_width: 0
-                  bg_opa: TRANSP
-                  text_color: 0xEEF6F0
-                  scrollable: false
-                  widgets:
-                    - arc:
-                        id: sonos_battery_arc
-                        x: 12
-                        y: 2
-                        width: 66
-                        height: 66
-                        value: 0
-                        adjustable: false
-                        arc_width: 7
-                        arc_color: 0x303A33
-                        indicator:
-                          arc_width: 7
-                          arc_color: 0x45BD70
-                        knob:
-                          bg_opa: TRANSP
-                    - label:
-                        id: sonos_battery_value
-                        x: 17
-                        y: 21
-                        width: 56
-                        text: "--"
-                        text_align: CENTER
-                        text_font: montserrat_18
-                    - label:
-                        id: sonos_battery_unit
-                        x: 17
-                        y: 43
-                        width: 56
-                        text: "%"
-                        text_align: CENTER
-                    - label:
-                        id: sonos_battery_power
-                        x: 0
-                        y: 71
-                        width: 90
-                        height: 16
-                        text: "-- W"
-                        text_align: CENTER
-                        text_font: montserrat_12
-                    - label:
-                        id: sonos_battery_state
-                        x: 0
-                        y: 88
-                        width: 90
-                        height: 16
-                        text: ""
-                        long_mode: DOT
-                        text_align: CENTER
-                        text_font: montserrat_10
 
         - button:
             id: today_prices_button
@@ -2103,10 +2070,9 @@ lvgl:
             border_width: 2
             text_color: 0xEEF6F0
             text_font: montserrat_12
-            text: "Gas"
+            text: "${energy_page_title}"
             on_click:
-              - lambda: id(detail_tab) = 0;
-              - script.execute: select_detail_tab
+              - script.execute: open_energy_page
         - button:
             id: music_tab
             pad_all: 0
@@ -2136,13 +2102,9 @@ lvgl:
             border_width: 1
             text_color: 0xA9B8AE
             text_font: montserrat_12
-            text: "${detail_extra}"
+            text: "${climate_page_title}"
             on_click:
-              - lambda: id(detail_tab) = 2;
-              - script.execute: select_detail_tab
-              # Paint the tab before the first blocking climate request.
-              - delay: 100ms
-              - script.execute: refresh_climate
+              - script.execute: open_climate_page
 
         - obj:
             x: 14
@@ -2304,3 +2266,6 @@ lvgl:
             text_font: montserrat_10
             text_color: 0x82958A
     - !include sonos-page.yaml
+
+    - !include energy-page.yaml
+    - !include climate-page.yaml

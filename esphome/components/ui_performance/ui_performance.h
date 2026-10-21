@@ -6,6 +6,7 @@
 #include "lvgl.h"
 #include "esphome/components/lvgl/lvgl_esphome.h"
 #include "portrait_rotation.h"
+#include "energy_state.h"
 #include "ui_priority.h"
 #ifdef USE_ESP32
 #include "freertos/FreeRTOS.h"

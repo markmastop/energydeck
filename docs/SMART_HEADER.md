@@ -40,8 +40,9 @@ Their roughly 20 px drawings use a compact 24 px vertical pitch beside the gauge
 
 - Car: gray when disconnected/unknown, blue when connected, green when charging.
   A disconnected or faulted charger never produces a green charging icon.
-- Heating: gray when off/unknown, green when enabled but not firing, orange while
-  firing. Both enabled and firing must be confirmed for the green idle state.
+- Heating: gray when off/unknown, green when the programme is enabled without
+  room demand, orange when an Evohome zone requests heat. Orange is inferred
+  demand, not confirmed burner activity; see `CLIMATE.md`.
 - Battery: blue while charging, green while discharging, gray in standby or when
   power is unavailable. The outline contains a proportional horizontal SOC fill
   from 0 to 100%, in the same color, without a number or direction glyph. A fresh
@@ -49,11 +50,11 @@ Their roughly 20 px drawings use a compact 24 px vertical pitch beside the gauge
 
 Icon colors and battery fill update only when their displayed state changes.
 
-Heating is never inferred from gas usage, setpoint or indoor temperature.
-A recognized `thermostat_state` value (`heating`, `idle`, `off`) is required on the
-configured controller. The local EvoTouch exposes a programme but **no actual
-heating state**, so its flame stays dim and Climate explicitly reports unknown
-heating status. Adding a confirmed boiler signal remains separate work.
+Heating programme and room demand are derived only from the EvoTouch controller
+and its Evohome zones. The mode establishes off/enabled; zone measured/target
+temperatures establish inferred demand. Labels, generic room sensors, gas usage
+and assumed burner signals are not used. Unknown/stale data never implies idle.
+Actual boiler firing is not available through these devices.
 
 Live energy readings expire after 45 seconds, room/controller readings after
 three minutes and day summaries after 20 minutes. Transport/HTTP/parse failures
@@ -75,20 +76,17 @@ invented zero. No historical time series is manufactured from the current values
 
 ## Climate
 
-Climate shows the controller programme, actual heating status when supported,
-and six room cards with measured and target temperatures. Temperature sensors
-remain the existing optional `HOMEY_CLIMATE_SENSOR_*_DEVICE_ID` sources. If a
-room sensor is unavailable, a fresh measured temperature from that same room
-thermostat is used; if both are unavailable the value stays `--`. Configure
-`HOMEY_THERMOSTAT_DEVICE_ID` for the controller and optional
-`HOMEY_ROOM_THERMOSTAT_1_ID` through `HOMEY_ROOM_THERMOSTAT_6_ID` for the room targets;
-the room numbers match the existing sensor/name slots. See `.env.example`.
+The main view defaults to the nine-room Evohome preview. Climate detail shows the
+controller programme and all nine room temperatures/setpoints without scrolling.
+Only EvoTouch/Evohome device GETs are used; the old auxiliary sensor reads and
+separate thermostat polling loop have been removed. Configure the controller and
+nine `HOMEY_ROOM_THERMOSTAT_*_ID` slots in `.env`; optional corresponding `_NAME`
+values customize room names. See `CLIMATE.md` and `.env.example`.
 
-All new requests are authenticated read-only GETs through the existing bounded
-background worker. Navigation paints first; repeated Climate opens coalesce
-polls. The details never change setpoints, trigger charging Flows or send Sonos
-playback/grouping commands. The existing explicitly clicked controls retain their
-behavior. Climate polling and thermostat polling also defer background artwork.
+One coalesced read-only poll runs every 30 seconds and on explicit Climate opens,
+using the bounded worker. It never reads the user's heating labels, changes
+setpoints, triggers charging Flows or sends playback/grouping commands. Sonos
+polling preserves a deliberately selected Climate preview.
 
 ## Verification
 
@@ -155,3 +153,10 @@ the actual icon geometry at 0/25/65/100% were visually inspected with synthetic
 status cases. The serial upload was hash-verified and the device confirmed build
 `2026-10-21 20:32:36 +0200`. No real charging, battery or thermostat commands were
 issued for the synthetic test cases.
+
+The Evohome-only nine-zone follow-up removes auxiliary sensor/fallback reads,
+uses the EvoTouch programme plus zone measured/target values for inferred demand,
+and defaults the main card to all nine rooms. Labels and Flow tags are excluded
+from Climate. Simulator and 5-inch builds and state/source/navigation/LVGL checks
+passed. The uploaded `2026-10-21 20:51:24 +0200` build reported all 9/9 Evohome zones
+valid on the physical device. See `CLIMATE.md` for the visual/navigation check scope.

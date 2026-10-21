@@ -44,7 +44,7 @@ int main() {
   Reading r; r.set(1, std::numeric_limits<uint32_t>::max()-100);
   assert(r.valid(100) && !r.valid(50000));
   r.set(std::numeric_limits<float>::infinity(), 0); assert(!r.valid(0));
-  assert(!s.heating.valid(0)); // Neither gas nor a setpoint is a heating signal.
+  assert(s.climate_status(0) == EnergyState::HEAT_UNKNOWN);
   EnergyState icons;
   assert(icons.car_icon_color(0) == EnergyState::ICON_DIM);
   icons.connected.set(1, 100); icons.car.set(0, 100);
@@ -53,12 +53,28 @@ int main() {
   icons.connected.set(0, 100); assert(icons.car_icon_color(100) == EnergyState::ICON_DIM);
   icons.connected.set(1, 100); assert(icons.car_icon_color(45101) == EnergyState::ICON_DIM);
   assert(icons.heating_icon_color(100) == EnergyState::ICON_DIM);
-  icons.heating_enabled.set(1, 100); icons.heating.set(0, 100);
+  icons.heating_enabled.set(1, 100);
+  assert(icons.heating_icon_color(100) == EnergyState::ICON_DIM); // No zone readings yet.
+  for (int i = 0; i < EnergyState::ROOM_COUNT; ++i) {
+    icons.room_configured[i] = true;
+    icons.room_temperature[i].set(20, 100);
+    icons.room_target[i].set(20, 100);
+  }
   assert(icons.heating_icon_color(100) == EnergyState::ICON_GREEN);
-  icons.heating.set(1, 100); assert(icons.heating_icon_color(100) == EnergyState::ICON_ORANGE);
-  icons.heating_enabled.set(0, 100); assert(icons.heating_icon_color(100) == EnergyState::ICON_DIM);
-  icons.heating_enabled.set(1, 100); assert(icons.heating_icon_color(180101) == EnergyState::ICON_DIM);
-  icons.heating.set(NAN, 100); assert(icons.heating_icon_color(100) == EnergyState::ICON_DIM);
+  icons.room_target[8].set(21, 100); // The ninth zone must participate, not just the first six.
+  assert(icons.room_requests_heat(8, 100) && icons.heating_icon_color(100) == EnergyState::ICON_ORANGE);
+  icons.heating_enabled.set(0, 100);
+  assert(!icons.room_requests_heat(8, 100) && icons.heating_icon_color(100) == EnergyState::ICON_DIM);
+  icons.heating_enabled.set(1, 100);
+  assert(icons.heating_icon_color(180101) == EnergyState::ICON_DIM);
+  icons.room_target[8].set(20, 100); icons.room_temperature[0].set(NAN, 100);
+  assert(icons.heating_icon_color(100) == EnergyState::ICON_DIM); // Missing data cannot imply idle.
+  icons.room_target[8].set(23, 100);
+  assert(icons.heating_icon_color(100) == EnergyState::ICON_ORANGE); // Another valid demand remains meaningful.
+  icons.room_target[8].set(20, 100); icons.room_configured[0] = false;
+  assert(icons.heating_icon_color(100) == EnergyState::ICON_GREEN); // Disabled slots do not count as missing.
+  icons.room_target[8].set(20.001f, 100);
+  assert(!icons.room_requests_heat(8, 100)); // Float noise is below Homey's 0.1 °C precision.
   icons.battery_power.set(-500, 100); icons.battery.set(45, 100);
   assert(icons.battery_icon_color(100) == EnergyState::ICON_BLUE && icons.battery_fill_percent(100) == 45);
   icons.battery_power.set(500, 100); assert(icons.battery_icon_color(100) == EnergyState::ICON_GREEN);

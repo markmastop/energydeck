@@ -61,8 +61,8 @@ widgets:
       x: 14
       y: 218
       width: 452
-      height: 112
-      radius: 10
+      height: 80
+      radius: 8
       pad_all: 0
       bg_color: 0x18231E
       border_color: 0x34463C
@@ -70,41 +70,41 @@ widgets:
       scrollable: false
   - label:
       id: thermostat_title
-      x: 30
-      y: 232
-      width: 410
-      height: 23
+      x: 26
+      y: 228
+      width: 428
+      height: 21
       long_mode: DOT
-      text: "${thermostat_title}"
-      text_font: montserrat_14
+      text: "${evohome_title}"
+      text_font: montserrat_12
       text_color: 0xA9B8AE
   - label:
       id: thermostat_mode
-      x: 30
-      y: 258
-      width: 410
-      height: 33
+      x: 26
+      y: 249
+      width: 428
+      height: 29
       long_mode: DOT
       text: "--"
-      text_font: montserrat_24
+      text_font: montserrat_20
       text_color: 0xEEF6F0
   - label:
       id: thermostat_heat_state
-      x: 30
-      y: 302
-      width: 410
+      x: 26
+      y: 279
+      width: 428
       height: 19
       long_mode: DOT
-      text: "${climate_heat_unknown}"
+      text: "--"
       text_font: montserrat_10
       text_color: 0xA9B8AE
   - obj:
       id: room_1_card
       x: 14
-      y: 346
-      width: 222
-      height: 116
-      radius: 10
+      y: 312
+      width: 146
+      height: 132
+      radius: 8
       pad_all: 0
       bg_color: 0x18231E
       border_color: 0x34463C
@@ -112,41 +112,51 @@ widgets:
       scrollable: false
   - label:
       id: room_1_name
-      x: 28
-      y: 358
-      width: 194
-      height: 23
+      x: 24
+      y: 322
+      width: 126
+      height: 21
       long_mode: DOT
-      text: "${climate_sensor_1_name}"
-      text_font: montserrat_14
+      text: "${evohome_zone_1_name}"
+      text_font: montserrat_12
       text_color: 0xA9B8AE
   - label:
       id: room_1_temperature
-      x: 28
-      y: 383
-      width: 194
-      height: 37
+      x: 24
+      y: 347
+      width: 126
+      height: 33
       long_mode: DOT
       text: "-- °C"
-      text_font: montserrat_28
+      text_font: montserrat_24
       text_color: 0xEEF6F0
   - label:
       id: room_1_target
-      x: 28
-      y: 430
-      width: 194
-      height: 21
+      x: 24
+      y: 385
+      width: 126
+      height: 19
       long_mode: DOT
       text: "${climate_target_unknown}"
-      text_font: montserrat_12
+      text_font: montserrat_10
+      text_color: 0xA9B8AE
+  - label:
+      id: room_1_demand
+      x: 24
+      y: 417
+      width: 126
+      height: 19
+      long_mode: DOT
+      text: "--"
+      text_font: montserrat_10
       text_color: 0xA9B8AE
   - obj:
       id: room_2_card
-      x: 244
-      y: 346
-      width: 222
-      height: 116
-      radius: 10
+      x: 166
+      y: 312
+      width: 146
+      height: 132
+      radius: 8
       pad_all: 0
       bg_color: 0x18231E
       border_color: 0x34463C
@@ -154,41 +164,51 @@ widgets:
       scrollable: false
   - label:
       id: room_2_name
-      x: 258
-      y: 358
-      width: 194
-      height: 23
+      x: 176
+      y: 322
+      width: 126
+      height: 21
       long_mode: DOT
-      text: "${climate_sensor_2_name}"
-      text_font: montserrat_14
+      text: "${evohome_zone_2_name}"
+      text_font: montserrat_12
       text_color: 0xA9B8AE
   - label:
       id: room_2_temperature
-      x: 258
-      y: 383
-      width: 194
-      height: 37
+      x: 176
+      y: 347
+      width: 126
+      height: 33
       long_mode: DOT
       text: "-- °C"
-      text_font: montserrat_28
+      text_font: montserrat_24
       text_color: 0xEEF6F0
   - label:
       id: room_2_target
-      x: 258
-      y: 430
-      width: 194
-      height: 21
+      x: 176
+      y: 385
+      width: 126
+      height: 19
       long_mode: DOT
       text: "${climate_target_unknown}"
-      text_font: montserrat_12
+      text_font: montserrat_10
+      text_color: 0xA9B8AE
+  - label:
+      id: room_2_demand
+      x: 176
+      y: 417
+      width: 126
+      height: 19
+      long_mode: DOT
+      text: "--"
+      text_font: montserrat_10
       text_color: 0xA9B8AE
   - obj:
       id: room_3_card
-      x: 14
-      y: 474
-      width: 222
-      height: 116
-      radius: 10
+      x: 318
+      y: 312
+      width: 146
+      height: 132
+      radius: 8
       pad_all: 0
       bg_color: 0x18231E
       border_color: 0x34463C
@@ -196,41 +216,51 @@ widgets:
       scrollable: false
   - label:
       id: room_3_name
-      x: 28
-      y: 486
-      width: 194
-      height: 23
+      x: 328
+      y: 322
+      width: 126
+      height: 21
       long_mode: DOT
-      text: "${climate_sensor_3_name}"
-      text_font: montserrat_14
+      text: "${evohome_zone_3_name}"
+      text_font: montserrat_12
       text_color: 0xA9B8AE
   - label:
       id: room_3_temperature
-      x: 28
-      y: 511
-      width: 194
-      height: 37
+      x: 328
+      y: 347
+      width: 126
+      height: 33
       long_mode: DOT
       text: "-- °C"
-      text_font: montserrat_28
+      text_font: montserrat_24
       text_color: 0xEEF6F0
   - label:
       id: room_3_target
-      x: 28
-      y: 558
-      width: 194
-      height: 21
+      x: 328
+      y: 385
+      width: 126
+      height: 19
       long_mode: DOT
       text: "${climate_target_unknown}"
-      text_font: montserrat_12
+      text_font: montserrat_10
+      text_color: 0xA9B8AE
+  - label:
+      id: room_3_demand
+      x: 328
+      y: 417
+      width: 126
+      height: 19
+      long_mode: DOT
+      text: "--"
+      text_font: montserrat_10
       text_color: 0xA9B8AE
   - obj:
       id: room_4_card
-      x: 244
-      y: 474
-      width: 222
-      height: 116
-      radius: 10
+      x: 14
+      y: 456
+      width: 146
+      height: 132
+      radius: 8
       pad_all: 0
       bg_color: 0x18231E
       border_color: 0x34463C
@@ -238,41 +268,51 @@ widgets:
       scrollable: false
   - label:
       id: room_4_name
-      x: 258
-      y: 486
-      width: 194
-      height: 23
+      x: 24
+      y: 466
+      width: 126
+      height: 21
       long_mode: DOT
-      text: "${climate_sensor_4_name}"
-      text_font: montserrat_14
+      text: "${evohome_zone_4_name}"
+      text_font: montserrat_12
       text_color: 0xA9B8AE
   - label:
       id: room_4_temperature
-      x: 258
-      y: 511
-      width: 194
-      height: 37
+      x: 24
+      y: 491
+      width: 126
+      height: 33
       long_mode: DOT
       text: "-- °C"
-      text_font: montserrat_28
+      text_font: montserrat_24
       text_color: 0xEEF6F0
   - label:
       id: room_4_target
-      x: 258
-      y: 558
-      width: 194
-      height: 21
+      x: 24
+      y: 529
+      width: 126
+      height: 19
       long_mode: DOT
       text: "${climate_target_unknown}"
-      text_font: montserrat_12
+      text_font: montserrat_10
+      text_color: 0xA9B8AE
+  - label:
+      id: room_4_demand
+      x: 24
+      y: 561
+      width: 126
+      height: 19
+      long_mode: DOT
+      text: "--"
+      text_font: montserrat_10
       text_color: 0xA9B8AE
   - obj:
       id: room_5_card
-      x: 14
-      y: 602
-      width: 222
-      height: 116
-      radius: 10
+      x: 166
+      y: 456
+      width: 146
+      height: 132
+      radius: 8
       pad_all: 0
       bg_color: 0x18231E
       border_color: 0x34463C
@@ -280,41 +320,51 @@ widgets:
       scrollable: false
   - label:
       id: room_5_name
-      x: 28
-      y: 614
-      width: 194
-      height: 23
+      x: 176
+      y: 466
+      width: 126
+      height: 21
       long_mode: DOT
-      text: "${climate_sensor_5_name}"
-      text_font: montserrat_14
+      text: "${evohome_zone_5_name}"
+      text_font: montserrat_12
       text_color: 0xA9B8AE
   - label:
       id: room_5_temperature
-      x: 28
-      y: 639
-      width: 194
-      height: 37
+      x: 176
+      y: 491
+      width: 126
+      height: 33
       long_mode: DOT
       text: "-- °C"
-      text_font: montserrat_28
+      text_font: montserrat_24
       text_color: 0xEEF6F0
   - label:
       id: room_5_target
-      x: 28
-      y: 686
-      width: 194
-      height: 21
+      x: 176
+      y: 529
+      width: 126
+      height: 19
       long_mode: DOT
       text: "${climate_target_unknown}"
-      text_font: montserrat_12
+      text_font: montserrat_10
+      text_color: 0xA9B8AE
+  - label:
+      id: room_5_demand
+      x: 176
+      y: 561
+      width: 126
+      height: 19
+      long_mode: DOT
+      text: "--"
+      text_font: montserrat_10
       text_color: 0xA9B8AE
   - obj:
       id: room_6_card
-      x: 244
-      y: 602
-      width: 222
-      height: 116
-      radius: 10
+      x: 318
+      y: 456
+      width: 146
+      height: 132
+      radius: 8
       pad_all: 0
       bg_color: 0x18231E
       border_color: 0x34463C
@@ -322,33 +372,199 @@ widgets:
       scrollable: false
   - label:
       id: room_6_name
-      x: 258
-      y: 614
-      width: 194
-      height: 23
+      x: 328
+      y: 466
+      width: 126
+      height: 21
       long_mode: DOT
-      text: "${climate_sensor_6_name}"
-      text_font: montserrat_14
+      text: "${evohome_zone_6_name}"
+      text_font: montserrat_12
       text_color: 0xA9B8AE
   - label:
       id: room_6_temperature
-      x: 258
-      y: 639
-      width: 194
-      height: 37
+      x: 328
+      y: 491
+      width: 126
+      height: 33
       long_mode: DOT
       text: "-- °C"
-      text_font: montserrat_28
+      text_font: montserrat_24
       text_color: 0xEEF6F0
   - label:
       id: room_6_target
-      x: 258
-      y: 686
-      width: 194
-      height: 21
+      x: 328
+      y: 529
+      width: 126
+      height: 19
       long_mode: DOT
       text: "${climate_target_unknown}"
+      text_font: montserrat_10
+      text_color: 0xA9B8AE
+  - label:
+      id: room_6_demand
+      x: 328
+      y: 561
+      width: 126
+      height: 19
+      long_mode: DOT
+      text: "--"
+      text_font: montserrat_10
+      text_color: 0xA9B8AE
+  - obj:
+      id: room_7_card
+      x: 14
+      y: 600
+      width: 146
+      height: 132
+      radius: 8
+      pad_all: 0
+      bg_color: 0x18231E
+      border_color: 0x34463C
+      border_width: 1
+      scrollable: false
+  - label:
+      id: room_7_name
+      x: 24
+      y: 610
+      width: 126
+      height: 21
+      long_mode: DOT
+      text: "${evohome_zone_7_name}"
       text_font: montserrat_12
+      text_color: 0xA9B8AE
+  - label:
+      id: room_7_temperature
+      x: 24
+      y: 635
+      width: 126
+      height: 33
+      long_mode: DOT
+      text: "-- °C"
+      text_font: montserrat_24
+      text_color: 0xEEF6F0
+  - label:
+      id: room_7_target
+      x: 24
+      y: 673
+      width: 126
+      height: 19
+      long_mode: DOT
+      text: "${climate_target_unknown}"
+      text_font: montserrat_10
+      text_color: 0xA9B8AE
+  - label:
+      id: room_7_demand
+      x: 24
+      y: 705
+      width: 126
+      height: 19
+      long_mode: DOT
+      text: "--"
+      text_font: montserrat_10
+      text_color: 0xA9B8AE
+  - obj:
+      id: room_8_card
+      x: 166
+      y: 600
+      width: 146
+      height: 132
+      radius: 8
+      pad_all: 0
+      bg_color: 0x18231E
+      border_color: 0x34463C
+      border_width: 1
+      scrollable: false
+  - label:
+      id: room_8_name
+      x: 176
+      y: 610
+      width: 126
+      height: 21
+      long_mode: DOT
+      text: "${evohome_zone_8_name}"
+      text_font: montserrat_12
+      text_color: 0xA9B8AE
+  - label:
+      id: room_8_temperature
+      x: 176
+      y: 635
+      width: 126
+      height: 33
+      long_mode: DOT
+      text: "-- °C"
+      text_font: montserrat_24
+      text_color: 0xEEF6F0
+  - label:
+      id: room_8_target
+      x: 176
+      y: 673
+      width: 126
+      height: 19
+      long_mode: DOT
+      text: "${climate_target_unknown}"
+      text_font: montserrat_10
+      text_color: 0xA9B8AE
+  - label:
+      id: room_8_demand
+      x: 176
+      y: 705
+      width: 126
+      height: 19
+      long_mode: DOT
+      text: "--"
+      text_font: montserrat_10
+      text_color: 0xA9B8AE
+  - obj:
+      id: room_9_card
+      x: 318
+      y: 600
+      width: 146
+      height: 132
+      radius: 8
+      pad_all: 0
+      bg_color: 0x18231E
+      border_color: 0x34463C
+      border_width: 1
+      scrollable: false
+  - label:
+      id: room_9_name
+      x: 328
+      y: 610
+      width: 126
+      height: 21
+      long_mode: DOT
+      text: "${evohome_zone_9_name}"
+      text_font: montserrat_12
+      text_color: 0xA9B8AE
+  - label:
+      id: room_9_temperature
+      x: 328
+      y: 635
+      width: 126
+      height: 33
+      long_mode: DOT
+      text: "-- °C"
+      text_font: montserrat_24
+      text_color: 0xEEF6F0
+  - label:
+      id: room_9_target
+      x: 328
+      y: 673
+      width: 126
+      height: 19
+      long_mode: DOT
+      text: "${climate_target_unknown}"
+      text_font: montserrat_10
+      text_color: 0xA9B8AE
+  - label:
+      id: room_9_demand
+      x: 328
+      y: 705
+      width: 126
+      height: 19
+      long_mode: DOT
+      text: "--"
+      text_font: montserrat_10
       text_color: 0xA9B8AE
   - label:
       id: climate_footer
@@ -357,6 +573,6 @@ widgets:
       width: 440
       height: 19
       long_mode: DOT
-      text: "${climate_heat_note}"
+      text: "${evohome_demand_note}"
       text_font: montserrat_10
       text_color: 0xA9B8AE

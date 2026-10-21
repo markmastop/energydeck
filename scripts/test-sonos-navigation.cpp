@@ -63,6 +63,9 @@ int main() {
   playback(false); navigate();
   assert(detail_tab == 2); // A manually selected Climate card is preserved.
 
+  reset(); detail_tab = 2; playback(true); navigate();
+  assert(detail_tab == 2); // Playback must not steal the Evohome overview.
+
   start_detail();
   playback(false);
   sonos.rooms[0].transport = false;

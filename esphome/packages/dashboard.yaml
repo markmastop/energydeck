@@ -1540,9 +1540,9 @@ lvgl:
 
         - obj:
             id: gas_card
+            hidden: true
             x: 14
             y: 576
-            hidden: false
             width: 294
             height: 140
             radius: 8
@@ -1860,7 +1860,6 @@ lvgl:
 
         - obj:
             id: extra_card
-            hidden: true
             x: 14
             y: 576
             width: 294
@@ -1873,33 +1872,28 @@ lvgl:
             scrollable: false
             widgets:
               - label:
-                  x: 16
-                  y: 8
-                  text: "${detail_extra}"
-                  text_font: montserrat_14
+                  x: 10
+                  y: 7
+                  text: "${evohome_title}"
+                  text_font: montserrat_12
                   text_color: 0xEEF6F0
               - label:
-                  x: 16
-                  y: 118
-                  text: "${climate_heat_unknown}"
+                  id: compact_climate_status
+                  x: 94
+                  y: 8
+                  width: 190
+                  height: 14
+                  text_align: RIGHT
+                  long_mode: DOT
+                  text: "--"
                   text_font: montserrat_10
-                  text_color: 0xA9B8AE
-              - label:
-                  id: climate_no_sensors_label
-                  hidden: true
-                  x: 16
-                  y: 55
-                  width: 262
-                  text_align: CENTER
-                  text: "${climate_no_sensors}"
-                  text_font: montserrat_12
                   text_color: 0xA9B8AE
               - obj:
                   id: climate_sensor_1_slot
-                  x: 16
-                  y: 27
-                  width: 125
-                  height: 30
+                  x: 10
+                  y: 28
+                  width: 88
+                  height: 31
                   pad_all: 0
                   border_width: 0
                   bg_opa: TRANSP
@@ -1908,25 +1902,27 @@ lvgl:
                     - label:
                         x: 0
                         y: 0
-                        width: 125
-                        height: 14
+                        width: 88
+                        height: 13
                         long_mode: DOT
-                        text: "${climate_sensor_1_name}"
-                        text_font: montserrat_12
+                        text: "${evohome_zone_1_name}"
+                        text_font: montserrat_10
                         text_color: 0xA9B8AE
                     - label:
                         id: climate_sensor_1_value
                         x: 0
-                        y: 13
-                        text: "-- °C"
-                        text_font: montserrat_14
+                        y: 14
+                        width: 88
+                        height: 17
+                        text: "-- / --°"
+                        text_font: montserrat_12
                         text_color: 0xEEF6F0
               - obj:
                   id: climate_sensor_2_slot
-                  x: 153
-                  y: 27
-                  width: 125
-                  height: 30
+                  x: 104
+                  y: 28
+                  width: 88
+                  height: 31
                   pad_all: 0
                   border_width: 0
                   bg_opa: TRANSP
@@ -1935,25 +1931,27 @@ lvgl:
                     - label:
                         x: 0
                         y: 0
-                        width: 125
-                        height: 14
+                        width: 88
+                        height: 13
                         long_mode: DOT
-                        text: "${climate_sensor_2_name}"
-                        text_font: montserrat_12
+                        text: "${evohome_zone_2_name}"
+                        text_font: montserrat_10
                         text_color: 0xA9B8AE
                     - label:
                         id: climate_sensor_2_value
                         x: 0
-                        y: 13
-                        text: "-- °C"
-                        text_font: montserrat_14
+                        y: 14
+                        width: 88
+                        height: 17
+                        text: "-- / --°"
+                        text_font: montserrat_12
                         text_color: 0xEEF6F0
               - obj:
                   id: climate_sensor_3_slot
-                  x: 16
-                  y: 57
-                  width: 125
-                  height: 30
+                  x: 198
+                  y: 28
+                  width: 88
+                  height: 31
                   pad_all: 0
                   border_width: 0
                   bg_opa: TRANSP
@@ -1962,25 +1960,27 @@ lvgl:
                     - label:
                         x: 0
                         y: 0
-                        width: 125
-                        height: 14
+                        width: 88
+                        height: 13
                         long_mode: DOT
-                        text: "${climate_sensor_3_name}"
-                        text_font: montserrat_12
+                        text: "${evohome_zone_3_name}"
+                        text_font: montserrat_10
                         text_color: 0xA9B8AE
                     - label:
                         id: climate_sensor_3_value
                         x: 0
-                        y: 13
-                        text: "-- °C"
-                        text_font: montserrat_14
+                        y: 14
+                        width: 88
+                        height: 17
+                        text: "-- / --°"
+                        text_font: montserrat_12
                         text_color: 0xEEF6F0
               - obj:
                   id: climate_sensor_4_slot
-                  x: 153
-                  y: 57
-                  width: 125
-                  height: 30
+                  x: 10
+                  y: 63
+                  width: 88
+                  height: 31
                   pad_all: 0
                   border_width: 0
                   bg_opa: TRANSP
@@ -1989,25 +1989,27 @@ lvgl:
                     - label:
                         x: 0
                         y: 0
-                        width: 125
-                        height: 14
+                        width: 88
+                        height: 13
                         long_mode: DOT
-                        text: "${climate_sensor_4_name}"
-                        text_font: montserrat_12
+                        text: "${evohome_zone_4_name}"
+                        text_font: montserrat_10
                         text_color: 0xA9B8AE
                     - label:
                         id: climate_sensor_4_value
                         x: 0
-                        y: 13
-                        text: "-- °C"
-                        text_font: montserrat_14
+                        y: 14
+                        width: 88
+                        height: 17
+                        text: "-- / --°"
+                        text_font: montserrat_12
                         text_color: 0xEEF6F0
               - obj:
                   id: climate_sensor_5_slot
-                  x: 16
-                  y: 87
-                  width: 125
-                  height: 30
+                  x: 104
+                  y: 63
+                  width: 88
+                  height: 31
                   pad_all: 0
                   border_width: 0
                   bg_opa: TRANSP
@@ -2016,25 +2018,27 @@ lvgl:
                     - label:
                         x: 0
                         y: 0
-                        width: 125
-                        height: 14
+                        width: 88
+                        height: 13
                         long_mode: DOT
-                        text: "${climate_sensor_5_name}"
-                        text_font: montserrat_12
+                        text: "${evohome_zone_5_name}"
+                        text_font: montserrat_10
                         text_color: 0xA9B8AE
                     - label:
                         id: climate_sensor_5_value
                         x: 0
-                        y: 13
-                        text: "-- °C"
-                        text_font: montserrat_14
+                        y: 14
+                        width: 88
+                        height: 17
+                        text: "-- / --°"
+                        text_font: montserrat_12
                         text_color: 0xEEF6F0
               - obj:
                   id: climate_sensor_6_slot
-                  x: 153
-                  y: 87
-                  width: 125
-                  height: 30
+                  x: 198
+                  y: 63
+                  width: 88
+                  height: 31
                   pad_all: 0
                   border_width: 0
                   bg_opa: TRANSP
@@ -2043,18 +2047,107 @@ lvgl:
                     - label:
                         x: 0
                         y: 0
-                        width: 125
-                        height: 14
+                        width: 88
+                        height: 13
                         long_mode: DOT
-                        text: "${climate_sensor_6_name}"
-                        text_font: montserrat_12
+                        text: "${evohome_zone_6_name}"
+                        text_font: montserrat_10
                         text_color: 0xA9B8AE
                     - label:
                         id: climate_sensor_6_value
                         x: 0
-                        y: 13
-                        text: "-- °C"
-                        text_font: montserrat_14
+                        y: 14
+                        width: 88
+                        height: 17
+                        text: "-- / --°"
+                        text_font: montserrat_12
+                        text_color: 0xEEF6F0
+              - obj:
+                  id: climate_sensor_7_slot
+                  x: 10
+                  y: 98
+                  width: 88
+                  height: 31
+                  pad_all: 0
+                  border_width: 0
+                  bg_opa: TRANSP
+                  scrollable: false
+                  widgets:
+                    - label:
+                        x: 0
+                        y: 0
+                        width: 88
+                        height: 13
+                        long_mode: DOT
+                        text: "${evohome_zone_7_name}"
+                        text_font: montserrat_10
+                        text_color: 0xA9B8AE
+                    - label:
+                        id: climate_sensor_7_value
+                        x: 0
+                        y: 14
+                        width: 88
+                        height: 17
+                        text: "-- / --°"
+                        text_font: montserrat_12
+                        text_color: 0xEEF6F0
+              - obj:
+                  id: climate_sensor_8_slot
+                  x: 104
+                  y: 98
+                  width: 88
+                  height: 31
+                  pad_all: 0
+                  border_width: 0
+                  bg_opa: TRANSP
+                  scrollable: false
+                  widgets:
+                    - label:
+                        x: 0
+                        y: 0
+                        width: 88
+                        height: 13
+                        long_mode: DOT
+                        text: "${evohome_zone_8_name}"
+                        text_font: montserrat_10
+                        text_color: 0xA9B8AE
+                    - label:
+                        id: climate_sensor_8_value
+                        x: 0
+                        y: 14
+                        width: 88
+                        height: 17
+                        text: "-- / --°"
+                        text_font: montserrat_12
+                        text_color: 0xEEF6F0
+              - obj:
+                  id: climate_sensor_9_slot
+                  x: 198
+                  y: 98
+                  width: 88
+                  height: 31
+                  pad_all: 0
+                  border_width: 0
+                  bg_opa: TRANSP
+                  scrollable: false
+                  widgets:
+                    - label:
+                        x: 0
+                        y: 0
+                        width: 88
+                        height: 13
+                        long_mode: DOT
+                        text: "${evohome_zone_9_name}"
+                        text_font: montserrat_10
+                        text_color: 0xA9B8AE
+                    - label:
+                        id: climate_sensor_9_value
+                        x: 0
+                        y: 14
+                        width: 88
+                        height: 17
+                        text: "-- / --°"
+                        text_font: montserrat_12
                         text_color: 0xEEF6F0
 
         - button:
@@ -2065,9 +2158,9 @@ lvgl:
             width: 124
             height: 34
             radius: 6
-            bg_color: 0x672B4B
-            border_color: 0xFF3485
-            border_width: 2
+            bg_color: 0x18231E
+            border_color: 0x34463C
+            border_width: 1
             text_color: 0xEEF6F0
             text_font: montserrat_12
             text: "${energy_page_title}"
@@ -2097,9 +2190,9 @@ lvgl:
             width: 124
             height: 34
             radius: 6
-            bg_color: 0x18231E
-            border_color: 0x34463C
-            border_width: 1
+            bg_color: 0x294E77
+            border_color: 0x5799E4
+            border_width: 2
             text_color: 0xA9B8AE
             text_font: montserrat_12
             text: "${climate_page_title}"

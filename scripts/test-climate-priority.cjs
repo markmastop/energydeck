@@ -8,6 +8,21 @@ const open = details.split('id: open_climate_page\n')[1].split('  - id: close_de
 assert(open.includes('script.execute: refresh_climate'));
 assert(open.indexOf('lvgl.page.show: climate_page') < open.indexOf('script.execute: refresh_climate'));
 assert(!open.includes('script.execute: refresh_thermostats'));
+// Reuse live weather widgets on both pages; navigation must not trigger weather HTTP.
+const close = details.split('id: close_detail_page\n')[1].split('  - id: render_energy_header')[0];
+for (const id of ['shared_weather_card', 'shared_weather_attribution']) {
+  assert.equal((dashboard.match(new RegExp('id: ' + id + '\\n', 'g')) || []).length, 1);
+  assert(open.includes(`lv_obj_set_parent(id(${id}), id(climate_page)->obj)`));
+  assert(close.includes(`lv_obj_set_parent(id(${id}), id(energydeck_main_page)->obj)`));
+}
+assert(!open.includes('refresh_rain') && !open.includes('refresh_homey_weather'));
+const roomLayout = read('climate-page.yaml');
+for (let i = 1; i <= 9; ++i) {
+  const card = roomLayout.split(`id: room_${i}_card\n`)[1].split('  - label:')[0];
+  const y = Number(card.match(/y: (\d+)/)[1]), height = Number(card.match(/height: (\d+)/)[1]);
+  assert(y + height <= 700, `Room ${i} overlaps the climate note/weather footer`);
+}
+
 assert.equal((details.match(/- background_http.get:/g) || []).length, 0);
 assert(!details.includes('background_http.post:'));
 assert(climate.includes('mode: single'));

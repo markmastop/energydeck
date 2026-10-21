@@ -34,6 +34,9 @@ script:
           id(music_page_open) = false;
           id(detail_page_open) = 2;
           id(detail_tab) = 2;
+          // Move the live weather widgets so forecasts and rain keep their cached state.
+          lv_obj_set_parent(id(shared_weather_card), id(climate_page)->obj);
+          lv_obj_set_parent(id(shared_weather_attribution), id(climate_page)->obj);
           lv_obj_set_parent(id(shared_energy_header), id(climate_page)->obj);
           lv_obj_set_pos(id(shared_energy_header), 0, 0);
       - script.execute: render_detail_pages
@@ -45,6 +48,8 @@ script:
       - lambda: |-
           id(detail_tab) = id(detail_page_open) == 2 ? 2 : 0;
           id(detail_page_open) = 0;
+          lv_obj_set_parent(id(shared_weather_card), id(energydeck_main_page)->obj);
+          lv_obj_set_parent(id(shared_weather_attribution), id(energydeck_main_page)->obj);
           lv_obj_set_parent(id(shared_energy_header), id(energydeck_main_page)->obj);
           lv_obj_set_pos(id(shared_energy_header), 0, 0);
       - lvgl.page.show: energydeck_main_page

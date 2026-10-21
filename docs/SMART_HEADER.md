@@ -31,8 +31,9 @@ instantaneous value. Ring reference ranges are 5 kW grid/PV, 3 m3/hour active ga
 
 The three permanently positioned icons between price and gauges have no text:
 heating (pink), EV charging (blue) and battery activity (green, with a direction
-arrow). Inactive or unknown states stay dim. Charger faults/disconnection never
-light the charging icon. Icon colors only change when their state changes.
+arrow). The roughly 20 px icons use a compact 24 px vertical pitch, centered
+beside the gauge row. Inactive or unknown states stay dim. Charger faults or
+disconnection never light the charging icon. Icon colors only change when their state changes.
 
 Heating is never inferred from gas usage, setpoint or indoor temperature.
 A recognized `thermostat_state` value (`heating`, `idle`, `off`) is required on the
@@ -115,3 +116,8 @@ and asynchronous UI/network/artwork regressions passed. Two older extraction
 harnesses (`test-price-freshness.cjs` and `test-price-window.cjs`) fail both here
 and against the unchanged pre-task `homey-live.yaml`: their assumptions about the
 price fragment and UI stubs are outdated. Price logic was not changed in this task.
+
+The compact-icon follow-up on 2026-10-21 scales the drawings to 80% and reduces
+vertical pitch from 32 to 24 px. Simulator and 5-inch builds passed, the simulator
+was visually checked, and the serial upload was hash-verified. The device boot
+log confirmed the follow-up build `2026-10-21 20:04:46 +0200`.

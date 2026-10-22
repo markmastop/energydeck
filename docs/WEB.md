@@ -110,6 +110,12 @@ The dashboard Gas / Sonos / Climate buttons first select their compact card when
 
 Opening pages, selecting rooms or tabs, editing a group draft and polling do not change devices. The compact player follows a currently playing room; an explicit room selection on the full player remains selected. Music starting selects the compact Sonos card; confirmed stopping returns that card to Gas. The full player also returns to Gas after previously playing music stops in all known rooms, while opening an already idle player leaves it open. Unknown/transitioning room states never prove playback has stopped. Manual Gas/Climate selection remains until a new playback start.
 
+Sonos transport actions are matched after trimming whitespace from each comma-separated
+name, matching the ESP parser. A stopped player advertising `Set, Stop, Play`
+therefore enables Play; unsupported or partial names such as `NextTrack` do not
+enable Next. Disabled controls show an unavailable cursor; only an active command
+uses a waiting cursor.
+
 Sonos reads and commands share one serialized worker queue; waiting controls skip queued background reads. Every command captures the displayed room and topology scope. Fresh discovery must still match before a write; external regrouping cancels stale commands/drafts. The browser sends identifiers and typed actions, never speaker URLs, arbitrary SOAP or raw favorite resources.
 
 Volume/mute target the selected physical room, or the implicit paired main rooms before an explicit choice; playback, skips and favorites target the fresh coordinator. Favorites are re-read from `FV:2` in bounded pages with one consistent UpdateID. Non-playable shortcuts are excluded. Radio sets the URI only when needed, waits for source readiness, then plays. Queue favorites append once, select the queue, seek to the first newly appended track and play; the old queue is never cleared. Source normalization only accepts the display's documented Sonos stream flag/percent-escape changes. Group/volume/mute are not changed by favorite playback.

@@ -252,6 +252,7 @@ export function initializeDetails({ api, t, format, time, svgNode, onUnauthorize
     const volumeUnavailable = player.volume === null || player.volumeValues?.some(item => item.value === null);
     const control = (symbol, label, action, extra, disabled = false) => {
       const element = button(symbol, () => send(action, extra), action === 'play' || action === 'pause' ? 'transport play-button' : 'transport', locked || disabled);
+      element.setAttribute('aria-busy', String(Boolean(commandBusy || sonos?.busy)));
       element.setAttribute('aria-label', t(label)); (['volume', 'mute'].includes(action) ? volumeRow : transportRow).append(element);
     };
     if (!compact) control('⏮', 'previous', 'previous', {}, player.tv || !actions.includes('Previous'));

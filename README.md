@@ -8,9 +8,9 @@
   <img src="docs/energydeck-climate.svg" width="250" alt="EnergyDeck Climate Sensors" />
 </p>
 
-EnergyDeck is an open-source, local energy and smart home dashboard built with [ESPHome](https://esphome.io/) and [LVGL](https://lvgl.io/) for the **ELECROW CrowPanel Advance 5.0" and 7.0"** ESP32-S3 HMI touch displays and **Homey Pro**.
+EnergyDeck is an open-source energy and smart home dashboard for **Homey Pro**, available on **ELECROW CrowPanel Advance 5.0" and 7.0"** ESP32-S3 touch displays and as an installable **mobile web app / PWA**. The display uses [ESPHome](https://esphome.io/) and [LVGL](https://lvgl.io/); the web app runs independently in a small Docker container.
 
-It connects directly over your local network to Homey and Sonos to provide a real-time, responsive household overview in a clean portrait interface.
+Both versions connect directly over your local network to Homey and Sonos. They share household features, units, status colors and control behavior, with a responsive web layout for phones and larger screens. The web app does not require an ESP32 display.
 
 ---
 
@@ -30,11 +30,54 @@ It connects directly over your local network to Homey and Sonos to provide a rea
 
 ---
 
+## Mobile Web App / PWA
+
+Use Overview, Energy, Sonos and Climate on your phone, tablet or computer. The web app follows the display's Montserrat typography, dark palette, smart net/gas/solar-battery meters, signed power arcs, price comparison and nine-zone Evohome view. Sonos favorites, room grouping and charging controls are included. Climate remains read-only, with thermostat control through Homey.
+
+### Screenshots
+
+These are actual mobile-browser captures of the PWA interface at 430×1100, using **simulated demo data only**. They contain no household readings, private addresses, device IDs or credentials. Click an image to view it at full size.
+
+| Overview | Energy | Sonos | Climate |
+| :---: | :---: | :---: | :---: |
+| <a href="docs/screenshots/pwa-overview.jpg"><img src="docs/screenshots/pwa-overview.jpg" width="190" alt="EnergyDeck PWA overview with smart power meters and quarter-hour prices, demo data" /></a> | <a href="docs/screenshots/pwa-energy.jpg"><img src="docs/screenshots/pwa-energy.jpg" width="190" alt="EnergyDeck PWA electricity and gas history graphs with summary totals, demo data" /></a> | <a href="docs/screenshots/pwa-sonos.jpg"><img src="docs/screenshots/pwa-sonos.jpg" width="190" alt="EnergyDeck PWA Sonos player with playback controls and favorites, demo data" /></a> | <a href="docs/screenshots/pwa-climate.jpg"><img src="docs/screenshots/pwa-climate.jpg" width="190" alt="EnergyDeck PWA Evohome thermostat programme and all nine climate zones, demo data" /></a> |
+
+### Run locally
+
+Install **Node.js 22 or newer**, configure the repository `.env` with your Homey/Sonos settings and a random access code of at least 32 characters, then run:
+
+```sh
+# Generate a code and save it as ENERGYDECK_WEB_ACCESS_CODE in .env.
+openssl rand -hex 32
+./run.sh web
+```
+
+Open the printed URL, normally `http://127.0.0.1:8080`, and enter your access code. The launcher installs pinned dependencies when needed and handles local HTTP settings without changing `.env`. Stop with Ctrl+C. `./web/run.sh` is equivalent; `./run.sh` without `web` still starts the display simulator.
+
+### Run with Docker and install on your phone
+
+On an internal server that can reach Homey and your Sonos speakers, configure `.env` using the [web setup guide](docs/WEB.md), then start:
+
+```sh
+docker compose up -d --build
+```
+
+For phone access through your HTTPS reverse proxy or Cloudflare Tunnel, set the exact public origin and keep secure cookies enabled:
+
+```dotenv
+ENERGYDECK_WEB_ORIGIN=https://energydeck.example.com
+ENERGYDECK_WEB_SECURE_COOKIE=true
+```
+
+The container listens on port 8080. The default host binding is loopback; see the [proxy/network settings](docs/WEB.md#https-and-outside-access) when the tunnel or proxy runs in another container. Homey and Sonos credentials stay on the server. Sign in with the household access code on the login screen; never put it in a URL.
+
+Open the HTTPS address on your phone and use the browser's **Add to Home Screen / Install app** option where supported. The PWA has its own favicon and phone icons and opens in standalone mode. Offline launch can show the app shell; private readings and device controls require a connection and are not cached by the service worker.
+
+See [web setup, security and ESP parity](docs/WEB.md) for all configuration, permissions and verification details. Hardware backlight dimming and flashing apply to the physical display.
+
+---
+
 ## Supported Hardware
-
-The optional [mobile web app](docs/WEB.md) runs independently of the display on a NAS, Raspberry Pi, or home server. Start it with `docker compose up -d --build` after configuring its access code and network settings. Overview, Energy, Sonos and Climate pages reproduce the display's household functions with responsive layouts. No ESP32 hardware is required for the web app.
-
-For local use, run `./run.sh web` (or `./web/run.sh`) with Node.js 22 or newer. It installs dependencies when needed, reads your `.env` and prints the local URL. The original `./run.sh` command still starts the display simulator.
 
 | Model | Screen Size | Resolution | Part Number | Flash Target |
 | :--- | :--- | :--- | :--- | :--- |
@@ -49,7 +92,7 @@ Both hardware models share the same ESP32-S3 processor, 8 MB PSRAM, 16 MB flash,
 
 ### Step 1: Prerequisites
 
-Make sure you have **Python 3.10+** and **Git** installed on your computer.
+For the display and Homey discovery tools, install **Python 3.10+** and **Git**. The web app can instead run with **Docker Compose**, or **Node.js 22+** for local use; see [Mobile Web App / PWA](#mobile-web-app--pwa).
 
 On macOS (required only if you want to run the local desktop simulator):
 ```sh
@@ -66,7 +109,7 @@ cd energydeck
 cp .env.example .env
 ```
 
-Open `.env` in your text editor and fill in your Wi-Fi credentials:
+For the physical display, open `.env` in your text editor and fill in your Wi-Fi credentials (not needed for the web app):
 
 ```dotenv
 ENERGYDECK_WIFI_SSID=your-wifi-name
@@ -77,7 +120,7 @@ ENERGYDECK_WIFI_PASSWORD=your-wifi-password
 
 1. Open [Homey Web App](https://my.homey.app/) and sign in.
 2. Go to **Settings → API Keys** and click **New API Key**.
-3. Name it `EnergyDeck` and select only these read-only permissions:
+3. Name it `EnergyDeck` and select the required permissions below (Flow-start access is only needed for charging control):
    - **Devices — Read only** (`homey.device.readonly` / *Apparaten weergeven*)
    - **Flows — Read only** (`homey.flow.readonly` / *Flows weergeven*)
    - **Flows — Start** (`homey.flow.start` / *Flows starten*)
@@ -213,6 +256,10 @@ ENERGYDECK_BACKLIGHT_WAKE_DURATION_S=30
 
 ## Documentation Links
 
+- [Mobile Web App / PWA](docs/WEB.md) — Docker and local startup, HTTPS, access-code security, phone installation and display parity.
+- [Energy History](docs/ENERGY-HISTORY.md) — Homey Insights setup, five-minute graphs and calculation rules.
+- [Smart Header and Detail Pages](docs/SMART_HEADER.md) — Gauge behavior and Energy/Climate detail views.
+
 - [Sonos Integration Architecture](docs/SONOS.md) — UPnP/SOAP protocol details, queue guards, embedded station artwork, and zero-cloud direct control.
 - [Homey Pro Integration](docs/HOMEY.md) — Local Web API token, rate limits, device schemas, and price bridging.
 - [Multi-room Climate Setup](docs/CLIMATE.md) — Configuring an EvoTouch controller and up to 9 Evohome zones.
@@ -226,5 +273,4 @@ ENERGYDECK_BACKLIGHT_WAKE_DURATION_S=30
 
 This project is open-source under the MIT License.
 
-See [Smart header and detail pages](docs/SMART_HEADER.md) for gauge behavior,
-Energy/Climate details and optional read-only thermostat configuration.
+The bundled Montserrat font uses the [SIL Open Font License](web/public/fonts/OFL.txt). Station logos belong to their respective broadcasters.

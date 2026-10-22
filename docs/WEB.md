@@ -6,7 +6,7 @@ The web app reproduces EnergyDeck's household functions in a responsive interfac
 
 | View | Features |
 | --- | --- |
-| Shared header | Current all-in electricity price, grid power, battery percentage and solar power on detail pages. Overview retains its larger price and power gauges. |
+| Shared header | Current all-in electricity price, sunrise/sunset, smart net/gas/solar-battery meters and heating/car/battery status on every page. |
 | Overview | Grid/solar power and daily totals, day/year toggle, battery state and signed power, EV charging/connection/fault status, today/tomorrow prices with provenance, weather and Gas / Sonos / Climate cards. |
 | Price chart | 96 quarter-hour bars, negative prices, current-quarter marker, min/mean/max and cheapest consecutive three hours. From noon, Today rolls from today's noon to tomorrow's noon when tomorrow is valid. |
 | Energy | Today's five-minute signed grid-power and gas-rate graphs from Homey Insights, gaps for missing samples, separate import/export colors, and available daily/monthly/yearly summary totals and peaks. Missing capabilities remain dashes. |

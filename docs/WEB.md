@@ -33,7 +33,7 @@ The phone layout scrolls and adapts to width instead of fixing every widget at t
    ```dotenv
    ENERGYDECK_WEB_ACCESS_CODE=replace-with-the-generated-code
    ENERGYDECK_WEB_BIND_ADDRESS=0.0.0.0
-   ENERGYDECK_WEB_PORT=8080
+   ENERGYDECK_WEB_PUBLISHED_PORT=65000
    ENERGYDECK_WEB_SECURE_COOKIE=false
    ENERGYDECK_WEB_DEMO=false
    ```
@@ -42,18 +42,47 @@ The phone layout scrolls and adapts to width instead of fixing every widget at t
 5. Start the container from the repository root:
 
    ```sh
-   docker compose up -d --build
+   docker compose -f compose.yaml -f compose.host.yaml up -d --build
    ```
 
-6. Open `http://YOUR-SERVER-IP:8080` and enter the access code. Never append it to the URL. Your phone stays signed in for seven days unless you sign out or recreate/restart the container.
+6. Open `http://YOUR-SERVER-IP:65000` and enter the access code. Never append it to the URL. Your phone stays signed in for seven days unless you sign out or recreate/restart the container.
 
-Pull updates and run `docker compose up -d --build` again. This also applies `.env` changes; `docker compose restart` alone does not apply changed environment variables. `docker compose down` stops the app.
+Pull updates and run `docker compose -f compose.yaml -f compose.host.yaml up -d --build` again. This also applies `.env` changes; `docker compose restart` alone does not apply changed environment variables. `docker compose -f compose.yaml -f compose.host.yaml down` stops the app.
 
-Secure defaults bind to `127.0.0.1` with Secure cookies. Explicitly opt into trusted-LAN HTTP as above or configure HTTPS before phone sign-in. The container always listens on 8080; `ENERGYDECK_WEB_PORT` changes the published host port. No host networking is needed, but the Docker host must be able to reach Homey and Sonos on your LAN.
+The base `compose.yaml` exposes container port 8080 to Docker networking without
+publishing a host port. The optional `compose.host.yaml` publishes
+`127.0.0.1:65000` by default. Set `ENERGYDECK_WEB_BIND_ADDRESS=0.0.0.0` for the
+trusted-LAN example above, and choose another free `ENERGYDECK_WEB_PUBLISHED_PORT`
+if 65000 is already occupied. The container always listens on 8080.
+`ENERGYDECK_WEB_PORT` controls the local Node launcher, not Docker publication.
+Secure cookies remain the default. No host networking is needed, but the Docker
+host must be able to reach Homey and Sonos on your LAN.
+
+## Coolify deployment
+
+Use **only `compose.yaml`** as the Compose file in Coolify. Assign your HTTPS
+domain to service `web` and target container port **8080**. The Coolify proxy
+routes domain traffic on HTTPS port **443** to this internal port; EnergyDeck
+reserves no host port on the NAS. Keep `ENERGYDECK_WEB_SECURE_COOKIE=true` and set
+`ENERGYDECK_WEB_ORIGIN` to the exact public origin (for example,
+`https://energydeck.example.com`, without `:8080`). Keep the access code and Homey
+configuration in Coolify's runtime environment.
+
+After updating the repository, save/reload Coolify's Compose definition and
+redeploy. Remove any manually configured published `8080:8080` mapping as well.
+The old mapping fails with `Bind for 0.0.0.0:8080 failed: port is already allocated`
+when another service uses that NAS port. Do not stop that unrelated service or
+change the app's internal port to work around the collision.
+
+[Coolify networking reference](https://coolify.io/docs/core/networking-in-coolify)
+explains proxy routing through Docker networks. `compose.host.yaml` is for direct
+host/LAN access and should not be selected for this deployment.
 
 ## HTTPS and outside access
 
-Prefer a private VPN or an HTTPS reverse proxy. A proxy on the Docker host can use the loopback-published port. Preserve the external Host header and configure the exact browser-facing origin, including a nonstandard port if used:
+Prefer a private VPN or an HTTPS reverse proxy. A proxy on the Docker host can use the loopback-published port by starting with
+`docker compose -f compose.yaml -f compose.host.yaml up -d --build`; the default
+upstream is `http://127.0.0.1:65000`. Preserve the external Host header and configure the exact browser-facing origin, including a nonstandard port if used:
 
 ```dotenv
 ENERGYDECK_WEB_ACCESS_CODE=your-generated-code
@@ -152,7 +181,8 @@ Run the automated checks with:
 npm test --prefix web
 ```
 
-Advanced direct execution (`node --env-file=.env web/server.mjs`) uses `ENERGYDECK_WEB_PORT` (default 8080) and `ENERGYDECK_WEB_HOST` (default `0.0.0.0`) and keeps the configured Origin and Secure-cookie settings. Compose controls publication with `ENERGYDECK_WEB_BIND_ADDRESS`.
+Advanced direct execution (`node --env-file=.env web/server.mjs`) uses `ENERGYDECK_WEB_PORT` (default 8080) and `ENERGYDECK_WEB_HOST` (default `0.0.0.0`) and keeps the configured Origin and Secure-cookie settings. Compose publishes a host port only when `compose.host.yaml` is included;
+`ENERGYDECK_WEB_BIND_ADDRESS` and `ENERGYDECK_WEB_PUBLISHED_PORT` control that binding.
 
 `ENERGYDECK_WEB_DEMO=true` provides explicitly labelled data, nine climate zones, simulated Sonos controls and fake history/weather without any upstream request. Demo still requires login and is never enabled on failure. Set a demo Flow ID to enable simulated charging. Turn demo off before normal use.
 

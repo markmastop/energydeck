@@ -133,7 +133,7 @@ function speakerMock(options = {}) {
     else if (action === 'GetTransportInfo') { result.CurrentTransportState = states.get(room.coordinator) || 'STOPPED'; result.CurrentTransportStatus = 'OK'; }
     else if (action === 'GetMediaInfo') { result.CurrentURI = options.tv ? 'x-sonos-htastream:A:spdif' : uri; result.CurrentURIMetaData = didl('Qmusic'); }
     else if (action === 'GetPositionInfo') { result.TrackMetaData = didl('Test track', options.art || '/getaa?s=1'); result.Track = track; }
-    else if (action === 'GetCurrentTransportActions') result.Actions = 'Play,Pause,Next,Previous';
+    else if (action === 'GetCurrentTransportActions') result.Actions = options.actions ?? 'Play,Pause,Next,Previous';
     else if (action === 'GetVolume') result.CurrentVolume = options.missingVolume ? '' : volumes.get(room.id);
     else if (action === 'GetMute') result.CurrentMute = muted ? 1 : 0;
     else if (action === 'SetVolume') volumes.set(room.id, Number(args.DesiredVolume));
@@ -196,6 +196,20 @@ test('volume and mute target the selected room, preserve grouping and never retr
   const scope = (await other.get('B')).scope;
   await assert.rejects(other.command({ action: 'volume', roomId: 'B', scope, delta: 2 }));
   assert.equal(failed.calls.filter(call => call.action === 'SetVolume').length, 1);
+});
+
+test('whitespace-separated Sonos actions enable Play and still reject partial skip names', async () => {
+  const mock = speakerMock({ actions: ' Set, Stop, Play , NextTrack, X_DLNA_Previous,  ' });
+  const sonos = createSonosService(sonosSettings(), mock.fetcher);
+  const data = await sonos.get('C');
+  assert.equal(data.player.state, 'STOPPED');
+  assert.deepEqual(data.player.actions, ['Set', 'Stop', 'Play', 'NextTrack', 'X_DLNA_Previous']);
+  for (const action of ['next', 'previous', 'pause']) {
+    await assert.rejects(sonos.command({ action, roomId: 'C', scope: data.scope }), error => error.code === 'actionUnavailable');
+  }
+  assert.equal(mock.calls.filter(call => writeActions.includes(call.action)).length, 0);
+  await sonos.command({ action: 'play', roomId: 'C', scope: data.scope });
+  assert.deepEqual(mock.calls.filter(call => writeActions.includes(call.action)).map(call => call.action), ['Play']);
 });
 
 test('changed group scope blocks playback and TV disables transport while preserving volume', async () => {

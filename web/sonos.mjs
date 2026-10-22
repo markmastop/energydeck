@@ -185,7 +185,9 @@ export function createSonosService(config, fetcher = fetch, clock = Date.now, pa
     const tv = value(media.CurrentURI).startsWith('x-sonos-htastream:');
     const healthy = value(transport.CurrentTransportStatus) === 'OK';
     const number = Number(value(volume.CurrentVolume));
-    const available = value(actions.Actions).split(',').filter(Boolean);
+    // Real Sonos replies use comma + space; compare complete trimmed action
+    // names just like the ESP, without accepting partial names such as NextTrack.
+    const available = value(actions.Actions).split(',').map(action => action.trim()).filter(Boolean);
     const result = { roomId: room.id, name: room.name, group: inventory.rooms.filter(r => r.coordinator === room.coordinator).map(r => r.name).join(' + '),
       scope: inventory.scope, state: transportState(transport), tv,
       title: tv ? 'TV' : (value(item.title) || value(source.title)).slice(0, 512), artist: tv ? '' : (value(item.creator) || value(item.artist)).slice(0, 256),

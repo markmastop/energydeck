@@ -160,3 +160,67 @@ dialog p { font-size: 14px; line-height: 1.6; color: var(--muted); }
   .volume-value { min-width: 25px; }
   .compact-layout { grid-template-columns: 70px 1fr; }
 }
+
+/* The same three meters and semantic colors as the ESP's shared energy header. */
+.display-header { display: grid; grid-template-columns: minmax(210px, 1fr) minmax(280px, 1.3fr); gap: 20px; margin-bottom: 18px; background: var(--bg); }
+.display-header .price-hero { grid-column: auto; background: none; min-width: 0; }
+.display-header .hero-value { margin-top: 15px; gap: 8px; }
+.display-header .hero-value > span:first-child { font-size: 62px; letter-spacing: -3px; }
+.display-header .price-hero p { font-size: 11px; margin: 8px 0; }
+.display-header .section-top { flex-wrap: wrap; }
+.sun-times { color: var(--yellow); font-size: 12px; min-height: 16px; }
+.header-meters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; align-items: start; }
+.header-meter { min-width: 0; padding: 0; background: none; border: 0; color: var(--text); display: flex; align-items: center; flex-direction: column; gap: 5px; border-radius: 10px; }
+.header-meter > span, .header-meter > small { font-size: 10px; line-height: 1.35; text-align: center; overflow-wrap: anywhere; }
+.header-meter > span:first-child { color: var(--blue); min-height: 26px; display: grid; align-items: center; }
+.header-meter:nth-child(2) > span:first-child { color: #e65a9a; }
+.header-meter:nth-child(3) > span:first-child { color: var(--green); }
+.header-meter > span:not(:first-child), .header-meter > small { color: var(--muted); }
+.meter-dial { position: relative; width: min(100%, 112px); aspect-ratio: 1; display: flex; align-items: center; justify-content: center; flex-direction: column; margin-top: -8px; }
+.meter-dial svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.meter-dial circle { fill: none; stroke-width: 7; transform: rotate(135deg); transform-origin: center; }
+.meter-track { stroke: #303a33; stroke-dasharray: 75 25; }
+.meter-arc { stroke: var(--blue); }
+.gas-meter .meter-arc { stroke: #e65a9a; }
+.source-meter .meter-arc { stroke: var(--green); }
+.meter-zero { stroke: #dde7e0; stroke-width: 2; }
+.meter-dial strong { font-size: clamp(20px, 2.8vw, 28px); font-weight: 600; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.meter-dial small { font-size: 10px; color: var(--muted); }
+.display-status-icons { grid-column: 1 / -1; display: flex; gap: 24px; border-top: 1px solid var(--border); padding-top: 10px; justify-content: flex-end; }
+.display-status-icons > * { display: flex; align-items: center; gap: 7px; font-size: 11px; color: #46534b; background: none; border: 0; padding: 0; min-height: 32px; }
+.display-status-icons svg { width: 28px; height: 28px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+#status-battery-fill { fill: currentColor; stroke: none; }
+.display-status-icons .icon-blue { color: var(--blue); }
+.display-status-icons .icon-green { color: var(--green); }
+.display-status-icons .icon-orange { color: var(--orange); }
+.tomorrow-comparison { font-size: 12px; text-transform: uppercase; color: var(--muted); line-height: 1.6; }
+.tomorrowCheaper { color: #7fe0a2; }
+.tomorrowDearer { color: var(--red); }
+#price-chart .price-bar.low-price { fill: #45bd70; }
+#price-chart .price-bar.mid-price { fill: #e8b94c; }
+#price-chart .price-bar.high-price { fill: #ea665f; }
+#price-chart .price-bar.current-bar { fill: #f7fff9; stroke: #f7fff9; stroke-width: 1; }
+.energy-live { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; margin-top: 24px; }
+.energy-live > div { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.energy-live span { font-size: 11px; }
+.energy-live strong { font-size: 24px; font-weight: 550; }
+.energy-live > div:first-child { grid-column: 1 / -1; }
+.energy-live > div:first-child strong { font-size: 38px; }
+#history-power .history-import { stroke: var(--blue); }
+#history-gas .history-import { stroke: #e65a9a; }
+.import-legend::before { background: var(--blue) !important; }
+.climate-room.heating strong, .climate-room.heating .room-demand, .programme.demand span, .heat-demand { color: var(--orange); }
+.heat-idle { color: var(--green); }
+#page-energy > section:first-of-type { grid-column: 1 / -1; }
+@media (max-width: 600px) {
+  .display-header { grid-template-columns: 1fr; padding: 18px 12px; gap: 12px; }
+  .display-header .price-hero { padding: 0 6px; }
+  .display-header .hero-value > span:first-child { font-size: 58px; }
+  .header-meters { gap: 6px; }
+  .meter-dial { width: min(100%, 100px); }
+  .meter-dial strong { font-size: 23px; }
+  .display-status-icons { justify-content: space-between; gap: 8px; }
+  .display-status-icons > * { font-size: 10px; gap: 4px; }
+  .energy-live { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 12px; }
+  .energy-live strong { font-size: 22px; }
+}

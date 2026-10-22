@@ -34,25 +34,27 @@
     </section>
     <div id="loading" class="loading" role="status" data-i18n="loading"></div>
     <div id="dashboard" hidden>
-      <div class="page-heading"><div><span id="date" class="eyebrow"></span><h1 data-i18n="yourEnergy"></h1></div><div id="connection" class="status" role="status"></div></div>
-      <div id="shared-header" class="panel shared-header" hidden>
-        <div><span data-i18n="electricityNow"></span><strong id="shared-price">—</strong><small>ct/kWh</small></div>
-        <button type="button" data-open="energy"><span data-i18n="grid"></span><strong id="shared-grid">—</strong><small>kW</small></button>
-        <div><span data-i18n="battery"></span><strong id="shared-battery">—</strong><small>%</small></div>
-        <button type="button" data-open="energy"><span data-i18n="solar"></span><strong id="shared-solar">—</strong><small>kW</small></button>
-      </div>
-      <p id="notice" class="notice" role="status" hidden></p>
-      <section id="page-overview" class="dashboard-grid">
-        <section class="price-hero panel">
+      <div class="page-heading"><div><span id="clock" class="eyebrow"></span> · <span id="date" class="eyebrow"></span><h1 data-i18n="yourEnergy"></h1></div><div id="connection" class="status" role="status"></div></div>
+      <section id="shared-header" class="panel display-header">
+        <div class="price-hero">
           <div class="section-top"><span class="eyebrow" data-i18n="electricityNow"></span><span id="price-source" class="source"></span></div>
           <div class="hero-value"><span id="price-now">—</span><span class="unit">ct/kWh</span></div>
           <p id="price-period" class="muted"></p>
-          <div class="hero-bottom"><span class="small-dot"></span><span data-i18n="allIn"></span></div>
-        </section>
-        <section class="flow-panel panel" aria-labelledby="flow-title">
-          <div class="section-top"><h2 id="flow-title" data-i18n="livePower"></h2><button class="quiet" type="button" data-open="energy" data-i18n="energyDetails"></button></div>
-          <div class="power-pair"><div class="power-item"><div class="dial solar-dial"><span class="sun-icon" aria-hidden="true">☀</span><strong id="solar-power">—</strong><small>kW</small></div><span data-i18n="solar"></span></div><div class="power-item"><div class="dial grid-dial"><span class="grid-icon" aria-hidden="true">↕</span><strong id="grid-power">—</strong><small>kW</small></div><span id="grid-direction"></span></div></div>
-        </section>
+          <div id="header-sun-times" class="sun-times"></div>
+        </div>
+        <div class="header-meters">
+          <button type="button" class="header-meter" data-open="energy"><span id="header-grid-title"></span><div id="header-grid-dial" class="meter-dial"><svg viewBox="0 0 100 100" aria-hidden="true"><circle class="meter-track" cx="50" cy="50" r="42" pathLength="100"/><circle class="meter-arc" cx="50" cy="50" r="42" pathLength="100"/><path class="meter-zero" d="M50 5v8"/></svg><strong id="shared-grid">—</strong><small>kW</small></div><span id="header-grid-sub"></span><small data-i18n="netToday"></small></button>
+          <button type="button" class="header-meter" data-open="energy"><span id="header-gas-title"></span><div id="header-gas-dial" class="meter-dial gas-meter"><svg viewBox="0 0 100 100" aria-hidden="true"><circle class="meter-track" cx="50" cy="50" r="42" pathLength="100"/><circle class="meter-arc" cx="50" cy="50" r="42" pathLength="100"/></svg><strong id="header-gas-value">—</strong><small id="header-gas-unit">m³</small></div><span id="header-gas-sub"></span><small id="header-gas-extra"></small></button>
+          <button type="button" class="header-meter" data-open="energy"><span id="header-source-title"></span><div id="header-source-dial" class="meter-dial source-meter"><svg viewBox="0 0 100 100" aria-hidden="true"><circle class="meter-track" cx="50" cy="50" r="42" pathLength="100"/><circle class="meter-arc" cx="50" cy="50" r="42" pathLength="100"/><path class="meter-zero" d="M50 5v8"/></svg><strong id="header-source-value">—</strong><small id="header-source-unit"></small></div><span id="header-source-sub"></span><small id="header-source-extra"></small></button>
+        </div>
+        <div class="display-status-icons">
+          <button type="button" id="status-heat" data-open="climate" data-i18n-aria="climate"><svg viewBox="0 0 28 28" aria-hidden="true"><path d="M8 23c-7-7 8-9 1-18m5 18c-7-7 8-9 1-18m5 18c-7-7 8-9 1-18"/></svg><span id="status-heat-text"></span></button>
+          <span id="status-car"><svg viewBox="0 0 32 28" aria-hidden="true"><path d="M5 14 9 6h14l4 8v10h-5v-4H10v4H5Zm0 0h22M10 17h1m10 0h1"/></svg><span id="status-car-text"></span></span>
+          <span id="status-battery"><svg viewBox="0 0 32 28" aria-hidden="true"><path d="M3 6h23v16H3Zm23 5h3v6h-3"/><rect id="status-battery-fill" x="6" y="9" width="0" height="10"/></svg><span id="status-battery-text"></span></span>
+        </div>
+      </section>
+      <p id="notice" class="notice" role="status" hidden></p>
+      <section id="page-overview" class="dashboard-grid">
         <section class="chart-panel panel" aria-labelledby="prices-title">
           <div class="section-top"><h2 id="prices-title" data-i18n="prices"></h2><div class="segmented" role="group" data-i18n-aria="priceDay"><button id="today" type="button" aria-pressed="true" data-i18n="today"></button><button id="tomorrow" type="button" aria-pressed="false" data-i18n="tomorrow"></button></div></div>
           <div class="chart-info"><span id="chart-date" class="muted"></span><span class="chart-unit">ct/kWh</span></div>
@@ -60,21 +62,23 @@
           <p id="chart-empty" class="empty" hidden data-i18n="noPrices"></p>
           <p id="chart-warning" class="chart-warning" hidden></p>
           <div class="chart-summary"><div><span data-i18n="minimum"></span><strong id="price-min">—</strong></div><div><span data-i18n="average"></span><strong id="price-avg">—</strong></div><div><span data-i18n="maximum"></span><strong id="price-max">—</strong></div></div>
+          <p id="tomorrow-comparison" class="tomorrow-comparison" hidden></p>
           <div class="cheapest"><span class="spark" aria-hidden="true">✦</span><div><span data-i18n="cheapest"></span><strong id="cheapest-period">—</strong></div></div>
         </section>
-        <section class="totals" data-i18n-aria="today"><div class="panel stat"><span class="stat-icon" aria-hidden="true">↯</span><span data-i18n="electricityToday"></span><strong id="electricity-day">—</strong><small>kWh</small></div><div class="panel stat"><span class="stat-icon yellow" aria-hidden="true">☀</span><span data-i18n="solarToday"></span><strong id="solar-day">—</strong><small>kWh</small></div><div class="panel stat"><span class="stat-icon blue" aria-hidden="true">♨</span><span data-i18n="gasToday"></span><strong id="gas-day">—</strong><small>m³</small></div></section>
+        <section class="totals" data-i18n-aria="today"><div class="panel stat"><span class="stat-icon" aria-hidden="true">↯</span><span data-i18n="electricityToday"></span><strong id="electricity-day">—</strong><small>kWh · <span data-i18n="toggleTotals"></span></small></div><div class="panel stat"><span class="stat-icon yellow" aria-hidden="true">☀</span><span data-i18n="solarToday"></span><strong id="solar-day">—</strong><small>kWh · <span data-i18n="toggleTotals"></span></small></div><div class="panel stat"><span class="stat-icon blue" aria-hidden="true">♨</span><span data-i18n="gasToday"></span><strong id="gas-day">—</strong><small>m³</small></div></section>
         <section class="battery-panel panel" aria-labelledby="battery-title"><div class="section-top"><h2 id="battery-title" data-i18n="battery"></h2><span class="source">Sessy</span></div><div class="battery-heading"><strong id="battery-level">—</strong><span id="battery-status" class="muted"></span></div><progress id="battery-progress" max="100" value="0" data-i18n-aria="battery"></progress><div class="card-foot"><span data-i18n="batteryPower"></span><strong id="battery-power">—</strong></div></section>
         <section class="charger-panel panel" aria-labelledby="charger-title"><div class="section-top"><h2 id="charger-title" data-i18n="charger"></h2><span class="source">EV</span></div><div class="charger-body"><span class="ev-icon" aria-hidden="true">↯</span><div><strong id="charger-status">—</strong><p id="charger-power" class="muted"></p></div></div><div class="card-foot"><button id="charge-button" class="action-button" type="button" data-i18n="startCharge" disabled></button><span id="charge-message" role="status"></span></div></section>
         <section class="climate-panel panel" aria-label="Home">
           <div id="home-card-tabs" class="segmented card-tabs" role="group" data-i18n-aria="homeCards"><button type="button" data-card="gas" data-i18n="gas"></button><button type="button" data-card="sonos">Sonos</button><button type="button" data-card="climate" data-i18n="climate"></button></div>
           <div id="card-gas" hidden><div class="section-top"><h2 data-i18n="gas"></h2><button class="quiet" type="button" data-open="energy" data-i18n="energyDetails"></button></div><div id="gas-summary" class="gas-summary"></div></div>
           <div id="card-sonos" hidden><div class="section-top"><h2>Sonos</h2><button class="quiet" type="button" data-open="sonos" data-i18n="openPlayer"></button></div><div id="compact-player"></div></div>
-          <div id="card-climate"><div class="section-top"><h2 id="climate-title" data-i18n="climate"></h2><button class="quiet" type="button" data-open="climate" data-i18n="allRooms"></button></div><div id="rooms" class="rooms"></div></div>
+          <div id="card-climate"><div class="section-top"><h2 id="climate-title" data-i18n="climate"></h2><button class="quiet" type="button" data-open="climate" data-i18n="allRooms"></button></div><div id="rooms" class="rooms"></div><p id="compact-climate-status" class="fine-print"></p></div>
         </section>
         <section class="weather-panel panel"><div class="section-top"><h2 data-i18n="weather"></h2><span id="sun-times" class="muted"></span></div><div id="weather-overview"></div></section>
       </section>
       <section id="page-energy" class="detail-page" hidden>
         <div class="section-top page-title"><h2 data-i18n="energyDetails"></h2><button id="history-refresh" class="quiet" type="button" data-i18n="refresh"></button></div>
+        <section class="panel"><div class="section-top"><h2 data-i18n="livePower"></h2></div><div id="energy-live" class="energy-live"></div><p class="fine-print muted" data-i18n="houseNote"></p></section>
         <section class="panel"><div class="section-top"><h2 data-i18n="electricityGraph"></h2><span class="source">Homey Insights · kW</span></div><p id="history-power-status" class="muted"></p><svg id="history-power" viewBox="0 0 720 200" role="img" data-i18n-aria="electricityGraph"></svg><div class="graph-legend"><span class="import-legend" data-i18n="import"></span><span class="export-legend" data-i18n="export"></span></div></section>
         <section class="panel"><div class="section-top"><h2 data-i18n="gasGraph"></h2><span class="source">Homey Insights · m³/h</span></div><p id="history-gas-status" class="muted"></p><svg id="history-gas" viewBox="0 0 720 200" role="img" data-i18n-aria="gasGraph"></svg></section>
         <section class="panel"><div class="section-top"><h2 data-i18n="energyTotals"></h2><button id="totals-toggle" class="quiet" type="button" data-i18n="toggleTotals"></button></div><div id="energy-totals"></div><p class="muted fine-print" data-i18n="historyNote"></p></section>
@@ -84,7 +88,7 @@
         <section class="panel"><div class="segmented" role="group" data-i18n-aria="sonosViews"><button id="favorites-tab" type="button" data-i18n="favorites" aria-pressed="true"></button><button id="rooms-tab" type="button" data-i18n="rooms" aria-pressed="false"></button></div><div id="favorites-grid" class="favorites-grid"></div><div id="sonos-rooms" hidden></div></section>
       </section>
       <section id="page-climate" class="detail-page" hidden>
-        <section class="panel"><div class="section-top"><h2 data-i18n="climate"></h2><span class="source">Evohome</span></div><div id="climate-programme" class="programme"></div><p class="fine-print muted" data-i18n="demandNote"></p><div id="climate-rooms" class="climate-rooms"></div></section>
+        <section class="panel"><div class="section-top"><h2 data-i18n="thermostatProgramme"></h2><span class="source">Evohome</span></div><div id="climate-programme" class="programme"></div><p class="fine-print muted" data-i18n="demandNote"></p><div id="climate-rooms" class="climate-rooms"></div><p class="fine-print muted" data-i18n="climateControlNote"></p></section>
         <section class="panel"><div class="section-top"><h2 data-i18n="weather"></h2><span id="climate-sun-times" class="muted"></span></div><div id="weather-climate"></div></section>
       </section>
       <nav id="page-nav" class="page-nav" data-i18n-aria="navigation"><button type="button" data-open="overview" aria-current="page"><span aria-hidden="true">⌂</span><span data-i18n="overview"></span></button><button type="button" data-open="energy"><span aria-hidden="true">ϟ</span><span data-i18n="energy"></span></button><button type="button" data-open="sonos"><span aria-hidden="true">♫</span><span>Sonos</span></button><button type="button" data-open="climate"><span aria-hidden="true">♨</span><span data-i18n="climate"></span></button></nav>

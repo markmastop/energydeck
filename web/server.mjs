@@ -23,6 +23,9 @@ const staticFiles = new Map([
   ['/details.js', ['details.js', 'text/javascript; charset=utf-8']],
   ['/details.css', ['details.css', 'text/css; charset=utf-8']],
   ['/charts.js', ['charts.js', 'text/javascript; charset=utf-8']],
+  ['/display.js', ['display.js', 'text/javascript; charset=utf-8']],
+  ['/fonts/Montserrat-Medium.ttf', ['fonts/Montserrat-Medium.ttf', 'font/ttf']],
+  ['/fonts/OFL.txt', ['fonts/OFL.txt', 'text/plain; charset=utf-8']],
   ['/sw.js', ['sw.js', 'text/javascript; charset=utf-8']],
 ]);
 

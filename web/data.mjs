@@ -86,21 +86,29 @@ const metric = (device, name) => {
 const ranged = (value, low, high) => value !== null && value >= low && value <= high ? value : null;
 const bool = (device, name) => typeof cap(device, name) === 'boolean' ? cap(device, name) : null;
 
+export function chargerState(device) {
+  const power = metric(device, 'measure_power'), reported = bool(device, 'is_charging');
+  const status = cap(device, 'status');
+  return { power, connected: bool(device, 'is_connected'), fault: bool(device, 'alarm_device'),
+    // Match the ESP: >50 W proves charging even when the charger flag lags behind.
+    charging: reported === null || power === null ? null : reported || power > 50,
+    complete: typeof status === 'string' && /finished|complete/.test(status) };
+}
+
 export function normalize(devices, rooms, bridge, config, now = new Date()) {
   const [grid, electricity, solar, solarDay, battery, charger, gas] =
     ['grid', 'electricity', 'solar', 'solarDay', 'battery', 'charger', 'gas'].map(key => devices[key]);
   return {
     grid: { power: metric(grid, 'measure_power'), today: metric(electricity, 'meter_kwh_this_day'),
-      month: metric(electricity, 'meter_kwh_this_month'), year: metric(electricity, 'meter_kwh_this_year'), peak: metric(electricity, 'measure_watt_max') },
+      yesterday: metric(electricity, 'meter_kwh_last_day'), month: metric(electricity, 'meter_kwh_this_month'), year: metric(electricity, 'meter_kwh_this_year'), peak: metric(electricity, 'measure_watt_max') },
     solar: { power: metric(solar, 'measure_power'), today: metric(solarDay, 'meter_kwh_this_day'),
-      month: metric(solarDay, 'meter_kwh_this_month'), year: metric(solarDay, 'meter_kwh_this_year'), peak: metric(solarDay, 'measure_watt_max') },
+      yesterday: metric(solarDay, 'meter_kwh_last_day'), month: metric(solarDay, 'meter_kwh_this_month'), year: metric(solarDay, 'meter_kwh_this_year'), peak: metric(solarDay, 'measure_watt_max') },
     battery: {
       percentage: ranged(metric(battery, 'measure_battery'), 0, 100),
       // Sessy uses negative watts for charging and positive watts for discharge.
       power: metric(battery, 'measure_power.battery') ?? metric(battery, 'measure_power'),
     },
-    charger: { power: metric(charger, 'measure_power'), connected: bool(charger, 'is_connected'),
-      charging: bool(charger, 'is_charging'), fault: bool(charger, 'alarm_device'), canStart: !!config.chargeFlow && config.chargeFlow !== 'none' },
+    charger: { ...chargerState(charger), canStart: !!config.chargeFlow && config.chargeFlow !== 'none' },
     gas: { today: metric(gas, 'meter_m3_this_day'), rate: metric(grid, 'measure_gas'),
       yesterday: metric(gas, 'meter_m3_last_day'), month: metric(gas, 'meter_m3_this_month'), year: metric(gas, 'meter_m3_this_year') },
     climate: climateState(devices.controller, rooms),

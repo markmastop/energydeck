@@ -192,3 +192,8 @@ This installs the existing shared functionality and requires no web source
 change or restart. No control commands were issued. Serial boot, physical touch
 navigation and on-device chart loading were not observed in this wireless-only
 rollout.
+
+Post-update checks confirmed the 7-inch OTA endpoint remained reachable
+immediately and at 35 and 70 seconds after the upload, including beyond the
+normal one-minute boot-success window. This verifies network recovery and
+continued OTA access; it does not substitute for a serial boot log.

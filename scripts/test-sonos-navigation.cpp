@@ -13,6 +13,8 @@ static int detail_tab, detail_page_open;
 static energydeck::HomeCards home_cards;
 static energydeck::EnergyState energy_state;
 static uint32_t millis() { return 100; }
+static uint32_t idle_ms;
+static uint32_t lv_display_get_inactive_time(const void *) { return idle_ms; }
 struct SelectTab { void execute() {} } select_detail_tab;
 struct UpdateHome {
   void execute() {
@@ -42,6 +44,7 @@ static void reset() {
   sonos = energydeck_sonos::State{};
   music_page_open = music_busy = music_favorite_pending = music_control_pending = false;
   music_selection_loading = music_room_refresh_pending = false;
+  idle_ms = 0;
   detail_tab = 0; detail_page_open = 0; home_cards = {}; energy_state = {};
   close_music_page.calls = 0;
   playback(false);
@@ -65,6 +68,15 @@ int main() {
   playback(false); navigate(); assert(!music_page_open && detail_tab == 2);
   energy_state.heating_enabled.set(0, 100);
   update_home_card.execute(); assert(detail_tab == 0);
+  detail_tab = 2; idle_ms = 299999;
+  update_home_card.execute(); assert(detail_tab == 2);
+  idle_ms = 300000;
+  update_home_card.execute(); assert(detail_tab == 0);
+  idle_ms = 0; detail_tab = 1;
+  update_home_card.execute(); assert(detail_tab == 1);
+  detail_page_open = 1; idle_ms = 300000;
+  update_home_card.execute(); assert(detail_tab == 1); // Never close details for idle time.
+
   start_detail();
   playback(false);
   navigate();

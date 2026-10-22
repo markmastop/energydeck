@@ -50,13 +50,13 @@ export function createHomeCards() {
   let previous = null, music = false;
   return {
     reset() { previous = null; music = false; },
-    update(current, playing, stopped, heating) {
+    update(current, playing, stopped, heating, idleMs = 0) {
       if (playing) music = true;
       else if (stopped) music = false;
       const preferred = music ? 'sonos' : heating ? 'climate' : 'gas';
       const changed = previous !== preferred;
       previous = preferred;
-      return changed ? preferred : current;
+      return changed || idleMs >= 300000 ? preferred : current;
     },
   };
 }

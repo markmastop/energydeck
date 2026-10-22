@@ -34,7 +34,7 @@ there is no fallback to the retired `HOMEY_CLIMATE_SENSOR_*` sources.
 
 The automatic main card is Sonos during playback, Climate during Evohome heat
 demand when Sonos is stopped, and Gas otherwise. Manual card selections remain
-until that priority changes. Unknown playback does not prove a stop.
+until that priority changes or five minutes pass without input. Unknown playback does not prove a stop.
 Explicitly opening Sonos still opens the full player, and Back returns to the
 compact Sonos card. Returning from Climate selects the nine-room preview again.
 Existing charging and playback controls retain their explicitly clicked behavior.

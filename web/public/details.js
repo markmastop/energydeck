@@ -36,7 +36,13 @@ export function initializeDetails({ api, t, format, time, svgNode, onUnauthorize
     if (dashboard) { render(); update(); onRefresh(); }
   }
   document.querySelectorAll('[data-open]').forEach(element => element.addEventListener('click', () => navigate(element.dataset.open)));
-  document.querySelectorAll('[data-card]').forEach(element => element.addEventListener('click', () => { card = element.dataset.card; renderCards(); if (card === 'sonos') { sonosVersion++; loadSonos(true); } }));
+  document.querySelectorAll('[data-card]').forEach(element => element.addEventListener('click', () => {
+    const next = element.dataset.card;
+    // Match the ESP: choose a different compact card first; repeat the tap for details.
+    if (card === next) { navigate(next === 'gas' ? 'energy' : next); return; }
+    card = next; renderCards();
+    if (card === 'sonos') { sonosVersion++; loadSonos(true); }
+  }));
   function renderCards() {
     for (const name of ['gas', 'sonos', 'climate']) $(`card-${name}`).hidden = name !== card;
     document.querySelectorAll('[data-card]').forEach(element => element.setAttribute('aria-pressed', String(element.dataset.card === card)));

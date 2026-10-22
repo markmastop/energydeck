@@ -2163,9 +2163,19 @@ lvgl:
             border_width: 1
             text_color: 0xEEF6F0
             text_font: montserrat_12
-            text: "${energy_page_title}"
+            text: "${gas_tab_title}"
             on_click:
-              - script.execute: open_energy_page
+              # First tap selects the compact card; tapping it again opens details.
+              - if:
+                  condition:
+                    lambda: return id(detail_tab) == 0;
+                  then:
+                    - script.execute: open_energy_page
+                  else:
+                    - globals.set:
+                        id: detail_tab
+                        value: '0'
+                    - script.execute: select_detail_tab
         - button:
             id: music_tab
             pad_all: 0
@@ -2181,7 +2191,17 @@ lvgl:
             text_font: montserrat_12
             text: "${music_tab_title}"
             on_click:
-              - script.execute: open_music_page
+              # First tap selects the compact card; tapping it again opens details.
+              - if:
+                  condition:
+                    lambda: return id(detail_tab) == 1;
+                  then:
+                    - script.execute: open_music_page
+                  else:
+                    - globals.set:
+                        id: detail_tab
+                        value: '1'
+                    - script.execute: select_detail_tab
         - button:
             id: extra_tab
             pad_all: 0
@@ -2197,7 +2217,17 @@ lvgl:
             text_font: montserrat_12
             text: "${climate_page_title}"
             on_click:
-              - script.execute: open_climate_page
+              # First tap selects the compact card; tapping it again opens details.
+              - if:
+                  condition:
+                    lambda: return id(detail_tab) == 2;
+                  then:
+                    - script.execute: open_climate_page
+                  else:
+                    - globals.set:
+                        id: detail_tab
+                        value: '2'
+                    - script.execute: select_detail_tab
 
         - obj:
             id: shared_weather_card

@@ -239,7 +239,7 @@ Once flashed, the display can be updated wirelessly over Wi-Fi without connectin
 | :--- | :--- |
 | **Tap Price Graph Header** | Switch between *Today* and *Tomorrow* price forecasts |
 | **Tap Energy / Solar Ring** | Toggle between daily energy use and year-to-date totals |
-| **Tap Bottom Card Tabs** | Switch between *Gasverbruik* (Gas), *Sonos*, and *Klimaat* (Climate) |
+| **Tap Gas / Sonos / Climate** | Select that card on the dashboard; tap the already visible card's button again to open its detail page (Gas opens Energy). The PWA card buttons behave the same way. |
 | **Tap Compact Sonos Card** | Open full-screen Sonos player with artwork and favorite stations |
 | **Sonos Player Back Button** | Return to the main dashboard |
 | **Touch Display during Night** | Wake screen to full daytime brightness for 30 seconds |

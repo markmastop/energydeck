@@ -197,3 +197,14 @@ Post-update checks confirmed the 7-inch OTA endpoint remained reachable
 immediately and at 35 and 70 seconds after the upload, including beyond the
 normal one-minute boot-success window. This verifies network recovery and
 continued OTA access; it does not substitute for a serial boot log.
+
+## Automatic overview card priority
+
+Both ESP and web default to Gas. Confirmed playback in any Sonos room takes
+priority, otherwise inferred Evohome heat demand selects Climate, otherwise Gas.
+An enabled/idle thermostat alone does not select Climate. Unknown Sonos activity
+preserves the previous playback state until a complete stop is known. Automatic
+selection updates only the compact overview, never opens details or sends device
+commands. Manual selection persists until the preferred automatic card changes.
+After a confirmed stop closes the full player, the overview chooses Climate or
+Gas from the current demand. In-flight commands and room selection defer switching.

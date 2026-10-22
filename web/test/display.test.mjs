@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createDisplayState, powerArc, dayComparison } from '../public/display.js';
+import { createDisplayState, powerArc, dayComparison, createHomeCards } from '../public/display.js';
 import { chargerState, normalize, configuration } from '../data.mjs';
 import { createExtrasService } from '../extras.mjs';
 
@@ -101,4 +101,18 @@ test('yesterday totals use actual summary capabilities and retain gaps when abse
   const result = normalize({ electricity: device({ meter_kwh_last_day: -2.5 }), solarDay: device({ meter_kwh_last_day: 12 }) }, [], null, config);
   assert.equal(result.grid.yesterday, -2.5); assert.equal(result.solar.yesterday, 12);
   assert.equal(normalize({}, [], null, config).grid.yesterday, null);
+});
+
+
+test('home cards prioritize Sonos, then Evohome demand, then Gas and retain manual choices between transitions', () => {
+  const policy = createHomeCards();
+  assert.equal(policy.update('climate', false, true, false), 'gas');
+  assert.equal(policy.update('gas', false, true, true), 'climate');
+  assert.equal(policy.update('climate', true, false, true), 'sonos');
+  assert.equal(policy.update('gas', true, false, true), 'gas'); // Manual choice remains usable.
+  assert.equal(policy.update('sonos', false, false, false), 'sonos'); // Unknown is not stopped.
+  assert.equal(policy.update('sonos', false, true, true), 'climate');
+  assert.equal(policy.update('climate', false, true, false), 'gas');
+  policy.reset();
+  assert.equal(policy.update('sonos', false, true, true), 'climate');
 });

@@ -1,4 +1,6 @@
 globals:
+  - id: home_cards
+    type: energydeck::HomeCards
   - id: energy_state
     type: energydeck::EnergyState
     initial_value: 'energydeck::EnergyState{}'
@@ -17,8 +19,18 @@ interval:
     then:
       - script.execute: render_energy_header
       - script.execute: render_detail_pages
+      - script.execute: update_home_card
 
 script:
+  - id: update_home_card
+    then:
+      - lambda: |-
+          if (id(music_page_open) || id(detail_page_open) != 0 || id(music_busy) ||
+              id(music_favorite_pending) || id(music_control_pending) ||
+              id(music_selection_loading) || id(music_room_refresh_pending)) return;
+          const int next = id(home_cards).update(id(detail_tab), id(sonos).any_playing(),
+            id(sonos).all_stopped(), id(energy_state).climate_status(millis()) == energydeck::EnergyState::HEAT_DEMAND);
+          if (next != id(detail_tab)) { id(detail_tab) = next; id(select_detail_tab).execute(); }
   - id: open_energy_page
     then:
       - lambda: |-

@@ -215,3 +215,18 @@ restart the timer; polling and mouse hover do not. The current automatic priorit
 is restored within the next one-second UI tick. Detail pages remain open and
 commands/room selection still defer automatic switching. No additional network
 requests are needed for the timeout.
+
+## 5-inch automatic-card rollout (2026-10-22)
+
+The connected USB device matched the verified 5-inch MAC `[device MAC redacted]`.
+Sources from `aa1a7de` were built with `energydeck-crowpanel.yaml` and uploaded
+with flash hash verification. This installs the Sonos → Climate-demand → Gas
+priority and the five-minute input-inactivity return. The matching web source
+was already included in that revision; this hardware-only rollout requires no
+additional web source change.
+
+Serial boot confirmed build `2026-10-22 20:44:23 +0200`, hostname `energydeck` and
+`Controller Automatisch: 9/9 zones valid, demand state 2`. The prior simulator,
+59 web tests and simulated timeout/navigation checks cover the feature logic;
+physical touch and a full five-minute wait were not manually exercised here. No
+playback, charging or thermostat commands were issued.

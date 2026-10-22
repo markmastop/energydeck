@@ -160,3 +160,7 @@ and defaults the main card to all nine rooms. Labels and Flow tags are excluded
 from Climate. Simulator and 5-inch builds and state/source/navigation/LVGL checks
 passed. The uploaded `2026-10-21 20:51:24 +0200` build reported all 9/9 Evohome zones
 valid on the physical device. See `CLIMATE.md` for the visual/navigation check scope.
+
+## Dashboard card buttons
+
+Gas, Sonos and Climate use the same two-step navigation on the ESP and PWA: tapping a different card button shows its compact content on the dashboard; tapping the already selected button opens details. Gas opens Energy, Sonos opens the full player, and Climate opens its thermostat/zones page. Navigation itself does not send device commands.

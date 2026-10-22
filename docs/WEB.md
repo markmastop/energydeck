@@ -77,6 +77,8 @@ Add the PWA to your phone's home screen using its browser menu. Installation sup
 
 ## Control behavior
 
+The dashboard Gas / Sonos / Climate buttons first select their compact card when another card is visible. Tapping the button for the already visible card opens its detail page: Gas opens Energy, Sonos opens the player and Climate opens the thermostat/zones page. This matches the ESP display. Dedicated navigation and Open player / All rooms links still open details directly.
+
 Opening pages, selecting rooms or tabs, editing a group draft and polling do not change devices. The compact player follows a currently playing room; an explicit room selection on the full player remains selected. Music starting selects the compact Sonos card; confirmed stopping returns that card to Gas. The full player also returns to Gas after previously playing music stops in all known rooms, while opening an already idle player leaves it open. Unknown/transitioning room states never prove playback has stopped. Manual Gas/Climate selection remains until a new playback start.
 
 Sonos reads and commands share one serialized worker queue; waiting controls skip queued background reads. Every command captures the displayed room and topology scope. Fresh discovery must still match before a write; external regrouping cancels stale commands/drafts. The browser sends identifiers and typed actions, never speaker URLs, arbitrary SOAP or raw favorite resources.

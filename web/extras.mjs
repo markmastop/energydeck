@@ -1,5 +1,5 @@
 import { AppError, boundedFetch, singleFlight } from './net.mjs';
-import { localDay } from './data.mjs';
+import { localDay, chargerState } from './data.mjs';
 
 const finite = value => typeof value === 'number' && Number.isFinite(value) ? value : null;
 const enabled = id => !!id && id !== 'none';
@@ -137,7 +137,9 @@ export function createExtrasService(config, fetcher = fetch, clock = () => new D
         if (!config.demo) {
           const device = await homey(`devices/device/${encodeURIComponent(config.devices.charger)}`);
           const caps = device?.capabilitiesObj;
-          if (device.available === false || caps?.is_connected?.value !== true || caps?.alarm_device?.value !== false || typeof caps?.is_charging?.value !== 'boolean' || caps.is_charging.value === body.target)
+          // Recheck the same effective charging state shown by the ESP and web UI.
+          const state = chargerState(device);
+          if (device.available === false || caps?.is_connected?.value !== true || caps?.alarm_device?.value !== false || typeof state.charging !== 'boolean' || state.charging === body.target)
             throw new AppError('chargerNotReady', 409);
         }
         // Reserve before the write. A missing response never authorizes a duplicate trigger.

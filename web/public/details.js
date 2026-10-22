@@ -1,8 +1,10 @@
 import { lineSegments } from './charts.js';
+import { createDisplayState, powerArc } from './display.js';
 
 // Detail views share the dashboard session and never send device commands while rendering.
 export function initializeDetails({ api, t, format, time, svgNode, onUnauthorized, onRefresh }) {
   const $ = id => document.getElementById(id);
+  const display = createDisplayState();
   const node = (tag, className, text) => { const element = document.createElement(tag); if (className) element.className = className; if (text !== undefined) element.textContent = text; return element; };
   const text = (id, value) => { $(id).textContent = value; };
   const button = (label, fn, className = 'quiet', disabled = false) => {
@@ -30,7 +32,6 @@ export function initializeDetails({ api, t, format, time, svgNode, onUnauthorize
     document.querySelectorAll('#page-nav [data-open]').forEach(element => {
       if (element.dataset.open === page) element.setAttribute('aria-current', 'page'); else element.removeAttribute('aria-current');
     });
-    $('shared-header').hidden = page === 'overview';
     if (scroll) window.scrollTo({ top: 0, behavior: 'instant' });
     if (dashboard) { render(); update(); onRefresh(); }
   }
@@ -91,7 +92,47 @@ export function initializeDetails({ api, t, format, time, svgNode, onUnauthorize
   }
   function render() {
     document.querySelector('.page-heading h1').textContent = page === 'overview' ? t('yourEnergy') : page === 'sonos' ? 'Sonos' : t(page === 'energy' ? 'energy' : 'climate');
-    renderCards(); renderTotals(); renderClimate(); renderWeather(); renderHistory(); renderSonos(); renderCharge();
+    renderHeader(); renderCards(); renderTotals(); renderClimate(); renderWeather(); renderHistory(); renderSonos(); renderCharge();
+  }
+  function renderHeader() {
+    if (!dashboard) return;
+    text('clock', time(Date.now()));
+    const { grid, gas, solar, battery, climate, charger } = dashboard;
+    const state = display.update(dashboard);
+    text('header-grid-title', t(state.gridPending || state.gridMode < 0 ? 'grid' : state.gridMode === 1 ? 'export' : 'import'));
+    text('shared-grid', grid.power === null ? '—' : format(Math.abs(grid.power) / 1000));
+    text('header-grid-sub', `${format(grid.today)} kWh`);
+    const liveGas = state.gasMode === 1 && gas.rate !== null;
+    text('header-gas-title', t(liveGas ? 'gasNow' : 'gasToday'));
+    text('header-gas-value', format(liveGas ? gas.rate : gas.today, 2));
+    text('header-gas-unit', liveGas ? 'm³/h' : 'm³');
+    text('header-gas-sub', `${format(liveGas ? gas.today : gas.yesterday, 2)} m³`);
+    text('header-gas-extra', t(liveGas ? 'today' : 'yesterday'));
+    const storage = state.source === 1;
+    text('header-source-title', t(storage ? 'battery' : 'solar'));
+    text('header-source-value', state.source < 0 ? '—' : format(storage ? battery.percentage : solar.power / 1000, storage ? 0 : 1));
+    text('header-source-unit', storage ? '%' : 'kW');
+    text('header-source-sub', storage ? `${t('solarShort')} ${format(solar.power === null ? null : solar.power / 1000)} kW` : `${t('batteryShort')} ${format(battery.percentage, 0)}%`);
+    text('header-source-extra', `${battery.power === null ? '' : battery.power < -25 ? '↓ ' : battery.power > 25 ? '↑ ' : ''}${format(battery.power === null ? null : Math.abs(battery.power), 0)} W`);
+    const arc = (id, value, directional) => {
+      const meter = $(id), amount = Math.abs(value) * (directional ? .375 : .75);
+      meter.querySelector('.meter-arc').setAttribute('stroke-dasharray', `${amount} ${100 - amount}`);
+      meter.querySelector('.meter-arc').setAttribute('stroke-dashoffset', directional ? value < 0 ? amount - 37.5 : -37.5 : 0);
+      const zero = meter.querySelector('.meter-zero'); if (zero) zero.style.visibility = directional ? 'visible' : 'hidden';
+    };
+    arc('header-grid-dial', powerArc(grid.power), true);
+    arc('header-gas-dial', Math.max(0, Math.min(100, (liveGas ? gas.rate : gas.today) * (liveGas ? 33.3 : 10))), false);
+    arc('header-source-dial', powerArc(state.source < 0 ? null : storage ? battery.power : solar.power), storage);
+    for (const [name, label] of [['heat', t(`heat${climate?.demand || 'unknown'}`)], ['car', t(charger.connected === false ? 'disconnected' : charger.connected !== true ? 'unavailable' : charger.charging ? 'charging' : 'connected')], ['battery', `${format(battery.percentage, 0)}%`]]) {
+      $(`status-${name}`).className = `icon-${state[name]}`;
+      text(`status-${name}-text`, label);
+    }
+    $('status-battery-fill').setAttribute('width', 17 * Math.max(0, Math.min(100, battery.percentage ?? 0)) / 100);
+    const live = $('energy-live'); live.replaceChildren();
+    const sum = [grid.power, solar.power, battery.power].every(value => typeof value === 'number' && Number.isFinite(value)) ? grid.power + solar.power + battery.power : null;
+    for (const [key, value] of [['houseDemand', sum !== null && sum >= 0 ? sum : null], ['grid', grid.power], ['solar', solar.power], ['battery', battery.power], ['charger', charger.power]]) {
+      const cell = node('div'); cell.append(node('span', 'muted', t(key)), node('strong', '', `${format(value === null ? null : value / 1000)} kW`)); live.append(cell);
+    }
   }
   function renderTotals() {
     if (!dashboard) return;
@@ -118,6 +159,8 @@ export function initializeDetails({ api, t, format, time, svgNode, onUnauthorize
   function renderClimate() {
     if (!dashboard) return;
     const climate = dashboard.climate || { demand: 'unknown', mode: null };
+    text('compact-climate-status', t(`heat${climate.demand}`));
+    $('compact-climate-status').className = `fine-print heat-${climate.demand}`;
     const programme = $('climate-programme'); programme.className = `programme ${climate.demand}`;
     programme.replaceChildren(node('strong', '', climate.mode ? t(`mode${climate.mode}`) : t('unavailable')), node('span', '', t(`heat${climate.demand}`)));
     $('climate-rooms').replaceChildren();
@@ -125,7 +168,7 @@ export function initializeDetails({ api, t, format, time, svgNode, onUnauthorize
       const demanding = climate.demand !== 'off' && climate.mode && entry.temperature !== null && entry.target !== null && entry.target - entry.temperature > .05;
       const item = node('div', `climate-room${demanding ? ' heating' : ''}`);
       item.append(node('h3', '', entry.name), node('strong', '', `${format(entry.temperature)} °C`),
-        node('small', 'muted', `${t('target')} ${format(entry.target)} °C`), node('span', 'room-demand', t(demanding ? 'heatdemand' : climate.demand === 'off' ? 'heatoff' : !climate.mode || entry.temperature === null || entry.target === null ? 'heatunknown' : 'heatidle')));
+        node('small', 'muted', `${t('target')} ${format(entry.target)} °C`), node('span', 'room-demand', t(demanding ? 'heatdemand' : climate.demand === 'off' ? 'heatoff' : !climate.mode || entry.temperature === null || entry.target === null ? 'heatunknown' : 'roomAtTarget')));
       $('climate-rooms').append(item);
     }
     if (!dashboard.rooms.length) $('climate-rooms').append(node('p', 'empty', t('noRooms')));
@@ -134,7 +177,7 @@ export function initializeDetails({ api, t, format, time, svgNode, onUnauthorize
     const fresh = weather && Date.now() - Date.parse(weather.updatedAt) < 900000 && dateKey(weather.updatedAt) === dateKey(Date.now());
     const data = fresh ? weather : null;
     const sun = data ? `↑ ${data.sunrise ? time(data.sunrise) : '—'}  ↓ ${data.sunset ? time(data.sunset) : '—'}` : '';
-    text('sun-times', sun); text('climate-sun-times', sun);
+    text('sun-times', sun); text('climate-sun-times', sun); text('header-sun-times', sun);
     for (const id of ['weather-overview', 'weather-climate']) {
       const container = $(id); container.replaceChildren();
       const summary = node('div', 'weather-summary');
@@ -146,16 +189,17 @@ export function initializeDetails({ api, t, format, time, svgNode, onUnauthorize
       const firstRain = points.findIndex(point => point.value >= .1);
       const label = !points.length ? t('rainUnknown') : firstRain < 0 ? t('rainDry') : firstRain === 0 ? t('rainNow') : `${t('rainAt')} ${time(points[firstRain].time)}`;
       container.append(node('p', 'rain-heading', label));
-      const chartWidth = Math.max(280, container.clientWidth || 720), step = (chartWidth - 20) / 24;
+      const chartWidth = Math.max(280, container.clientWidth || 720), step = (chartWidth - 58) / 24;
       const svg = svgNode('svg', { viewBox: `0 0 ${chartWidth} 95`, role: 'img', 'aria-label': t('rainForecast'), class: 'rain-chart' });
+      for (const [key, y] of [['rainHeavy', 13], ['rainModerate', 31], ['rainLight', 49]]) svg.append(svgNode('text', { x: 0, y, class: 'rain-scale' }, t(key)));
       points.forEach((point, i) => {
         const level = point.value < 2.5 ? point.value / 2.5 : point.value < 7.5 ? 1 + (point.value - 2.5) / 5 : 2 + Math.min(1, (point.value - 7.5) / 12.5);
         const height = point.value < .1 ? 2 : Math.max(3, level * 18);
-        const rect = svgNode('rect', { x: 10 + i * step, y: 60 - height, width: Math.max(2, step - 3), height, rx: 3, class: point.value < .1 ? 'dry-bar' : 'rain-bar' });
+        const rect = svgNode('rect', { x: 48 + i * step, y: 60 - height, width: Math.max(2, step - 3), height, rx: 3, class: point.value < .1 ? 'dry-bar' : 'rain-bar' });
         rect.append(svgNode('title', {}, `${time(point.time)} · ${format(point.value, 2)} mm/h`)); svg.append(rect);
       });
       if (points.length) {
-        svg.append(svgNode('text', { x: 10, y: 84 }, time(points[0].time)), svgNode('text', { x: chartWidth - 10, y: 84, 'text-anchor': 'end' }, time(points.at(-1).time + 300000)));
+        svg.append(svgNode('text', { x: 48, y: 84 }, time(points[0].time)), svgNode('text', { x: chartWidth - 10, y: 84, 'text-anchor': 'end' }, time(points.at(-1).time + 300000)));
       }
       container.append(svg);
       const sources = node('p', 'weather-sources');
@@ -328,12 +372,11 @@ export function initializeDetails({ api, t, format, time, svgNode, onUnauthorize
   for (const next of ['favorites', 'rooms']) $(`${next}-tab`).addEventListener('click', () => { view = next; renderSonos(); if (next === 'favorites') { sonosVersion++; loadSonos(true); } });
   $('sonos-room-heading').addEventListener('click', () => { view = 'rooms'; renderSonos(); });
   const poll = () => { if (!document.hidden) update(); };
+  setInterval(() => { if (dashboard && !document.hidden) renderHeader(); }, 1000);
   setInterval(poll, 10000); document.addEventListener('visibilitychange', poll);
   return {
     dashboard(next) {
       dashboard = next;
-      text('shared-price', $('price-now').textContent); text('shared-grid', next.grid.power === null ? '—' : format(Math.abs(next.grid.power) / 1000, 1));
-      text('shared-battery', format(next.battery.percentage, 0)); text('shared-solar', next.solar.power === null ? '—' : format(next.solar.power / 1000, 1));
       if (next.status === 'offline') { generation++; weather = null; history = null; sonos = null; weatherAt = historyAt = sonosAt = 0; sonosError = t('offline'); }
       render(); update();
     },
@@ -342,6 +385,7 @@ export function initializeDetails({ api, t, format, time, svgNode, onUnauthorize
       weatherAt = historyAt = sonosAt = 0; draft = null; room = ''; message = ''; chargeMessage = ''; chargeUntil = 0;
       wasPlaying = false;
       explicitRoom = false;
+      display.reset();
       chargeTarget = null;
       $('charge-dialog').close(); navigate('overview', false);
       for (const id of ['full-player', 'compact-player', 'sonos-rooms', 'favorites-grid', 'climate-rooms', 'weather-overview', 'weather-climate']) $(id).replaceChildren();

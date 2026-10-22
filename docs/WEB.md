@@ -89,6 +89,24 @@ Charging requires explicit confirmation, rechecks readiness and reserves a three
 
 ## Data and freshness
 
+### ESP display parity
+
+The ESP display is the reference for household features, values and interaction semantics. The web app uses the same Montserrat Medium font source as LVGL (bundled locally under `web/public/fonts`, with its SIL Open Font License), dark palette and semantic colors. Its responsive layout adapts the fixed 480×800 display to phones and larger screens. Browser login, HTTPS and touch navigation are web-specific.
+
+| Display behavior | Web implementation |
+| --- | --- |
+| Shared current price, sunrise/sunset, net/gas/source meters and heating/car/battery status on every page | One shared header above Overview, Energy, Sonos and Climate; the same data feeds all views. |
+| Net direction with a 50 W deadband and 10-second mode hold | Same thresholds; the label becomes neutral while a direction change is pending. |
+| Gas rate above 0.005 m³/h, otherwise today's total with yesterday underneath | Same stable mode selection, units and secondary values. |
+| Solar/battery priority and signed power arcs | Battery takes priority when discharging above 50 W or solar is at/below 50 W; 10-second hold, immediate missing-source removal, ±5 kW per arc half. Negative export/battery charging fills left from the top marker. |
+| Green/amber/red price quarters and white current-quarter marker | Same price bands and rolling 12:00–12:00 window, day buttons, source warnings and cheapest three hours. Tomorrow's comparison uses complete all-in day averages with a 0.05 ct threshold. |
+| Day/year totals, battery state and charging Flow toggle | Day/year totals remain tappable; completed/waiting/disconnected/fault states match the charger. Both presentation and command readiness treat a charging flag or power above 50 W as charging; missing telemetry stays unknown. Web commands retain explicit confirmation. |
+| Gas/Sonos/Climate cards and full Sonos controls | Favorites, physical-room volume, transport, grouping drafts and playback-driven return to Gas follow the display behavior. |
+| Nine Evohome zones and thermostat programme | Measured/target temperatures, orange inferred heat demand, green idle status and all six programme modes; control remains through Homey. |
+| Weather, rain and energy history | Current/tomorrow/three-hour weather, sunrise/sunset, rain intensity labels and five-minute history gaps; blue import, green export and pink gas history. |
+
+Parity regression tests live in `web/test/display.test.mjs`; the matching ESP reference checks are `scripts/test-energy-state.cpp` and `scripts/test-energy-gauges.py`. Keep these rules synchronized when changing either implementation. Missing yesterday electricity/solar capabilities remain empty; totals are never synthesized from incomplete history.
+
 Homey live data shares a 15-second single-flight cache across phones, with at most three concurrent device reads. Sonos status/discovery shares a 10-second cache, rotates bounded all-room activity reads and never overlaps commands with reads. Weather has a five-minute cache. History is requested on the Energy page and cached four minutes, independently of live polling. Hidden browser tabs stop polling and refresh on return. Failed reads remove affected data; no live/demo fallback invents readings.
 
 Net grid power is negative for export. Sessy battery power is negative while charging and positive while discharging. Gas rate is already m³/hour. History power is converted from W to kW. Calendar boundaries use Europe/Amsterdam and include 23/25-hour DST days; five-minute gaps remain gaps and line colors split exactly at zero. Future samples and stale tails older than 15 minutes are rejected. Daily summary values are whatever the configured Homey summary devices provide.

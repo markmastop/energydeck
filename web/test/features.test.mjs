@@ -71,7 +71,7 @@ test('charge requires confirmation and readiness; a network ambiguity never trig
   const service = createExtrasService(config({ HOMEY_CHARGE_FLOW_ID: 'flow', HOMEY_CHARGER_DEVICE_ID: 'charger' }), async (url, options) => {
     calls.push({ url, options });
     if (options.method === 'POST') throw new Error('response lost');
-    return Response.json(device({ is_connected: true, is_charging: false, alarm_device: false }));
+    return Response.json(device({ measure_power: 0, is_connected: true, is_charging: false, alarm_device: false }));
   }, () => now);
   await assert.rejects(service.charge({}), error => error.code === 'confirmationRequired');
   await assert.rejects(service.charge({ confirm: true, target: true }));
@@ -84,7 +84,7 @@ test('charge regular Flow fallback happens only after a definitive advanced-Flow
   const calls = [];
   const service = createExtrasService(config({ HOMEY_CHARGE_FLOW_ID: 'flow', HOMEY_CHARGER_DEVICE_ID: 'charger' }), async (url, options) => {
     calls.push(url);
-    if (!options.method) return Response.json(device({ is_connected: true, is_charging: false, alarm_device: false }));
+    if (!options.method) return Response.json(device({ measure_power: 0, is_connected: true, is_charging: false, alarm_device: false }));
     return url.includes('advancedflow') ? new Response('{}', { status: 404 }) : Response.json({ ok: true });
   }, () => now);
   assert.equal((await service.charge({ confirm: true, target: true })).ok, true);
@@ -103,7 +103,7 @@ test('the same Flow can stop after a verified start while stale target commands 
   let charging = false, writes = 0;
   const service = createExtrasService(config({ HOMEY_CHARGE_FLOW_ID: 'flow', HOMEY_CHARGER_DEVICE_ID: 'charger' }), async (_, options) => {
     if (options.method === 'POST') { writes++; charging = !charging; return Response.json({ ok: true }); }
-    return Response.json(device({ is_connected: true, is_charging: charging, alarm_device: false }));
+    return Response.json(device({ measure_power: 0, is_connected: true, is_charging: charging, alarm_device: false }));
   }, () => now);
   await assert.rejects(service.charge({ confirm: true, target: false }), error => error.code === 'chargerNotReady');
   assert.equal(writes, 0);

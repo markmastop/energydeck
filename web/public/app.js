@@ -1,5 +1,6 @@
 import { initializeDetails } from './details.js';
 import { priceWindow } from './charts.js';
+import { dayComparison } from './display.js';
 
 const $ = id => document.getElementById(id);
 const translations = await fetch('/translations.json').then(response => response.json());
@@ -100,9 +101,6 @@ function render() {
   text('price-now', format(today?.values[quarter]));
   text('price-period', today ? `${quarterTime(quarter)} – ${quarterTime(quarter + 1)} · ${t('currentQuarter')}` : t('unavailable'));
   text('price-source', priceSource(today));
-  text('solar-power', format(data.solar.power === null ? null : data.solar.power / 1000, 2));
-  text('grid-power', format(data.grid.power === null ? null : Math.abs(data.grid.power) / 1000, 2));
-  text('grid-direction', data.grid.power === null ? t('grid') : t(data.grid.power < 0 ? 'export' : 'import'));
   text('electricity-day', format(data.grid.today));
   text('solar-day', format(data.solar.today));
   text('gas-day', format(data.gas.today, 2));
@@ -110,9 +108,11 @@ function render() {
   $('battery-progress').value = data.battery.percentage ?? 0;
   text('battery-power', data.battery.power === null ? '—' : `${format(Math.abs(data.battery.power), 0)} W`);
   text('battery-status', t(data.battery.power === null ? 'unavailable' : data.battery.power < -25 ? 'charging' : data.battery.power > 25 ? 'discharging' : 'standby'));
-  text('charger-status', t(data.charger.fault === true ? 'fault' : data.charger.charging === true ? 'charging' :
-    data.charger.connected === true ? 'connected' : data.charger.connected === false ? 'disconnected' : 'unavailable'));
-  text('charger-power', data.charger.power === null ? '—' : `${format(data.charger.power / 1000, 2)} kW`);
+  const charger = data.charger;
+  const chargeState = charger.connected === false ? 'disconnected' : charger.fault === true ? 'fault' :
+    charger.connected !== true || charger.charging === null || charger.fault !== false ? 'unavailable' : charger.charging ? 'charging' : charger.complete ? 'chargeComplete' : 'connected';
+  text('charger-status', t(chargeState));
+  text('charger-power', chargeState === 'charging' ? `${format(charger.power / 1000, 1)} kW` : t(chargeState === 'connected' ? 'chargeWaiting' : chargeState === 'chargeComplete' ? 'vehicleReady' : chargeState === 'disconnected' ? 'connectVehicle' : chargeState === 'fault' ? 'checkCharger' : 'retryShortly'));
   $('rooms').replaceChildren();
   if (!data.rooms.length) {
     const p = document.createElement('p'); p.className = 'empty'; p.textContent = t(data.status === 'offline' ? 'unavailable' : 'noRooms'); $('rooms').append(p);
@@ -144,6 +144,10 @@ function drawChart(today, quarter) {
   const tomorrowDate = new Date(`${localDate(new Date())}T12:00:00Z`);
   tomorrowDate.setUTCDate(tomorrowDate.getUTCDate() + 1);
   const tomorrow = data.prices.tomorrow?.date === tomorrowDate.toISOString().slice(0, 10) ? data.prices.tomorrow : null;
+  const comparison = dayComparison(today, tomorrow);
+  $('tomorrow-comparison').hidden = !comparison;
+  $('tomorrow-comparison').className = `tomorrow-comparison ${comparison?.label || ''}`;
+  text('tomorrow-comparison', comparison ? `${t(comparison.label)}${comparison.label === 'tomorrowEqual' ? '' : ` · ${comparison.difference > 0 ? '+' : '−'}${format(Math.abs(comparison.difference))} ct ${t('average').toLowerCase()}`}` : '');
   const day = selected === 'today' ? today : tomorrow;
   $('chart-empty').hidden = !!day;
   // SVG elements do not implement HTMLElement.hidden; set the attribute for our CSS rule.
@@ -171,7 +175,7 @@ function drawChart(today, quarter) {
   window.values.forEach((value, i) => {
     const height = Math.max(1, Math.abs(y(value) - y(0)));
     const rect = svgNode('rect', { x: left + i * step, y: value >= 0 ? y(value) : y(0), width: Math.max(1, step - .8), height, rx: 1,
-      class: `price-bar ${value < 0 ? 'negative-bar' : ''} ${i >= window.cheapest && i < window.cheapest + 12 ? 'cheap-bar' : ''} ${selected === 'today' && i + window.offset === quarter ? 'current-bar' : ''}` });
+      class: `price-bar ${value <= window.minimum + (window.maximum - window.minimum) * .33 ? 'low-price' : value >= window.minimum + Math.max(.001, window.maximum - window.minimum) * .66 ? 'high-price' : 'mid-price'} ${i >= window.cheapest && i < window.cheapest + 12 ? 'cheap-bar' : ''} ${selected === 'today' && i + window.offset === quarter ? 'current-bar' : ''}` });
     rect.append(svgNode('title', {}, `${windowTime(i + window.offset)} · ${format(value)} ct/kWh`)); chart.append(rect);
   });
   [0, 6, 12, 18, 24].forEach(hour => chart.append(svgNode('text', {

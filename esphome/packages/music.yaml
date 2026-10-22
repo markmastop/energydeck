@@ -34,7 +34,7 @@ globals:
     type: energydeck_sonos::Favorite
   - id: detail_tab
     type: int
-    initial_value: "2"
+    initial_value: "0"
   - id: music_page_open
     type: bool
     initial_value: "false"
@@ -382,10 +382,14 @@ script:
           if (id(music_busy) || id(music_favorite_pending) || id(music_control_pending) ||
               id(music_selection_loading) || id(music_room_refresh_pending)) return;
           // All-room activity must be available before consuming playback edges.
-          // Close first: Back selects Sonos, then the stop edge selects home/Gas.
-          if (id(music_page_open) && id(sonos).playback_stopped()) id(close_music_page).execute();
-          // A deliberately selected climate overview must not be replaced by playback polling.
-          if (id(detail_tab) != 2) id(detail_tab) = id(sonos).follow_compact_tab(id(detail_tab));
+          // Close first, then select the home card from current heat demand.
+          if (id(music_page_open) && id(sonos).playback_stopped()) {
+            id(close_music_page).execute();
+            id(home_cards) = energydeck::HomeCards{};
+          }
+          // Consume playback edges for detail-page return, then apply home priority.
+          id(sonos).follow_compact_tab(id(detail_tab));
+          id(update_home_card).execute();
       - script.execute: select_detail_tab
 
   - id: refresh_music_room_activity

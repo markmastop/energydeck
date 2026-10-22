@@ -27,6 +27,11 @@ try {
     .map(line => line.slice(10)).join('\n');
   const navigationSource = fs.readFileSync(path.join(__dirname, 'test-sonos-navigation.cpp'), 'utf8')
     .replace('../esphome/components/sonos_local/sonos_local.h', path.join(__dirname, '../esphome/components/sonos_local/sonos_local.h'))
+    .replace('../esphome/components/ui_performance/home_cards.h', path.join(__dirname, '../esphome/components/ui_performance/home_cards.h'))
+    .replace('../esphome/components/ui_performance/energy_state.h', path.join(__dirname, '../esphome/components/ui_performance/energy_state.h'))
+    .replace('// PRODUCTION_HOME_CARDS', fs.readFileSync(path.join(__dirname, '../esphome/packages/energy-details.yaml'), 'utf8')
+      .split('  - id: update_home_card\n')[1].split('  - id: open_energy_page')[0]
+      .split('      - lambda: |-\n')[1].split('\n').map(line => line.slice(10)).join('\n'))
     .replace('// PRODUCTION_NAVIGATION', navigation);
   const navigationPath = path.join(temp, 'navigation.cpp');
   fs.writeFileSync(navigationPath, navigationSource);

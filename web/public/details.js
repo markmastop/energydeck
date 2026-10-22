@@ -1,16 +1,17 @@
 import { lineSegments } from './charts.js';
-import { createDisplayState, powerArc } from './display.js';
+import { createDisplayState, powerArc, createHomeCards } from './display.js';
 
 // Detail views share the dashboard session and never send device commands while rendering.
 export function initializeDetails({ api, t, format, time, svgNode, onUnauthorized, onRefresh }) {
   const $ = id => document.getElementById(id);
   const display = createDisplayState();
+  const homeCards = createHomeCards();
   const node = (tag, className, text) => { const element = document.createElement(tag); if (className) element.className = className; if (text !== undefined) element.textContent = text; return element; };
   const text = (id, value) => { $(id).textContent = value; };
   const button = (label, fn, className = 'quiet', disabled = false) => {
     const element = node('button', className, label); element.type = 'button'; element.disabled = disabled; element.addEventListener('click', fn); return element;
   };
-  let page = 'overview', card = 'climate', view = 'favorites', dashboard = null, weather = null, history = null, sonos = null;
+  let page = 'overview', card = 'gas', view = 'favorites', dashboard = null, weather = null, history = null, sonos = null;
   let room = '', sonosError = '', message = '', commandBusy = false, generation = 0, sonosVersion = 0, explicitRoom = false;
   let weatherAt = 0, historyAt = 0, sonosAt = 0, weatherPending = false, historyPending = false, sonosPending = false;
   let draft = null, yearTotals = false, chargeUntil = 0, chargeMessage = '', chargeBusy = false, wasPlaying = false, chargeTarget = null;
@@ -43,6 +44,13 @@ export function initializeDetails({ api, t, format, time, svgNode, onUnauthorize
     card = next; renderCards();
     if (card === 'sonos') { sonosVersion++; loadSonos(true); }
   }));
+  function updateHomeCard() {
+    if (page !== 'overview' || commandBusy || sonos?.busy) return;
+    const rooms = sonos?.rooms || [];
+    const playing = rooms.some(room => room.state === 'PLAYING');
+    const stopped = rooms.length > 0 && rooms.every(room => ['STOPPED', 'PAUSED_PLAYBACK', 'NO_MEDIA_PRESENT'].includes(room.state));
+    card = homeCards.update(card, playing, stopped, dashboard?.climate?.demand === 'demand');
+  }
   function renderCards() {
     for (const name of ['gas', 'sonos', 'climate']) $(`card-${name}`).hidden = name !== card;
     document.querySelectorAll('[data-card]').forEach(element => element.setAttribute('aria-pressed', String(element.dataset.card === card)));
@@ -75,11 +83,10 @@ export function initializeDetails({ api, t, format, time, svgNode, onUnauthorize
       room = result.player.roomId;
       const playing = result.rooms.some(room => room.state === 'PLAYING');
       const stopped = result.rooms.length && result.rooms.every(room => ['STOPPED', 'PAUSED_PLAYBACK', 'NO_MEDIA_PRESENT'].includes(room.state));
-      if (page === 'overview' && playing && !wasPlaying) card = 'sonos';
-      if (page === 'overview' && stopped && wasPlaying && card === 'sonos') card = 'gas';
-      const returnToGas = page === 'sonos' && stopped && wasPlaying && !commandBusy && !draft;
+      updateHomeCard();
+      const returnHome = page === 'sonos' && stopped && wasPlaying && !commandBusy && !draft;
       if (playing || stopped) wasPlaying = playing;
-      if (returnToGas) { card = 'gas'; navigate('overview'); }
+      if (returnHome) { homeCards.reset(); navigate('overview'); }
       renderCards();
       renderSonos();
     } catch (error) {
@@ -98,6 +105,7 @@ export function initializeDetails({ api, t, format, time, svgNode, onUnauthorize
   }
   function render() {
     document.querySelector('.page-heading h1').textContent = page === 'overview' ? t('yourEnergy') : page === 'sonos' ? 'Sonos' : t(page === 'energy' ? 'energy' : 'climate');
+    updateHomeCard();
     renderHeader(); renderCards(); renderTotals(); renderClimate(); renderWeather(); renderHistory(); renderSonos(); renderCharge();
   }
   function renderHeader() {
@@ -392,7 +400,7 @@ export function initializeDetails({ api, t, format, time, svgNode, onUnauthorize
       weatherAt = historyAt = sonosAt = 0; draft = null; room = ''; message = ''; chargeMessage = ''; chargeUntil = 0;
       wasPlaying = false;
       explicitRoom = false;
-      display.reset();
+      display.reset(); homeCards.reset(); card = 'gas';
       chargeTarget = null;
       $('charge-dialog').close(); navigate('overview', false);
       for (const id of ['full-player', 'compact-player', 'sonos-rooms', 'favorites-grid', 'climate-rooms', 'weather-overview', 'weather-climate']) $(id).replaceChildren();

@@ -7,6 +7,7 @@
 #include "esphome/components/lvgl/lvgl_esphome.h"
 #include "portrait_rotation.h"
 #include "energy_state.h"
+#include "home_cards.h"
 #include "energy_gauges.h"
 #include "energy_history.h"
 #include "energy_history_chart.h"

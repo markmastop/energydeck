@@ -1,4 +1,5 @@
 #include "../esphome/components/ui_performance/energy_state.h"
+#include "../esphome/components/ui_performance/home_cards.h"
 #include <cassert>
 #include <iostream>
 #include <limits>
@@ -84,5 +85,13 @@ int main() {
   icons.battery.set(150, 100); assert(icons.battery_fill_percent(100) == 100);
   assert(icons.battery_fill_percent(45101) == 0 && icons.battery_icon_color(45101) == EnergyState::ICON_DIM);
   icons.battery.set(NAN, 100); assert(icons.battery_fill_percent(100) == 0);
+  HomeCards cards;
+  assert(cards.update(2, false, true, false) == 0);
+  assert(cards.update(0, false, true, true) == 2);
+  assert(cards.update(2, true, false, true) == 1);
+  assert(cards.update(0, true, false, true) == 0); // Manual override during playback.
+  assert(cards.update(1, false, false, false) == 1); // Unknown replies preserve playback.
+  assert(cards.update(1, false, true, true) == 2);
+  assert(cards.update(2, false, true, false) == 0);
   std::cout << "PASS: energy direction, debounce, stale/missing values, day rollover, units, battery balance and icon colors/fill\n";
 }

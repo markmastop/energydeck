@@ -14,7 +14,7 @@ Every zone provides measured `measure_temperature` and `target_temperature`, in 
 
 ## Nine rooms on both views
 
-The main dashboard opens with a compact 3-by-3 Evohome preview. Every cell shows
+The Climate card contains a compact 3-by-3 Evohome preview. Every cell shows
 its room name and **measured / target** temperature. The Climate detail page shows
 all nine rooms in a 3-by-3 grid with measured temperature, setpoint and inferred
 room demand, below the controller programme summary. No scrolling is needed.
@@ -32,7 +32,9 @@ Badkamer, Badkamer vl and Bijkeuken. Configure the nine zone device IDs with
 The controller uses `HOMEY_THERMOSTAT_DEVICE_ID`. Unconfigured slots are hidden;
 there is no fallback to the retired `HOMEY_CLIMATE_SENSOR_*` sources.
 
-The selected main Climate card stays visible when Sonos playback starts or stops.
+The automatic main card is Sonos during playback, Climate during Evohome heat
+demand when Sonos is stopped, and Gas otherwise. Manual card selections remain
+until that priority changes. Unknown playback does not prove a stop.
 Explicitly opening Sonos still opens the full player, and Back returns to the
 compact Sonos card. Returning from Climate selects the nine-room preview again.
 Existing charging and playback controls retain their explicitly clicked behavior.

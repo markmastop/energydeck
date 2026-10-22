@@ -1540,7 +1540,7 @@ lvgl:
 
         - obj:
             id: gas_card
-            hidden: true
+            hidden: false
             x: 14
             y: 576
             width: 294
@@ -1860,6 +1860,7 @@ lvgl:
 
         - obj:
             id: extra_card
+            hidden: true
             x: 14
             y: 576
             width: 294

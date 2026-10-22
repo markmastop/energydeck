@@ -44,3 +44,19 @@ export function dayComparison(today, tomorrow) {
   if (!Number.isFinite(difference)) return null;
   return { difference, label: difference < -.05 ? 'tomorrowCheaper' : difference > .05 ? 'tomorrowDearer' : 'tomorrowEqual' };
 }
+
+// Same transition policy as the ESP HomeCards helper (0=Gas, 1=Sonos, 2=Climate).
+export function createHomeCards() {
+  let previous = null, music = false;
+  return {
+    reset() { previous = null; music = false; },
+    update(current, playing, stopped, heating) {
+      if (playing) music = true;
+      else if (stopped) music = false;
+      const preferred = music ? 'sonos' : heating ? 'climate' : 'gas';
+      const changed = previous !== preferred;
+      previous = preferred;
+      return changed ? preferred : current;
+    },
+  };
+}

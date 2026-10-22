@@ -2,10 +2,9 @@ services:
   web:
     build: ./web
     restart: unless-stopped
-    # Coolify/reverse proxies reach this internal port over the Docker network.
-    # Publish a host port only by adding compose.host.yaml explicitly.
-    expose:
-      - "8080"
+    # Publish NAS port 65000; the app and container healthcheck keep port 8080.
+    ports:
+      - "${ENERGYDECK_WEB_BIND_ADDRESS:-0.0.0.0}:${ENERGYDECK_WEB_PUBLISHED_PORT:-65000}:8080"
     environment:
       ENERGYDECK_WEB_ACCESS_CODE: ${ENERGYDECK_WEB_ACCESS_CODE:?Set a random access code of at least 32 characters in .env}
       ENERGYDECK_WEB_SECURE_COOKIE: ${ENERGYDECK_WEB_SECURE_COOKIE:-true}

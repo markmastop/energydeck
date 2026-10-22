@@ -164,3 +164,17 @@ valid on the physical device. See `CLIMATE.md` for the visual/navigation check s
 ## Dashboard card buttons
 
 Gas, Sonos and Climate use the same two-step navigation on the ESP and PWA: tapping a different card button shows its compact content on the dashboard; tapping the already selected button opens details. Gas opens Energy, Sonos opens the full player, and Climate opens its thermostat/zones page. Navigation itself does not send device commands.
+
+## 5-inch firmware refresh (2026-10-22)
+
+The connected serial device matched the verified 5-inch MAC `b8:f8:62:7f:06:c8`.
+The current `5caaef2` sources were built with `energydeck-crowpanel.yaml` and
+uploaded over USB with flash hash verification. The card-navigation check passed
+for all nine select/open branches. Serial boot confirmed build
+`2026-10-22 08:24:19 +0200`, hostname `energydeck`, and all nine Evohome zones
+valid (`Controller Automatisch: 9/9 zones valid, demand state 1`).
+
+This rollout installs existing shared functionality; it changes no ESP or web
+behavior. The web app already has the corresponding card-navigation behavior
+and needs no source change or restart for this hardware-only update. Physical
+touch navigation was not manually tested. No control commands were issued.

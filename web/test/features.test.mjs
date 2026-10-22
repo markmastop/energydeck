@@ -7,7 +7,7 @@ import { priceWindow, lineSegments } from '../public/charts.js';
 import { createApp } from '../server.mjs';
 
 const now = new Date('2026-10-21T10:00:00Z');
-const config = values => configuration({ ENERGYDECK_WEB_ACCESS_CODE: 'test-only-access-code-0123456789abcdef', HOMEY_ADDRESS: 'http://192.168.1.100', HOMEY_TOKEN: 'test-only-homey-token', ...values });
+const config = values => configuration({ ENERGYDECK_WEB_ACCESS_CODE: '012345', HOMEY_ADDRESS: 'http://192.168.1.100', HOMEY_TOKEN: 'test-only-homey-token', ...values });
 const device = (values, driverId) => ({ driverId, capabilitiesObj: Object.fromEntries(Object.entries(values).map(([key, value]) => [key, { value }])) });
 const room = (temperature, target) => ({ device: device({ measure_temperature: temperature, target_temperature: target }, 'homey:app:com.honeywell:zone') });
 

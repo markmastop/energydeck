@@ -22,16 +22,16 @@ The phone layout scrolls and adapts to width instead of fixing every widget at t
 
 1. Install Docker Engine with Docker Compose on your NAS or home server and clone this repository.
 2. Copy `.env.example` to `.env` if needed. Reuse the display's `HOMEY_ADDRESS`, `HOMEY_TOKEN`, device IDs, `HOMEY_PRICES_VARIABLE_ID`, Evohome controller/zone IDs, location and Sonos bootstrap addresses. Follow the main README for Homey discovery and the price bridge.
-3. Generate a unique random access code:
+3. Generate a random six-digit PIN:
 
    ```sh
-   openssl rand -hex 32
+   node -e "console.log(require('node:crypto').randomInt(1000000).toString().padStart(6, '0'))"
    ```
 
 4. Put it in `.env` with your network settings:
 
    ```dotenv
-   ENERGYDECK_WEB_ACCESS_CODE=replace-with-the-generated-code
+   ENERGYDECK_WEB_ACCESS_CODE=replace-with-the-generated-six-digit-PIN
    ENERGYDECK_WEB_BIND_ADDRESS=0.0.0.0
    ENERGYDECK_WEB_PUBLISHED_PORT=65000
    ENERGYDECK_WEB_SECURE_COOKIE=false
@@ -45,7 +45,7 @@ The phone layout scrolls and adapts to width instead of fixing every widget at t
    docker compose up -d --build
    ```
 
-6. Open `http://YOUR-SERVER-IP:65000` and enter the access code. Never append it to the URL. Your phone stays signed in for seven days unless you sign out or recreate/restart the container.
+6. Open `http://YOUR-SERVER-IP:65000` and enter the six-digit PIN. Never append it to the URL. Your phone stays signed in for seven days unless you sign out or recreate/restart the container.
 
 Pull updates and run `docker compose up -d --build` again. This also applies `.env` changes; `docker compose restart` alone does not apply changed environment variables. `docker compose down` stops the app.
 
@@ -85,7 +85,7 @@ Prefer a private VPN or an HTTPS reverse proxy. A proxy on the Docker host can u
 upstream is `http://127.0.0.1:65000`. Preserve the external Host header and configure the exact browser-facing origin, including a nonstandard port if used:
 
 ```dotenv
-ENERGYDECK_WEB_ACCESS_CODE=your-generated-code
+ENERGYDECK_WEB_ACCESS_CODE=your-six-digit-PIN
 ENERGYDECK_WEB_BIND_ADDRESS=127.0.0.1
 ENERGYDECK_WEB_SECURE_COOKIE=true
 ENERGYDECK_WEB_ORIGIN=https://energydeck.example.com
@@ -158,9 +158,14 @@ Defaults: 9.161 ct tax before VAT, 21% VAT and 2 ct supplier fee including VAT. 
 
 ## Security
 
-A random code of at least 32 characters is required; use the 64-hex-character generator above. Keep it in `.env` or deployment secrets. It is submitted by same-origin JSON POST, never used as a URL credential. The session is a new random 256-bit token; only its SHA-256 digest is held in memory. Cookies are HttpOnly and SameSite=Strict, with Secure and the `__Host-` prefix by default. JavaScript cannot read them and authentication is never put in localStorage.
+`ENERGYDECK_WEB_ACCESS_CODE` keeps its existing name but now requires exactly six
+digits. Replace any old long value in `.env` or Coolify runtime variables and
+restart/redeploy; long codes are rejected. This is a web-login change; ESP screens
+have no equivalent login. The PIN is never embedded in the public app shell.
 
-Sign-out revokes that session. Expiry is seven days; restart/recreation revokes all sessions. Rotate the code and recreate the container to revoke household access. Login limits are 10/minute per socket address and 60 globally; forwarded addresses cannot bypass them. Controls are limited to 60/minute per session, plus serialized Sonos and charging duplicate guards. At most 256 sessions and 1,024 login-limit entries exist in memory. Proxied phones share a socket limit. Do not scale to multiple replicas without shared session/rate-limit state.
+A PIN of exactly six ASCII digits is required; use the cryptographic generator above. Leading zeroes are preserved. Keep it in `.env` or deployment secrets. It is submitted by same-origin JSON POST, never used as a URL credential. The session is a new random 256-bit token; only its SHA-256 digest is held in memory. Cookies are HttpOnly and SameSite=Strict, with Secure and the `__Host-` prefix by default. JavaScript cannot read them and authentication is never put in localStorage.
+
+Sign-out revokes that session. Expiry is seven days; restart/recreation revokes all sessions. Rotate the code and recreate the container to revoke household access. Login limits are 5/minute per socket address and 20 globally; forwarded addresses cannot bypass them. Controls are limited to 60/minute per session, plus serialized Sonos and charging duplicate guards. At most 256 sessions and 1,024 login-limit entries exist in memory. Proxied phones share a socket limit. Do not scale to multiple replicas without shared session/rate-limit state.
 
 All controls require an authenticated cookie, JSON body and matching Origin. No CORS access is enabled. CSP, no-store, no-referrer and frame blocking limit browser exposure. Static files are explicitly allowed; `.env`, source modules and Homey tokens are not served. Private API responses contain normalized data, not raw Homey devices or favorite metadata. APIs and artwork remain outside the service-worker cache.
 
@@ -177,7 +182,7 @@ Use Node.js 22 or newer. From the repository root:
 # Equivalent: ./web/run.sh
 ```
 
-The launcher reads the repository `.env` and installs the pinned npm dependencies on first use or after a lock-file change. Configure `ENERGYDECK_WEB_ACCESS_CODE` and your device settings as described above. It works from any working directory. Open the printed URL (normally `http://127.0.0.1:8080`), enter your access code and stop with Ctrl+C. Override the port with `ENERGYDECK_WEB_PORT=8081 ./run.sh web`. Running `./run.sh` without `web` still starts the display simulator.
+The launcher reads the repository `.env` and installs the pinned npm dependencies on first use or after a lock-file change. Configure `ENERGYDECK_WEB_ACCESS_CODE` and your device settings as described above. It works from any working directory. Open the printed URL (normally `http://127.0.0.1:8080`), enter your six-digit PIN and stop with Ctrl+C. Override the port with `ENERGYDECK_WEB_PORT=8081 ./run.sh web`. Running `./run.sh` without `web` still starts the display simulator.
 
 Local mode always binds to `127.0.0.1` and uses HTTP cookies and the matching local Origin, overriding deployment host, HTTPS Origin and Secure-cookie settings in memory. Your `.env` remains unchanged. This launcher is for the computer running it; use the HTTPS Docker/reverse-proxy setup for access from your phone and PWA installation.
 

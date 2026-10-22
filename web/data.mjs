@@ -6,8 +6,8 @@ export function configuration(env = process.env) {
     return value;
   };
   const accessCode = env.ENERGYDECK_WEB_ACCESS_CODE || '';
-  if (accessCode.length < 32 || accessCode.length > 512) {
-    throw new Error('ENERGYDECK_WEB_ACCESS_CODE must contain 32–512 characters');
+  if (accessCode.length !== 6 || !/^[0-9]{6}$/.test(accessCode)) {
+    throw new Error('ENERGYDECK_WEB_ACCESS_CODE must contain exactly 6 digits');
   }
   const address = (env.HOMEY_ADDRESS || '').trim().replace(/\/$/, '');
   if (address) {

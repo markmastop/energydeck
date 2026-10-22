@@ -55,15 +55,15 @@ The charging state below is simulated; no real charging Flow was triggered.
 
 ### Run locally
 
-Install **Node.js 22 or newer**, configure the repository `.env` with your Homey/Sonos settings and a random access code of at least 32 characters, then run:
+Install **Node.js 22 or newer**, configure the repository `.env` with your Homey/Sonos settings and a random six-digit PIN, then run:
 
 ```sh
-# Generate a code and save it as ENERGYDECK_WEB_ACCESS_CODE in .env.
-openssl rand -hex 32
+# Generate a six-digit PIN and save it as ENERGYDECK_WEB_ACCESS_CODE in .env.
+node -e "console.log(require('node:crypto').randomInt(1000000).toString().padStart(6, '0'))"
 ./run.sh web
 ```
 
-Open the printed URL, normally `http://127.0.0.1:8080`, and enter your access code. The launcher installs pinned dependencies when needed and handles local HTTP settings without changing `.env`. Stop with Ctrl+C. `./web/run.sh` is equivalent; `./run.sh` without `web` still starts the display simulator.
+Open the printed URL, normally `http://127.0.0.1:8080`, and enter your six-digit PIN. The launcher installs pinned dependencies when needed and handles local HTTP settings without changing `.env`. Stop with Ctrl+C. `./web/run.sh` is equivalent; `./run.sh` without `web` still starts the display simulator.
 
 ### Run with Docker and install on your phone
 
@@ -99,7 +99,7 @@ route an HTTPS domain to service `web` on **internal port 8080**, using external
 HTTPS port 443. Replace any old `8080:8080` mapping with the mapping above and
 redeploy; see [Coolify setup](docs/WEB.md#coolify-deployment).
 
-Homey and Sonos credentials stay on the server. Sign in with the household access code on the login screen; never put it in a URL.
+Homey and Sonos credentials stay on the server. Sign in with the household PIN on the login screen; never put it in a URL.
 
 Open the HTTPS address on your phone and use the browser's **Add to Home Screen / Install app** option where supported. The PWA has its own favicon and phone icons and opens in standalone mode. Offline launch can show the app shell; private readings and device controls require a connection and are not cached by the service worker.
 

@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { configuration, createDataService, localDay, normalize, priceDay } from '../data.mjs';
 import { createApp } from '../server.mjs';
 
-const code = 'a-test-only-access-code-with-64-characters-123456789012345678901234';
+const code = '012345';
 const config = extra => configuration({ ENERGYDECK_WEB_ACCESS_CODE: code, ENERGYDECK_WEB_SECURE_COOKIE: 'false', ...extra });
 const device = (values, extra = {}) => ({ capabilitiesObj: Object.fromEntries(Object.entries(values).map(([key, value]) => [key, { value }])), ...extra });
 const day = (date, value = .1) => ({ date, values: Array(96).fill(value), source: 'homey' });
@@ -21,13 +21,32 @@ async function fixture(t, settings = config(), options = {}) {
 }
 
 test('configuration fails closed and never includes the access code in errors', () => {
-  assert.throws(() => configuration({}), /32–512/);
+  assert.throws(() => configuration({}), /exactly 6 digits/);
   assert.throws(() => config({ HOMEY_ADDRESS: 'https://user:password@example.com' }), /Invalid HOMEY_ADDRESS/);
   assert.throws(() => config({ HOMEY_ADDRESS: 'file:///etc/passwd' }), /Invalid HOMEY_ADDRESS/);
   assert.throws(() => config({ ENERGYDECK_VAT_PERCENT: 'unknown' }), /Invalid/);
   assert.equal(config({ ENERGYDECK_VAT_PERCENT: '' }).vat, 21);
   assert.equal(configuration({ ENERGYDECK_WEB_ACCESS_CODE: code }).secureCookie, true);
   assert.throws(() => config({ ENERGYDECK_WEB_ORIGIN: 'https://deck.example' }), /HTTPS requires/);
+});
+
+test('PINs contain exactly six ASCII digits and preserve leading zeroes', async t => {
+  assert.equal(config().accessCode, '012345');
+  for (const value of ['12345', '1234567', 'abcdef', '１２３４５６', '123456\n', ' 123456', 123456]) {
+    assert.throws(() => config({ ENERGYDECK_WEB_ACCESS_CODE: value }), /exactly 6 digits/);
+  }
+  const { login } = await fixture(t);
+  for (const value of [12345, '12345', '012345\n']) assert.equal((await login(value)).status, 401);
+  assert.equal((await login('012345')).status, 200);
+});
+
+test('PIN login throttling permits a retry after the one-minute window', async t => {
+  let now = 1000;
+  const { login } = await fixture(t, config(), { clock: () => now });
+  for (let i = 0; i < 5; ++i) assert.equal((await login('999999')).status, 401);
+  assert.equal((await login()).status, 429);
+  now += 60000;
+  assert.equal((await login()).status, 200);
 });
 
 test('Amsterdam calendar boundaries handle DST and tomorrow correctly', () => {
@@ -191,7 +210,7 @@ test('TLS proxy origin is explicitly configured and forwarded headers are ignore
 
 test('login is rate limited even with forged forwarding headers', async t => {
   const { login } = await fixture(t);
-  for (let i = 0; i < 10; i++) assert.equal((await login('wrong', { 'X-Forwarded-For': `10.0.0.${i}` })).status, 401);
+  for (let i = 0; i < 5; i++) assert.equal((await login('wrong', { 'X-Forwarded-For': `10.0.0.${i}` })).status, 401);
   const response = await login(); assert.equal(response.status, 429); assert.equal(response.headers.get('retry-after'), '60');
 });
 

@@ -26,7 +26,7 @@
       <p class="muted" data-i18n="loginDescription"></p>
       <form id="login-form">
         <label for="access-code" data-i18n="accessCode"></label>
-        <input id="access-code" name="code" type="password" autocomplete="current-password" required minlength="32" maxlength="512" spellcheck="false" autocapitalize="none">
+        <input id="access-code" name="code" type="password" autocomplete="current-password" required inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" spellcheck="false" autocapitalize="none">
         <button id="login-button" class="primary" type="submit" data-i18n="login"></button>
         <p id="login-error" class="error" role="alert"></p>
       </form>

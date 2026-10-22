@@ -19,7 +19,7 @@ try {
   server.on('error', error => { console.error(`Local server failed: ${error.code || 'unknown'}`); process.exit(1); });
   server.listen(port, '127.0.0.1', () => {
     console.log(`EnergyDeck web: ${origin}${config.demo ? ' (DEMO)' : ''}`);
-    console.log('Sign in with ENERGYDECK_WEB_ACCESS_CODE from .env. Press Ctrl+C to stop.');
+    console.log('Sign in with the 6-digit PIN in ENERGYDECK_WEB_ACCESS_CODE from .env. Press Ctrl+C to stop.');
   });
   for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => server.close(() => process.exit(0)));
 } catch (error) {

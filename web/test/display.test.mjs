@@ -7,7 +7,7 @@ import { createExtrasService } from '../extras.mjs';
 const readings = () => ({ grid: { power: 500 }, gas: { rate: 0 }, solar: { power: 2200 },
   battery: { percentage: 65, power: -800 }, charger: { connected: true, charging: false, fault: false }, climate: { demand: 'idle' } });
 const device = values => ({ capabilitiesObj: Object.fromEntries(Object.entries(values).map(([key, value]) => [key, { value }])) });
-const config = configuration({ ENERGYDECK_WEB_ACCESS_CODE: 'test-only-display-parity-access-code-123456789', HOMEY_ADDRESS: 'http://192.168.1.2', HOMEY_TOKEN: 'test', HOMEY_CHARGE_FLOW_ID: 'flow', HOMEY_CHARGER_DEVICE_ID: 'charger' });
+const config = configuration({ ENERGYDECK_WEB_ACCESS_CODE: '012345', HOMEY_ADDRESS: 'http://192.168.1.2', HOMEY_TOKEN: 'test', HOMEY_CHARGE_FLOW_ID: 'flow', HOMEY_CHARGER_DEVICE_ID: 'charger' });
 
 test('ESP grid direction holds ten seconds and ignores near-zero noise', () => {
   const state = createDisplayState(), data = readings();

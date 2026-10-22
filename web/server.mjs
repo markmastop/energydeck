@@ -76,7 +76,7 @@ export function createApp(config, { service = createDataService(config), extras 
     // Socket addresses cannot be forged with X-Forwarded-For. Proxied users share a limit.
     const ip = req.socket.remoteAddress;
     const value = attempts.get(ip) || { count: 0, until: now + 60000 };
-    if (value.count >= 10 || globalAttempts.count >= 60 || (!attempts.has(ip) && attempts.size >= 1024)) return true;
+    if (value.count >= 5 || globalAttempts.count >= 20 || (!attempts.has(ip) && attempts.size >= 1024)) return true;
     value.count++; globalAttempts.count++; attempts.set(ip, value);
     return false;
   }
@@ -105,7 +105,7 @@ export function createApp(config, { service = createDataService(config), extras 
         }
         let body;
         try { body = await jsonBody(req); } catch { return reply(res, 400, { error: 'invalidRequest' }); }
-        if (typeof body?.code !== 'string' || !timingSafeEqual(digest(body.code), secret)) {
+        if (typeof body?.code !== 'string' || body.code.length !== 6 || !/^[0-9]{6}$/.test(body.code) || !timingSafeEqual(digest(body.code), secret)) {
           return reply(res, 401, { error: 'invalidCode' });
         }
         const now = clock();

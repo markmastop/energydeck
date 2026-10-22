@@ -230,3 +230,19 @@ Serial boot confirmed build `2026-10-22 20:44:23 +0200`, hostname `energydeck` a
 59 web tests and simulated timeout/navigation checks cover the feature logic;
 physical touch and a full five-minute wait were not manually exercised here. No
 playback, charging or thermostat commands were issued.
+
+## 7-inch automatic-card rollout (2026-10-22)
+
+The known `energydeck-7.local` device at `192.168.1.100` matched the verified
+7-inch MAC `[device MAC redacted]`. Sources from `4a6b5e2` were built successfully
+with `energydeck-crowpanel-7.yaml`; the image reports
+`2026-10-22 20:49:11 +0200`. The device acknowledged a successful ESPHome OTA
+upload and its OTA endpoint remained reachable immediately and at 35 and 70
+seconds during the post-update check.
+
+This installs the Sonos → Climate-demand → Gas priority and the five-minute
+input-inactivity return. The web implementation already has the same behavior,
+so this hardware-only rollout needs no web source change. Prior simulator,
+web and simulated timeout/navigation checks cover the feature logic. Serial
+boot, physical touch and a full five-minute wait were not observed in this
+wireless rollout. No playback, charging or thermostat commands were issued.

@@ -178,3 +178,17 @@ This rollout installs existing shared functionality; it changes no ESP or web
 behavior. The web app already has the corresponding card-navigation behavior
 and needs no source change or restart for this hardware-only update. Physical
 touch navigation was not manually tested. No control commands were issued.
+
+## 7-inch firmware refresh (2026-10-22)
+
+The known `energydeck-7.local` device was reachable at `192.168.0.49`; the local
+ARP entry matched its verified MAC `14:c1:9f:c3:10:e0`. No USB serial port was
+available, so the current `d71c858` sources were built with
+`energydeck-crowpanel-7.yaml` and uploaded through ESPHome OTA. The built image
+reports `2026-10-22 08:28:36 +0200`; the device acknowledged OTA success. The
+card-navigation check passed for all nine select/open branches.
+
+This installs the existing shared functionality and requires no web source
+change or restart. No control commands were issued. Serial boot, physical touch
+navigation and on-device chart loading were not observed in this wireless-only
+rollout.

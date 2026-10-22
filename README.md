@@ -80,7 +80,30 @@ ENERGYDECK_WEB_ORIGIN=https://energydeck.example.com
 ENERGYDECK_WEB_SECURE_COOKIE=true
 ```
 
-The container listens on port 8080. The default host binding is loopback; see the [proxy/network settings](docs/WEB.md#https-and-outside-access) when the tunnel or proxy runs in another container. Homey and Sonos credentials stay on the server. Sign in with the household access code on the login screen; never put it in a URL.
+The container listens internally on port 8080 and publishes no NAS/host port by
+default. Coolify can route your HTTPS domain directly to service `web` on port
+8080; see the [Coolify setup](docs/WEB.md#coolify-deployment). For a proxy on the
+host or direct LAN access, add the optional host mapping with
+`docker compose -f compose.yaml -f compose.host.yaml up -d --build` (default
+`127.0.0.1:65000`, configurable with `ENERGYDECK_WEB_PUBLISHED_PORT`). See the
+[proxy/network settings](docs/WEB.md#https-and-outside-access).
+
+Port summary:
+
+| Access method | Port |
+| --- | --- |
+| Coolify HTTPS domain | 443 externally; container port 8080 |
+| Direct NAS access with `compose.host.yaml` | **65000** on the NAS → 8080 in the container |
+| Local `./run.sh web` preview | 8080 on the local computer |
+
+For direct LAN access, set `ENERGYDECK_WEB_BIND_ADDRESS=0.0.0.0` and
+`ENERGYDECK_WEB_PUBLISHED_PORT=65000`, then open `http://YOUR-NAS-IP:65000`.
+Follow the trusted-LAN cookie settings in the web setup guide. For Coolify, use
+only `compose.yaml`, assign the HTTPS domain to service `web` on internal port
+8080 and remove any old published `8080:8080` mapping. This avoids the NAS port
+8080 conflict without changing the app's internal port.
+
+Homey and Sonos credentials stay on the server. Sign in with the household access code on the login screen; never put it in a URL.
 
 Open the HTTPS address on your phone and use the browser's **Add to Home Screen / Install app** option where supported. The PWA has its own favicon and phone icons and opens in standalone mode. Offline launch can show the app shell; private readings and device controls require a connection and are not cached by the service worker.
 

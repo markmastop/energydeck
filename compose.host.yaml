@@ -1,0 +1,6 @@
+# Optional direct access for a host proxy or trusted LAN (not needed by Coolify).
+# docker compose -f compose.yaml -f compose.host.yaml up -d --build
+services:
+  web:
+    ports:
+      - "${ENERGYDECK_WEB_BIND_ADDRESS:-127.0.0.1}:${ENERGYDECK_WEB_PUBLISHED_PORT:-65000}:8080"

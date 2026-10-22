@@ -42,6 +42,17 @@ These are actual mobile-browser captures of the PWA interface at 430×1100, usin
 | :---: | :---: | :---: | :---: |
 | <a href="docs/screenshots/pwa-overview.jpg"><img src="docs/screenshots/pwa-overview.jpg" width="190" alt="EnergyDeck PWA overview with smart power meters and quarter-hour prices, demo data" /></a> | <a href="docs/screenshots/pwa-energy.jpg"><img src="docs/screenshots/pwa-energy.jpg" width="190" alt="EnergyDeck PWA electricity and gas history graphs with summary totals, demo data" /></a> | <a href="docs/screenshots/pwa-sonos.jpg"><img src="docs/screenshots/pwa-sonos.jpg" width="190" alt="EnergyDeck PWA Sonos player with playback controls and favorites, demo data" /></a> | <a href="docs/screenshots/pwa-climate.jpg"><img src="docs/screenshots/pwa-climate.jpg" width="190" alt="EnergyDeck PWA Evohome thermostat programme and all nine climate zones, demo data" /></a> |
 
+<details>
+<summary>More screenshots: battery, EV charging and weather</summary>
+
+The charging state below is simulated; no real charging Flow was triggered.
+
+| Battery & EV charging | Weather & rain |
+| :---: | :---: |
+| <a href="docs/screenshots/pwa-charging.jpg"><img src="docs/screenshots/pwa-charging.jpg" width="240" alt="EnergyDeck PWA Sessy battery and simulated EV charging at 7.3 kW" /></a> | <a href="docs/screenshots/pwa-weather.jpg"><img src="docs/screenshots/pwa-weather.jpg" width="240" alt="EnergyDeck PWA weather, tomorrow and three-hour temperature outlook, sunrise and sunset, and two-hour rain forecast, demo data" /></a> |
+
+</details>
+
 ### Run locally
 
 Install **Node.js 22 or newer**, configure the repository `.env` with your Homey/Sonos settings and a random access code of at least 32 characters, then run:

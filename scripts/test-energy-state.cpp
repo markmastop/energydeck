@@ -93,5 +93,11 @@ int main() {
   assert(cards.update(1, false, false, false) == 1); // Unknown replies preserve playback.
   assert(cards.update(1, false, true, true) == 2);
   assert(cards.update(2, false, true, false) == 0);
+  // The exact five-minute boundary restores the currently preferred card.
+  assert(cards.update(1, false, true, false, 299999) == 1);
+  assert(cards.update(1, false, true, false, 300000) == 0);
+  assert(cards.update(2, false, true, false, 0) == 2); // New input resets idle time.
+  assert(cards.update(2, true, false, true, 300000) == 1);
+  assert(cards.update(0, false, true, true, 300000) == 2);
   std::cout << "PASS: energy direction, debounce, stale/missing values, day rollover, units, battery balance and icon colors/fill\n";
 }

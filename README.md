@@ -22,7 +22,7 @@ Both versions connect directly over your local network to Homey and Sonos. They 
 - **Home Battery (Sessy):** Live state of charge (SoC %), charge/discharge power, and operational status.
 - **EV Smart Charging:** Real-time go-eCharger connection and charging status, with one-touch button to trigger your Homey smart charging Flow.
 - **Direct Local Sonos Player:** Zero-cloud UPnP control on port 1400 directly to Sonos speakers. Features both a compact dashboard card and a full-screen player page with embedded high-resolution station artwork (e.g. Joe, Qmusic, Sky Radio, Radio 538, NPO Radio 2), volume controls, household room grouping, and a 4-row favorites grid.
-- **Automatic Overview Cards:** Sonos during playback, otherwise Climate during Evohome heat demand, otherwise Gas. Manual selections remain usable until this automatic priority changes.
+- **Automatic Overview Cards:** Sonos during playback, otherwise Climate during Evohome heat demand, otherwise Gas. Manual selections remain usable until this automatic priority changes or five minutes pass without input.
 - **Multi-room Climate:** All 9 Evohome zones with measured/target temperatures and heat-demand highlights on the dashboard and Climate page.
 - **Local Weather & Rain Radar:** 2-hour Buienradar precipitation graph and 3-hour Open-Meteo temperature outlook.
 - **Automatic Night Dimming:** Time-based backlight dimming (e.g. 23:00 to 07:00) with instant touch-to-wake.

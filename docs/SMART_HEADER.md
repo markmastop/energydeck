@@ -205,6 +205,13 @@ priority, otherwise inferred Evohome heat demand selects Climate, otherwise Gas.
 An enabled/idle thermostat alone does not select Climate. Unknown Sonos activity
 preserves the previous playback state until a complete stop is known. Automatic
 selection updates only the compact overview, never opens details or sends device
-commands. Manual selection persists until the preferred automatic card changes.
+commands. Manual selection persists until the preferred automatic card changes or five minutes pass without input.
 After a confirmed stop closes the full player, the overview chooses Climate or
 Gas from the current demand. In-flight commands and room selection defer switching.
+
+Manual compact-card selection expires after five idle minutes on both ESP and
+web. Touch input on the ESP and pointer/keyboard/scroll/touch input on the web
+restart the timer; polling and mouse hover do not. The current automatic priority
+is restored within the next one-second UI tick. Detail pages remain open and
+commands/room selection still defer automatic switching. No additional network
+requests are needed for the timeout.

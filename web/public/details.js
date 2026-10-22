@@ -6,6 +6,10 @@ export function initializeDetails({ api, t, format, time, svgNode, onUnauthorize
   const $ = id => document.getElementById(id);
   const display = createDisplayState();
   const homeCards = createHomeCards();
+  let lastInteraction = Date.now();
+  // Real input extends the manual choice. Polling and mouse hover do not.
+  for (const event of ['pointerdown', 'click', 'keydown', 'wheel', 'touchmove'])
+    document.addEventListener(event, () => { lastInteraction = Date.now(); }, { capture: true, passive: true });
   const node = (tag, className, text) => { const element = document.createElement(tag); if (className) element.className = className; if (text !== undefined) element.textContent = text; return element; };
   const text = (id, value) => { $(id).textContent = value; };
   const button = (label, fn, className = 'quiet', disabled = false) => {
@@ -49,7 +53,7 @@ export function initializeDetails({ api, t, format, time, svgNode, onUnauthorize
     const rooms = sonos?.rooms || [];
     const playing = rooms.some(room => room.state === 'PLAYING');
     const stopped = rooms.length > 0 && rooms.every(room => ['STOPPED', 'PAUSED_PLAYBACK', 'NO_MEDIA_PRESENT'].includes(room.state));
-    card = homeCards.update(card, playing, stopped, dashboard?.climate?.demand === 'demand');
+    card = homeCards.update(card, playing, stopped, dashboard?.climate?.demand === 'demand', Date.now() - lastInteraction);
   }
   function renderCards() {
     for (const name of ['gas', 'sonos', 'climate']) $(`card-${name}`).hidden = name !== card;
@@ -387,7 +391,13 @@ export function initializeDetails({ api, t, format, time, svgNode, onUnauthorize
   for (const next of ['favorites', 'rooms']) $(`${next}-tab`).addEventListener('click', () => { view = next; renderSonos(); if (next === 'favorites') { sonosVersion++; loadSonos(true); } });
   $('sonos-room-heading').addEventListener('click', () => { view = 'rooms'; renderSonos(); });
   const poll = () => { if (!document.hidden) update(); };
-  setInterval(() => { if (dashboard && !document.hidden) renderHeader(); }, 1000);
+  setInterval(() => {
+    if (!dashboard || document.hidden) return;
+    renderHeader();
+    const before = card;
+    updateHomeCard();
+    if (card !== before) renderCards();
+  }, 1000);
   setInterval(poll, 10000); document.addEventListener('visibilitychange', poll);
   return {
     dashboard(next) {
@@ -400,7 +410,7 @@ export function initializeDetails({ api, t, format, time, svgNode, onUnauthorize
       weatherAt = historyAt = sonosAt = 0; draft = null; room = ''; message = ''; chargeMessage = ''; chargeUntil = 0;
       wasPlaying = false;
       explicitRoom = false;
-      display.reset(); homeCards.reset(); card = 'gas';
+      display.reset(); homeCards.reset(); card = 'gas'; lastInteraction = Date.now();
       chargeTarget = null;
       $('charge-dialog').close(); navigate('overview', false);
       for (const id of ['full-player', 'compact-player', 'sonos-rooms', 'favorites-grid', 'climate-rooms', 'weather-overview', 'weather-climate']) $(id).replaceChildren();

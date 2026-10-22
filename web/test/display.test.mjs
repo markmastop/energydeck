@@ -116,3 +116,14 @@ test('home cards prioritize Sonos, then Evohome demand, then Gas and retain manu
   policy.reset();
   assert.equal(policy.update('sonos', false, true, true), 'climate');
 });
+
+
+test('manual cards resume automatic priority at five idle minutes and new input restarts the wait', () => {
+  const policy = createHomeCards();
+  assert.equal(policy.update('gas', false, true, false), 'gas');
+  assert.equal(policy.update('sonos', false, true, false, 299999), 'sonos');
+  assert.equal(policy.update('sonos', false, true, false, 300000), 'gas');
+  assert.equal(policy.update('climate', false, true, false, 0), 'climate');
+  assert.equal(policy.update('gas', true, false, true, 300000), 'sonos');
+  assert.equal(policy.update('gas', false, true, true, 300000), 'climate');
+});

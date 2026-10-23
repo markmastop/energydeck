@@ -179,7 +179,8 @@ bounded all-room activity reads and never overlaps commands with reads. Weather
 has a five-minute cache. History is requested on the Energy page and cached four
 minutes, independently of live dashboard updates. Failed reads remove affected
 data; no live/demo fallback invents readings. This transport change is web-specific;
-the ESP retains its existing read-only polling and shared interpretation of values.
+the ESP has its own [direct Homey realtime connection](HOMEY-REALTIME.md), retains
+read-only polling as fallback, and shares the interpretation of values.
 
 Net grid power is negative for export. Sessy battery power is negative while charging and positive while discharging. Gas rate is already m³/hour. History power is converted from W to kW. Calendar boundaries use Europe/Amsterdam and include 23/25-hour DST days; five-minute gaps remain gaps and line colors split exactly at zero. Future samples and stale tails older than 15 minutes are rejected. Daily summary values are whatever the configured Homey summary devices provide.
 

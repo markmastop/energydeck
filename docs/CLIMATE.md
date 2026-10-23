@@ -63,6 +63,11 @@ taps coalesce with a running poll. The existing bounded background HTTP worker
 and 8-second request timeout remain. Sonos artwork defers while this poll runs.
 There are no extra requests on returning to the main preview.
 
+Direct Homey notifications also schedule this reader when the configured
+controller or a zone changes. Multiple zone notifications coalesce, and a running
+read finishes before another begins. The 30-second timer remains reconciliation
+and fallback; see [direct realtime updates](HOMEY-REALTIME.md).
+
 Temperatures outside -20 to 60 °C, targets outside 5 to 35 °C and non-numeric or
 unavailable values are rejected. Failures invalidate the affected readings
 immediately; otherwise readings expire after three minutes. The main and detail

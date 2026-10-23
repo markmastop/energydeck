@@ -1,4 +1,4 @@
-# Live Homey data for the simulator and, later, the physical display.
+# Shared Homey data for the simulator and both physical displays.
 # ESPHome provides HTTPS libraries/certificate configuration; no foreground requests.
 http_request:
   id: http_runtime
@@ -9,6 +9,53 @@ http_request:
 background_http:
   id: homey_http
   timeout: 8s
+
+# Direct notifications complement the existing REST reconciliation. The socket
+# never writes capabilities or starts Flows; the normal readers own validation.
+homey_realtime:
+  id: homey_events
+  address: "${homey_address}"
+  token: "${homey_token}"
+  devices:
+    - "${homey_homewizard_device_id}"
+    - "${homey_electricity_summary_device_id}"
+    - "${homey_solar_device_id}"
+    - "${homey_solar_summary_device_id}"
+    - "${homey_sessy_device_id}"
+    - "${homey_charger_device_id}"
+    - "${homey_gas_summary_device_id}"
+  climate_devices:
+    - "${homey_thermostat_device_id}"
+    - "${homey_room_thermostat_1_id}"
+    - "${homey_room_thermostat_2_id}"
+    - "${homey_room_thermostat_3_id}"
+    - "${homey_room_thermostat_4_id}"
+    - "${homey_room_thermostat_5_id}"
+    - "${homey_room_thermostat_6_id}"
+    - "${homey_room_thermostat_7_id}"
+    - "${homey_room_thermostat_8_id}"
+    - "${homey_room_thermostat_9_id}"
+  price_variable: "${homey_prices_variable_id}"
+  on_change:
+    then:
+      - lambda: |-
+          bool deferred = false;
+          const auto refresh = [&](auto *script) {
+            // Restart-mode readers must finish their current response. Keep a
+            // later event pending instead of cancelling/restarting the request.
+            if (script->is_running()) deferred = true;
+            else script->execute();
+          };
+          if (entity_id == "${homey_homewizard_device_id}") refresh(id(refresh_homey_electricity_now));
+          if (entity_id == "${homey_electricity_summary_device_id}") refresh(id(refresh_homey_electricity_day));
+          if (entity_id == "${homey_solar_device_id}") refresh(id(refresh_homey_solar_now));
+          if (entity_id == "${homey_solar_summary_device_id}") refresh(id(refresh_homey_solar_day));
+          if (entity_id == "${homey_sessy_device_id}") refresh(id(refresh_homey_sessy));
+          if (entity_id == "${homey_charger_device_id}") refresh(id(refresh_homey_charger));
+          if (entity_id == "${homey_gas_summary_device_id}") refresh(id(refresh_homey_gas));
+          if (entity_id == "${homey_prices_variable_id}") refresh(id(refresh_homey_prices));
+          if (entity_id == "climate") refresh(id(refresh_climate));
+          if (deferred) id(homey_events).defer(entity_id);
 
 globals:
   - id: prices_calendar_day

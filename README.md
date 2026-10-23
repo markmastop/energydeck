@@ -27,6 +27,7 @@ Both versions connect directly over your local network to Homey and Sonos. They 
 - **Local Weather & Rain Radar:** 2-hour Buienradar precipitation graph and 3-hour Open-Meteo temperature outlook.
 - **Automatic Night Dimming:** Time-based backlight dimming (e.g. 23:00 to 07:00) with instant touch-to-wake.
 - **Desktop Simulator:** Test and preview the exact UI on macOS or Linux with live data before touching hardware.
+- **Direct Live Updates:** Both display sizes and the simulator subscribe directly to Homey changes, with periodic reads as a fallback. The displays work independently of the web server. See [realtime transport and verification](docs/HOMEY-REALTIME.md).
 - **Mobile Web App / PWA:** The energy dashboard, Insights graphs, local Sonos player with favorites and grouping, Evohome climate, weather/rain and charging Flow control on your phone, in one Docker container. Includes access-code login and server-side device credentials. See [web setup and security](docs/WEB.md).
 
 ---

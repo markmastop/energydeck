@@ -39,7 +39,7 @@ Reply perform_http(const Request &request) {
     if (event->event_id == HTTP_EVENT_ON_HEADER) {
       std::string name(event->header_key);
       std::transform(name.begin(), name.end(), name.begin(), [](unsigned char c) { return std::tolower(c); });
-      if (name == "content-type" || name == "etag" || name == "last-modified" || name == "location")
+      if (name == "content-type" || name == "etag" || name == "last-modified" || name == "location" || name == "x-homey-id")
         static_cast<Reply *>(event->user_data)->keep_header(std::move(name), event->header_value);
     }
     return ESP_OK;
@@ -108,7 +108,7 @@ Reply perform_http(const Request &request) {
   for (const auto &h : request.headers) message.headers.emplace(h.name, h.value);
   message.response_handler = [&](const httplib::Response &response) {
     if (response.get_header_value_u64("Content-Length") > request.max_bytes || millis() - start >= request.timeout_ms) return false;
-    for (const auto *name : {"content-type", "etag", "last-modified", "location"})
+    for (const auto *name : {"content-type", "etag", "last-modified", "location", "x-homey-id"})
       if (response.has_header(name)) reply.keep_header(name, response.get_header_value(name).c_str());
     return true;
   };

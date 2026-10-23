@@ -1,6 +1,7 @@
 import { initializeDetails } from './details.js';
 import { priceWindow } from './charts.js';
 import { dayComparison } from './display.js';
+import { createLiveUpdates } from './live.js';
 
 const $ = id => document.getElementById(id);
 const translations = await fetch('/translations.json').then(response => response.json());
@@ -8,6 +9,13 @@ let language;
 try { language = localStorage.getItem('energydeck-language'); } catch { /* Storage can be disabled in private browsers. */ }
 if (!translations[language]) language = navigator.language.startsWith('nl') ? 'nl' : 'en';
 let data = null, selected = 'today', busy = false, loginBusy = false, authGeneration = 0;
+let liveRevision = 0;
+const live = createLiveUpdates({
+  onDashboard(next) { liveRevision++; data = next; showDashboard(); render(); },
+  onUnavailable() { liveRevision++; unavailable(); },
+  onUnauthorized: showLogin,
+  checkSession: () => api('/api/session'),
+});
 const t = key => translations[language][key] || key;
 const format = (value, decimals = 1) => typeof value === 'number' && Number.isFinite(value)
   ? new Intl.NumberFormat(language === 'nl' ? 'nl-NL' : 'en-GB', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(value) : '—';
@@ -30,6 +38,7 @@ function translate() {
   if (data) render();
 }
 function showLogin() {
+  live.stop();
   authGeneration++;
   data = null;
   details.reset();
@@ -61,6 +70,7 @@ async function refresh() {
   if (busy || loginBusy) return;
   busy = true;
   const generation = authGeneration;
+  const revision = liveRevision;
   $('refresh').disabled = true;
   try {
     const response = await api('/api/dashboard');
@@ -69,10 +79,13 @@ async function refresh() {
     if (!response.ok) throw new Error('request');
     const next = await response.json();
     if (generation !== authGeneration) return;
+    // A slower REST response must not overwrite a more recent pushed snapshot.
+    if (revision !== liveRevision) return;
     data = next;
     showDashboard(); render();
+    if (!document.hidden) live.start();
   } catch {
-    if (generation !== authGeneration) return;
+    if (generation !== authGeneration || revision !== liveRevision) return;
     // Keep an actionable screen even if the first request fails.
     showDashboard(); unavailable();
   } finally { busy = false; $('refresh').disabled = false; }
@@ -215,8 +228,13 @@ for (const day of ['today', 'tomorrow']) $(day).addEventListener('click', () => 
 const details = initializeDetails({ api, t, format, time, svgNode, onUnauthorized: showLogin, onRefresh: refresh });
 translate();
 await refresh();
-setInterval(() => { if (data && !document.hidden) refresh(); }, 15000);
-document.addEventListener('visibilitychange', () => { if (data && !document.hidden) refresh(); });
+setInterval(() => { if (data && !document.hidden && !live.connected) refresh(); }, 15000);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) live.stop();
+  else if (data) refresh();
+});
+window.addEventListener('pagehide', () => live.stop());
+window.addEventListener('pageshow', () => { if (data && !document.hidden) live.start(); });
 if ('serviceWorker' in navigator && window.isSecureContext) navigator.serviceWorker.register('/sw.js').catch(() => {});
 let resizeTimer;
 window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { if (data) render(); }, 150); });

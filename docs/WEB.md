@@ -1,6 +1,6 @@
 # EnergyDeck mobile web app / PWA
 
-The web app reproduces EnergyDeck's household functions in a responsive interface with Overview, Energy, Sonos and Climate pages. It runs independently of the ESPHome display in one Node.js Docker container. The only npm dependency is the pinned XML parser used for local Sonos SOAP/DIDL; no frontend build, database or cloud account is required.
+The web app reproduces EnergyDeck's household functions in a responsive interface with Overview, Energy, Sonos and Climate pages. It runs independently of the ESPHome display in one Node.js Docker container. Pinned npm dependencies provide local Sonos SOAP/DIDL parsing and Homey's official realtime client; no frontend build, database or cloud account is required.
 
 ## Pages and display parity
 
@@ -152,7 +152,34 @@ The ESP display is the reference for household features, values and interaction 
 
 Parity regression tests live in `web/test/display.test.mjs`; the matching ESP reference checks are `scripts/test-energy-state.cpp` and `scripts/test-energy-gauges.py`. Keep these rules synchronized when changing either implementation. Missing yesterday electricity/solar capabilities remain empty; totals are never synthesized from incomplete history.
 
-Homey live data shares a 15-second single-flight cache across phones, with at most three concurrent device reads. Sonos status/discovery shares a 10-second cache, rotates bounded all-room activity reads and never overlaps commands with reads. Weather has a five-minute cache. History is requested on the Energy page and cached four minutes, independently of live polling. Hidden browser tabs stop polling and refresh on return. Failed reads remove affected data; no live/demo fallback invents readings.
+Homey dashboard updates are pushed to visible browsers through an authenticated
+Server-Sent Events connection (`/api/events`). One shared local Homey Socket.IO
+connection subscribes only to configured devices and filters Logic events to the
+configured price variable. Capability, availability and price changes invalidate
+the shared REST cache; bursts are coalesced for one second before reading the
+normalized snapshot, with at most three concurrent device reads. Actual latency
+also depends on the device reporting to Homey and Homey's read response time.
+The official [Homey API client](https://athombv.github.io/node-homey-api/HomeyAPI.html)
+keeps the existing local address and token entirely on the server.
+
+A shared 15-second reconciliation remains for missed events, midnight rollover,
+older Homeys and tokens without realtime subscription support. Failed initial
+Homey subscriptions retry after 30 seconds; established connections reconnect
+automatically. SSE also reconnects automatically, and the browser resumes its
+15-second REST timer while the stream is disconnected or unsupported. Losing
+the stream clears live readings until fresh data arrives. Hidden tabs close their
+stream and refresh on return. Signing out closes all streams for that session;
+expiry is checked before every snapshot and on each heartbeat. The server stops
+its watcher when the last stream closes and limits streams to four per session
+and 128 total. Reverse proxies must allow streaming without response buffering
+and use an idle timeout longer than the 15-second heartbeat (for example 60 seconds).
+
+Sonos status/discovery retains its 10-second cache and browser polling, rotates
+bounded all-room activity reads and never overlaps commands with reads. Weather
+has a five-minute cache. History is requested on the Energy page and cached four
+minutes, independently of live dashboard updates. Failed reads remove affected
+data; no live/demo fallback invents readings. This transport change is web-specific;
+the ESP retains its existing read-only polling and shared interpretation of values.
 
 Net grid power is negative for export. Sessy battery power is negative while charging and positive while discharging. Gas rate is already m³/hour. History power is converted from W to kW. Calendar boundaries use Europe/Amsterdam and include 23/25-hour DST days; five-minute gaps remain gaps and line colors split exactly at zero. Future samples and stale tails older than 15 minutes are rejected. Daily summary values are whatever the configured Homey summary devices provide.
 

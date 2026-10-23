@@ -6,6 +6,7 @@ import { configuration, createDataService } from './data.mjs';
 import { createExtrasService } from './extras.mjs';
 import { createSonosService } from './sonos.mjs';
 import { AppError } from './net.mjs';
+import { createDashboardStream } from './live.mjs';
 
 const digest = value => createHash('sha256').update(value).digest();
 const sessionLife = 7 * 24 * 3600 * 1000;
@@ -24,13 +25,15 @@ const staticFiles = new Map([
   ['/details.css', ['details.css', 'text/css; charset=utf-8']],
   ['/charts.js', ['charts.js', 'text/javascript; charset=utf-8']],
   ['/display.js', ['display.js', 'text/javascript; charset=utf-8']],
+  ['/live.js', ['live.js', 'text/javascript; charset=utf-8']],
   ['/fonts/Montserrat-Medium.ttf', ['fonts/Montserrat-Medium.ttf', 'font/ttf']],
   ['/fonts/OFL.txt', ['fonts/OFL.txt', 'text/plain; charset=utf-8']],
   ['/sw.js', ['sw.js', 'text/javascript; charset=utf-8']],
 ]);
 
-export function createApp(config, { service = createDataService(config), extras = createExtrasService(config), sonos = createSonosService(config), clock = Date.now } = {}) {
+export function createApp(config, { service = createDataService(config), extras = createExtrasService(config), sonos = createSonosService(config), clock = Date.now, liveOptions } = {}) {
   const sessions = new Map();
+  const live = createDashboardStream(config, service, key => (sessions.get(key) || 0) > clock(), liveOptions);
   const attempts = new Map();
   const controlAttempts = new Map();
   const secret = digest(config.accessCode);
@@ -95,7 +98,7 @@ export function createApp(config, { service = createDataService(config), extras 
         if (!sameOrigin(req)) return reply(res, 403, { error: 'origin' });
         if (url.pathname === '/api/logout') {
           const key = session(req);
-          if (key) sessions.delete(key);
+          if (key) { sessions.delete(key); live.revoke(key); }
           res.setHeader('Set-Cookie', cookie('', 0));
           return reply(res, 200, { ok: true });
         }
@@ -111,7 +114,7 @@ export function createApp(config, { service = createDataService(config), extras 
         const now = clock();
         for (const [key, until] of sessions) if (until <= now) sessions.delete(key);
         const old = session(req);
-        if (old) sessions.delete(old);
+        if (old) { sessions.delete(old); live.revoke(old); }
         if (sessions.size >= 256) return reply(res, 503, { error: 'sessionLimit' });
         const token = randomBytes(32).toString('hex');
         sessions.set(digest(token).toString('hex'), now + sessionLife);
@@ -136,6 +139,10 @@ export function createApp(config, { service = createDataService(config), extras 
         }
         if (req.method !== 'GET') return reply(res, 405, { error: 'readOnly' });
         if (url.pathname === '/api/session') return reply(res, 200, { ok: true });
+        if (url.pathname === '/api/events') {
+          if (!live.open(res, key)) reply(res, 503, { error: 'streamLimit' });
+          return;
+        }
         if (url.pathname === '/api/dashboard') return reply(res, 200, await service.get());
         if (url.pathname === '/api/history') return reply(res, 200, await extras.history());
         if (url.pathname === '/api/weather') return reply(res, 200, await extras.weather());
@@ -168,6 +175,9 @@ export function createApp(config, { service = createDataService(config), extras 
   server.requestTimeout = 15000;
   server.headersTimeout = 10000;
   server.maxHeadersCount = 50;
+  // End persistent responses before waiting for server.close() to complete.
+  const close = server.close.bind(server);
+  server.close = (...args) => { live.close(); return close(...args); };
   return server;
 }
 

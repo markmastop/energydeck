@@ -124,7 +124,7 @@ export function normalize(devices, rooms, bridge, config, now = new Date()) {
 }
 
 export function createDataService(config, fetcher = fetch, clock = () => new Date()) {
-  let cached, expires = 0, pending;
+  let cached, expires = 0, pending, revision = 0;
   async function request(path) {
     const response = await fetcher(`${config.address}${path}`, {
       headers: { Authorization: `Bearer ${config.token}`, Accept: 'application/json' },
@@ -172,12 +172,14 @@ export function createDataService(config, fetcher = fetch, clock = () => new Dat
       errors: [...new Set(errors)], updatedAt: now.toISOString(), day: localDay(now) };
   }
   return {
-    invalidate() { expires = 0; },
+    invalidate() { expires = 0; revision++; },
     async get() {
       const now = clock();
       if (cached && now.getTime() < expires && cached.day === localDay(now)) return cached;
+      const version = revision;
       if (!pending) pending = refresh().then(value => {
-        cached = value; expires = clock().getTime() + 15000; return value;
+        // An event received during a read must not be hidden by a fresh cache TTL.
+        cached = value; expires = version === revision ? clock().getTime() + 15000 : 0; return value;
       }).finally(() => { pending = null; });
       return pending;
     },

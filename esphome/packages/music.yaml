@@ -1092,7 +1092,12 @@ script:
               lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
               if (item.number == q.current) {
                 lv_obj_set_style_bg_opa(row, LV_OPA_COVER, 0);
-                lv_obj_set_style_bg_color(row, lv_color_hex(0x24583B), 0); lv_obj_set_style_radius(row, 6, 0);
+                // A quiet marker keeps the transport button as the main green accent.
+                lv_obj_set_style_bg_color(row, lv_color_hex(0x14221A), 0);
+                lv_obj_set_style_radius(row, 4, 0);
+                lv_obj_set_style_border_side(row, LV_BORDER_SIDE_LEFT, 0);
+                lv_obj_set_style_border_width(row, 3, 0);
+                lv_obj_set_style_border_color(row, lv_color_hex(0x45BD70), 0);
               }
               for (int field = 0; field < 2; ++field) {
                 auto *label = lv_label_create(row);
@@ -1100,7 +1105,7 @@ script:
                 lv_label_set_long_mode(label, LV_LABEL_LONG_DOT);
                 lv_obj_set_style_text_font(label, field ? &lv_font_montserrat_12 : &lv_font_montserrat_14, 0);
                 lv_obj_set_style_text_color(label, lv_color_hex(field ? 0xA9B8AE : 0xEEF6F0), 0);
-                const std::string text = field ? item.artist : std::to_string(item.number) + ". " + item.title;
+                const std::string text = field ? item.artist : std::to_string(item.number) + ". " + (item.number == q.current ? "${music_queue_now} - " : "") + item.title;
                 esphome::ui_performance::set_text(label, text.c_str());
               }
               y += 54;

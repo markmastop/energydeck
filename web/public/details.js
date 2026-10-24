@@ -337,9 +337,11 @@ export function initializeDetails({ api, t, format, time, svgNode, onUnauthorize
     for (const item of queue.items) {
       const row = node('div', `queue-track${item.number === queue.current ? ' current' : ''}`);
       if (item.number === queue.current) row.setAttribute('aria-current', 'true');
-      row.append(node('span', 'queue-number', String(item.number)));
+      const number = node('span', 'queue-number', String(item.number));
+      if (item.number === queue.current) number.append(node('small', 'queue-now', t('queueCurrent')));
+      row.append(number);
       const details = node('div', 'queue-track-details');
-      details.append(node('strong', '', item.title), node('small', 'muted', `${item.artist}${item.number === queue.current ? ` · ${t('queueCurrent')}` : ''}`));
+      details.append(node('strong', '', item.title), node('small', 'muted', item.artist));
       row.append(details); container.append(row);
     }
   }

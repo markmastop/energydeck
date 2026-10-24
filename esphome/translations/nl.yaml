@@ -227,3 +227,4 @@ music_queue_shuffle: "Shuffle: de lijstvolgorde voorspelt niet het volgende numm
 music_queue_limited: "Maximaal 40 nummers; de badge telt de hele wachtrij."
 music_group_cancel: "Annuleren"
 music_up_next_label: "Hierna"
+music_queue_now: "Nu"

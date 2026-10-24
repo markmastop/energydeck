@@ -226,8 +226,9 @@ dialog p { font-size: 14px; line-height: 1.6; color: var(--muted); }
 }
 
 .queue-badge { display: inline-block; margin-left: 6px; padding: 2px 6px; min-width: 22px; border-radius: 10px; background: #356347; color: var(--text); font-size: 10px; }
-.queue-track { display: flex; gap: 12px; padding: 12px 8px; border-bottom: 1px solid var(--border); }
-.queue-track.current { background: #254531; border-radius: 8px; }
+.queue-track { display: flex; gap: 12px; padding: 12px 8px; border-left: 3px solid transparent; border-bottom: 1px solid var(--border); }
+.queue-track.current { background: #14221a; border-left-color: var(--green); border-radius: 4px; }
+.queue-now { display: block; margin-top: 4px; color: var(--green); font-size: 10px; }
 .queue-number { min-width: 24px; color: var(--muted); font-size: 12px; }
 .queue-track-details { min-width: 0; display: grid; gap: 4px; }
 .queue-track-details strong, .queue-track-details small, .queue-next { overflow-wrap: anywhere; }

@@ -57,7 +57,9 @@ skip, volume and mute controls. A read-only **Up next** line shows the next
 queued title and artist when Sonos exposes a deterministic order. Below the
 player, **Queue / Rooms / Favorites** tabs switch between the queue, system list
 and three-column favorites grid. Queue opens by default; its badge counts the
-complete queue, including tracks already played. The current track is highlighted.
+complete queue, including tracks already played. The current track uses a narrow
+green left marker, a subtle dark background and a localized Now label beside its
+number, keeping the transport control as the primary green accent.
 Room membership uses the existing per-row plus/check controls. Apply and Cancel
 appear below the room list only while a grouping draft exists; all three tabs
 remain available in their fixed positions.

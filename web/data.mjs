@@ -58,6 +58,16 @@ export function localDay(now = new Date(), offset = 0) {
   return date.toISOString().slice(0, 10);
 }
 
+function priceSource(day, bridge) {
+  // Older bridges store provenance by date in sources instead of on each day.
+  // An explicit day source remains authoritative, including unknown/unavailable.
+  const source = Object.hasOwn(day, 'source') ? day.source : bridge?.sources?.[day.date];
+  if (typeof source !== 'string') return 'unknown';
+  if (source === 'homey' || source.startsWith('Homey')) return 'homey';
+  if (source === 'epexprijzen' || source.startsWith('EpexPrijzen')) return 'epexprijzen';
+  return 'unknown';
+}
+
 export function priceDay(bridge, date, config) {
   const day = [bridge?.today, bridge?.tomorrow].find(item => item?.date === date);
   // Match the display contract: never stretch 92/100-quarter DST days into 96 values.
@@ -70,7 +80,7 @@ export function priceDay(bridge, date, config) {
         values.slice(cheapest, cheapest + 12).reduce((a, b) => a + b, 0)) cheapest = i;
   }
   return {
-    date, values, source: ['homey', 'epexprijzen'].includes(day.source) ? day.source : 'unknown',
+    date, values, source: priceSource(day, bridge),
     cached: bridge.cachedDays?.includes(date) === true,
     fetchedAt: typeof bridge.fetchedAt?.[date] === 'string' ? bridge.fetchedAt[date] : null,
     minimum: Math.min(...values), maximum: Math.max(...values),

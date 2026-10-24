@@ -16,6 +16,12 @@ The web app reproduces EnergyDeck's household functions in a responsive interfac
 | Charging | Starts/stops charging through the configured Homey toggle Flow only after a user click and confirmation. Waits for the requested state to be reported by Homey. |
 | PWA | Manifest, favicon and phone icons, standalone launch, public-shell service worker for HTTPS/localhost. Private API readings, Sonos images, sessions and device commands are never cached by the worker. |
 
+Price provenance follows the display: each day's `source` is authoritative;
+older bridges without that field use `sources[date]`. Both canonical
+`homey`/`epexprijzen` and legacy `Homey`/`EpexPrijzen.nl (raw EUR/kWh)` labels
+are recognized. Missing or unrecognized provenance stays unknown; warnings or
+another day's source never establish today's source.
+
 The phone layout scrolls and adapts to width instead of fixing every widget at the panel's 480×800 coordinates. Physical backlight dimming, USB flashing and hardware-specific timing remain display functions. Before an explicit room/group choice, a grouped Woonkamer/Living and Keuken/Kitchen pair shares volume/mute controls with per-room offsets preserved. An explicit choice targets only that room, matching the display. Transport and favorites affect the actual current Sonos group.
 
 ## Start on a trusted home network

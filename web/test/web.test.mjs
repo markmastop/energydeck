@@ -64,6 +64,32 @@ test('all-in prices use firmware tax/fee units and preserve provenance', () => {
   assert.equal(result.cheapest, 0);
 });
 
+test('price provenance matches ESP per-day and legacy date-keyed sources', () => {
+  const today = '2026-10-21', tomorrow = '2026-10-22';
+  const cases = [
+    [{ source: 'homey' }, { [today]: 'EpexPrijzen.nl (raw EUR/kWh)' }, 'homey'],
+    [{ source: 'epexprijzen' }, { [today]: 'Homey' }, 'epexprijzen'],
+    [{}, { [today]: 'Homey' }, 'homey'],
+    [{}, { [today]: 'EpexPrijzen.nl (raw EUR/kWh)' }, 'epexprijzen'],
+    [{ source: 'Homey' }, {}, 'homey'],
+    [{ source: 'EpexPrijzen.nl (raw EUR/kWh)' }, {}, 'epexprijzen'],
+    [{ source: 'unknown' }, { [today]: 'Homey' }, 'unknown'],
+    [{ source: 'unavailable' }, { [today]: 'Homey' }, 'unknown'],
+    [{ source: null }, { [today]: 'Homey' }, 'unknown'],
+    [{}, { [tomorrow]: 'Homey' }, 'unknown'],
+    [{}, { [today]: 'Geen' }, 'unknown'],
+    [{}, {}, 'unknown'],
+  ];
+  for (const [metadata, sources, expected] of cases) {
+    const bridge = { today: { date: today, values: Array(96).fill(.1), ...metadata },
+      tomorrow: { date: tomorrow, values: Array(96).fill(.2), source: 'homey' }, sources,
+      warnings: ['EpexPrijzen'], cachedDays: [today] };
+    assert.equal(priceDay(bridge, today, config()).source, expected);
+    assert.equal(priceDay(bridge, tomorrow, config()).source, 'homey');
+    assert.equal(priceDay(bridge, today, config()).cached, true);
+  }
+});
+
 test('prices reject stale dates, missing quarters and nonnumeric values', () => {
   assert.equal(priceDay({ today: day('2026-10-20') }, '2026-10-21', config()), null);
   for (const values of [Array(92).fill(.1), Array(100).fill(.1), [...Array(95).fill(.1), null], [...Array(95).fill(.1), '.1']]) {

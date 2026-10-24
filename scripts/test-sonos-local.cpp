@@ -64,6 +64,33 @@ int poll(State &s, const Fixture &f, const std::string &failed_once = "", int fa
   s.begin(living,kitchen);
   return poll_requests(s, f, failed_once, failure_status);
 }
+void test_group_heading() {
+  State s; Fixture f;
+  const std::string oid = "RINCON_OFFICE", office = "http://192.168.1.52:1400";
+  const auto zones = [&](bool grouped, bool office_joined) {
+    return "<ZoneGroups><ZoneGroup Coordinator=\"" + lid + "\">" +
+      member(lid, living, "Living") + (grouped ? member(kid, kitchen, "Kitchen") : "") +
+      (office_joined ? member(oid, office, "Office") : "") + "</ZoneGroup>" +
+      (grouped ? "" : "<ZoneGroup Coordinator=\"" + kid + "\">" + member(kid, kitchen, "Kitchen") + "</ZoneGroup>") +
+      (office_joined ? "" : "<ZoneGroup Coordinator=\"" + oid + "\">" + member(oid, office, "Office") + "</ZoneGroup>") + "</ZoneGroups>";
+  };
+  f.zones = zones(true, false); poll(s, f);
+  assert(s.current_group_name() == "Kitchen + Living");
+  assert(s.select_system(kid));
+  assert(s.current_name() == "Kitchen" && !s.uses_pair_controls());
+  assert(s.current_group_name() == "Kitchen + Living");
+  f.zones = zones(true, true); poll(s, f);
+  assert(s.current_group_name() == "Kitchen + Living + Office");
+  assert(s.select_system(oid));
+  assert(s.current_group_name() == "Kitchen + Living + Office");
+  // External regrouping must replace the heading without changing selection.
+  f.zones = zones(false, false); poll(s, f);
+  assert(s.current_group_name() == "Office");
+  assert(s.select_system(kid));
+  assert(s.current_group_name() == "Kitchen");
+  assert(!s.has_request()); // Formatting and selecting never write to speakers.
+}
+
 void test_xml() {
   State follow; Fixture playback;
   poll(follow, playback);
@@ -885,7 +912,7 @@ int main(int argc, char **argv) {
     for(const auto &r:s.rooms) std::cout << "ROOM known=" << r.known() << " playing=" << r.playing << " tv=" << r.tv << " volume=" << r.volume << " title=" << r.title << " artist=" << r.artist << " cover=" << r.cover << std::endl;
     return 0;
   }
-  test_xml(); test_states(); test_controls(); test_read_recovery(); test_system_inventory(); test_room_selection(); test_dashboard_room_follow(); test_selection_during_poll(); test_progressive_room_refresh(); test_group_editing(); test_favorites(); test_favorite_readiness(); test_radio_source_normalization();
+  test_group_heading(); test_xml(); test_states(); test_controls(); test_read_recovery(); test_system_inventory(); test_room_selection(); test_dashboard_room_follow(); test_selection_during_poll(); test_progressive_room_refresh(); test_group_editing(); test_favorites(); test_favorite_readiness(); test_radio_source_normalization();
   std::cout << "PASS: favorites preserve default/explicit rooms, existing groups, volume and mute; offline/stale scopes abort" << std::endl;
   std::cout << "PASS: favorites wait for source/transport/seek readiness, bound read retries, never retry writes and confirm the added track range or fresh playback after a lost acknowledgement" << std::endl;
   std::cout << "PASS: radio readiness/playback accept observed Sonos URI normalization and reject other stations, services, accounts and unrelated flag changes" << std::endl;

@@ -184,6 +184,23 @@ test('Sonos selection, status and favorites are reads and never leak speaker URL
   const volume = mock.calls.find(call => call.action === 'GetVolume'); assert.ok(volume.url.startsWith(origins[1]));
 });
 
+test('selected Sonos room keeps the actual group heading through external regrouping', async () => {
+  let now = 100000;
+  const mock = speakerMock(); const sonos = createSonosService(sonosSettings(), mock.fetcher, () => now);
+  let data = await sonos.get('B', true);
+  assert.equal(data.player.name, 'Kitchen');
+  assert.equal(data.player.group, 'Kitchen + Living');
+  mock.rooms[2].coordinator = 'A';
+  now += 10001; // Discovery refreshes on the normal ten-second poll cadence.
+  data = await sonos.get('C', true);
+  assert.equal(data.player.group, 'Bedroom + Kitchen + Living');
+  mock.rooms[1].coordinator = 'B';
+  now += 10001;
+  data = await sonos.get('B', true);
+  assert.equal(data.player.group, 'Kitchen');
+  assert.equal(mock.calls.filter(call => writeActions.includes(call.action)).length, 0);
+});
+
 test('volume and mute target the selected room, preserve grouping and never retry a write', async () => {
   const mock = speakerMock(); const sonos = createSonosService(sonosSettings(), mock.fetcher);
   const initial = await sonos.get('B');

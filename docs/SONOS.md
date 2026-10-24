@@ -23,7 +23,7 @@ The cover's left edge aligns with the volume-down button below it.
 Long room/group names and titles are ellipsized within fixed two-line boxes;
 waiting, pause and error text replace the artist row. The room selector opens
 Rooms. Empty artist rows and unused title lines collapse; combined default-room
-volumes use compact percentages in the heading's living/kitchen order. The selector
+volumes use compact percentages labelled W/K (Dutch) or L/K (English). The selector
 keeps its own touch target above the shared cover/track target. The
 cover is clipped to its rounded frame; idle favorites retain their full-width
 room heading. Playback controls remain in the full-width bottom row. The separate
@@ -103,7 +103,13 @@ Title and artist sit below the cover. The back arrow and Sonos heading form a
 single navigation row, with the group name underneath as borderless text. Unavailable
 controls use muted icons rather than grey rectangles. Tapping the room/group
 heading opens the Rooms tab in either player. Single-room headings show only
-the room name, without a trailing `>`; the name remains clickable. Favorites show a small type
+the room name, without a trailing `>`; the name remains clickable.
+Both ESP player headings and the web Sonos header show all visible rooms in the
+selected room's actual group, including after explicit selection or external
+regrouping. They use discovered names and omit hidden bonded partners. A room
+selection still scopes volume/mute to that physical room; the group heading does
+not change the control target. Unapplied grouping drafts do not change the heading.
+Favorites show a small type
 icon and up to two title lines, with six tiles visible before scrolling. Missing
 font glyphs are omitted from display only; playback metadata remains untouched.
 Favorites come directly from Sonos; no Homey Flow is involved. When the dashboard

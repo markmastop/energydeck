@@ -304,7 +304,7 @@ export function initializeDetails({ api, t, format, time, svgNode, onUnauthorize
   }
   function renderSonos() {
     renderPlayer('full-player', false); renderPlayer('compact-player', true);
-    text('sonos-room-heading', sonos?.player?.name || t('rooms')); text('sonos-message', message || sonosError);
+    text('sonos-room-heading', sonos?.player?.group || sonos?.player?.name || t('rooms')); text('sonos-message', message || sonosError);
     $('favorites-tab').setAttribute('aria-pressed', String(view === 'favorites')); $('rooms-tab').setAttribute('aria-pressed', String(view === 'rooms'));
     $('favorites-grid').hidden = view !== 'favorites'; $('sonos-rooms').hidden = view !== 'rooms';
     $('favorites-grid').replaceChildren(favoriteGrid());

@@ -370,6 +370,19 @@ class State {
     for (const auto &s : systems) if (s.uuid == current().uuid) return s.name;
     return explicitly_selected() ? explicit_name_ : current().uuid;
   }
+  std::string current_group_name() const {
+    // Selection scopes room volume; transport still belongs to the actual group.
+    // Use the published inventory so discovery updates the heading immediately,
+    // even before the selected room's playback snapshot has been refreshed.
+    const auto *anchor = systems_known ? system(current().uuid) : nullptr;
+    if (!anchor) return current_name();
+    std::string name;
+    for (const auto &s : systems) if (s.coordinator == anchor->coordinator) {
+      if (!name.empty()) name += " + ";
+      name += s.name;
+    }
+    return name.empty() ? current_name() : name;
+  }
   bool select_system(const std::string &uuid) {
     const auto *s = system(uuid);
     if (!systems_known || !s) return false;

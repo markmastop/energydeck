@@ -513,10 +513,16 @@ class State {
   bool has_request() const { return cursor_ < requests_.size(); }
   const Request &request() const { return requests_[cursor_]; }
   bool can_volume() const {
-    return current().known() && current().volume >= 0 && (!uses_pair_controls() || rooms[1 - selected].volume >= 0);
+    return current().known() && current().volume >= 0;
   }
-  bool can_mute() const { return current().known() && current().mute >= 0 && (!uses_pair_controls() || rooms[1-selected].mute >= 0); }
-  bool muted() const { return current().mute == 1 && (!uses_pair_controls() || rooms[1-selected].mute == 1); }
+  bool can_mute() const { return current().known() && current().mute >= 0; }
+  bool muted(bool group = false) const {
+    if (!group) return current().mute == 1;
+    const auto *anchor = systems_known && systems_complete ? system(current().uuid) : nullptr;
+    if (!anchor) return false;
+    for (const auto &s : systems) if (s.coordinator == anchor->coordinator && cached_room(s).mute != 1) return false;
+    return true;
+  }
   void switch_room() { if (selected < 2 && !grouped()) { selected = 1 - selected; manual_ = true; explicit_uuid_.clear(); } }
   std::string scope() const {
     const auto &r = current();
@@ -542,15 +548,15 @@ class State {
       if (!pending_[i].host.empty()) requests_.push_back({pending_[i].host, "ZoneGroupTopology", "GetZoneGroupState", "", i});
     }
   }
-  // Group volume is independent of playback metadata and includes every visible member.
+  // Group volume/mute are independent of playback metadata and includes every visible member.
   void queue_group_volumes() {
     const auto *anchor = system(current().uuid);
     if (!anchor) return;
     for (const auto &s : systems) if (s.coordinator == anchor->coordinator &&
         std::none_of(requests_.begin(), requests_.end(), [&](const Request &r) { return r.host == s.host && r.action == "GetVolume"; }))
-      requests_.push_back({s.host, "RenderingControl", "GetVolume", "<InstanceID>0</InstanceID><Channel>Master</Channel>", -2});
+      for (const auto &action : {"GetVolume", "GetMute"}) requests_.push_back({s.host, "RenderingControl", action, "<InstanceID>0</InstanceID><Channel>Master</Channel>", -2});
   }
-  // Reuse discovered topology; only fetch selected playback and group volume.
+  // Reuse discovered topology; only fetch selected playback and group volume/mute.
   void begin_current() {
     requests_.clear(); cursor_ = 0; commanding_ = false; read_retried_ = false;
     topology_ok_ = systems_known; pending_complete_ = systems_complete;
@@ -585,24 +591,28 @@ class State {
         command_error = xml.has("Fault") ? std::max(0, number(xml.text("errorCode"))) : 0;
         command_failed = true; requests_.clear(); cursor_ = 0; return;
       }
-      if (!volume_systems_.empty() && req.action == "GetVolume") {
-        const int v = number(xml.text("CurrentVolume"), 100);
-        if (v < 0 || (volume_reads_ >= volume_systems_.size() && v != volume_target_)) {
+      if (!control_systems_.empty() && req.action == (target_action_ == 5 ? "GetMute" : "GetVolume")) {
+        const int v = number(xml.text(target_action_ == 5 ? "CurrentMute" : "CurrentVolume"), target_action_ == 5 ? 1 : 100);
+        if (v < 0 || (control_reads_ >= control_systems_.size() && v != control_target_)) {
           command_failed = true; requests_.clear(); cursor_ = 0; return;
         }
-        const auto &member = volume_systems_[volume_reads_ % volume_systems_.size()];
-        auto cached = cached_room(member); cached.volume = v; room_cache_[member.uuid] = cached;
-        if (volume_reads_ < volume_systems_.size()) volume_min_ = std::min(volume_min_, v);
-        ++volume_reads_;
-        if (volume_reads_ == volume_systems_.size()) {
-          volume_target_ = std::max(0, std::min(100, volume_min_ + (target_action_ == 1 ? -2 : 2)));
-          for (const auto &s : volume_systems_) requests_.push_back({s.host, "RenderingControl", "SetVolume",
-            "<InstanceID>0</InstanceID><Channel>Master</Channel><DesiredVolume>" + std::to_string(volume_target_) + "</DesiredVolume>", target_room_});
+        const auto &member = control_systems_[control_reads_ % control_systems_.size()];
+        auto cached = cached_room(member);
+        if (target_action_ == 5) cached.mute = v; else cached.volume = v;
+        room_cache_[member.uuid] = cached;
+        if (control_reads_ < control_systems_.size()) control_min_ = std::min(control_min_, v);
+        ++control_reads_;
+        if (control_reads_ == control_systems_.size()) {
+          control_target_ = target_action_ == 5 ? (control_min_ == 1 ? 0 : 1) :
+            std::max(0, std::min(100, control_min_ + (target_action_ == 1 ? -2 : 2)));
+          for (const auto &s : control_systems_) requests_.push_back({s.host, "RenderingControl", target_action_ == 5 ? "SetMute" : "SetVolume",
+            "<InstanceID>0</InstanceID><Channel>Master</Channel><" + std::string(target_action_ == 5 ? "DesiredMute" : "DesiredVolume") + ">" +
+            std::to_string(control_target_) + "</" + (target_action_ == 5 ? "DesiredMute" : "DesiredVolume") + ">", target_room_});
           // Verify all members, including rooms outside the three playback slots.
-          for (const auto &s : volume_systems_) requests_.push_back({s.host, "RenderingControl", "GetVolume",
+          for (const auto &s : control_systems_) requests_.push_back({s.host, "RenderingControl", target_action_ == 5 ? "GetMute" : "GetVolume",
             "<InstanceID>0</InstanceID><Channel>Master</Channel>", target_room_});
         }
-        if (volume_reads_ == volume_systems_.size() * 2) group_volume_verified_ = true;
+        if (control_reads_ == control_systems_.size() * 2) group_control_verified_ = true;
       }
       if (settling) {
         bool ready = false;
@@ -705,12 +715,14 @@ class State {
         if (r.cover.empty()) r.cover = r.station_cover;
       }
     }
-    if (req.room == -2 && req.action == "GetVolume") {
+    if (req.room == -2 && (req.action == "GetVolume" || req.action == "GetMute")) {
       const auto it = std::find_if(pending_systems_.begin(), pending_systems_.end(), [&](const System &s) { return s.host == req.host; });
       if (it != pending_systems_.end()) {
-        auto r = cached_room(*it); r.volume = ok ? number(xml.text("CurrentVolume"), 100) : -1;
+        auto r = cached_room(*it);
+        const int v = ok ? number(xml.text(req.action == "GetMute" ? "CurrentMute" : "CurrentVolume"), req.action == "GetMute" ? 1 : 100) : -1;
+        if (req.action == "GetMute") r.mute = v; else r.volume = v;
         room_cache_[it->uuid] = r;
-        for (auto &pending : pending_) if (pending.uuid == it->uuid) pending.volume = r.volume;
+        for (auto &pending : pending_) if (pending.uuid == it->uuid) { pending.volume = r.volume; pending.mute = r.mute; }
       }
     }
     ++cursor_;
@@ -732,7 +744,7 @@ class State {
       const auto anchor = std::find_if(pending_systems_.begin(), pending_systems_.end(), [&](const System &s) { return s.uuid == current().uuid; });
       if (anchor != pending_systems_.end()) for (const auto &s : pending_systems_) if (s.coordinator == anchor->coordinator &&
           std::none_of(requests_.begin(), requests_.end(), [&](const Request &r) { return r.host == s.host && r.action == "GetVolume"; }))
-        requests_.push_back({s.host, "RenderingControl", "GetVolume", "<InstanceID>0</InstanceID><Channel>Master</Channel>", -2});
+        for (const auto &action : {"GetVolume", "GetMute"}) requests_.push_back({s.host, "RenderingControl", action, "<InstanceID>0</InstanceID><Channel>Master</Channel>", -2});
     }
   }
   // Transport/media/position arrive before optional action and speaker controls.
@@ -813,8 +825,8 @@ class State {
   }
   // Freeze the displayed target before refresh. Abort if regrouping changed its
   // scope in the meantime, so a delayed click cannot control the other room.
-  void capture(bool group_volume = false) {
-    captured_room_ = selected; captured_scope_ = scope(); captured_group_volume_ = group_volume;
+  void capture(bool group_controls = false) {
+    captured_room_ = selected; captured_scope_ = scope(); captured_group_controls_ = group_controls;
   }
   bool prepare_command(int action) {
     selected = captured_room_;
@@ -825,30 +837,29 @@ class State {
         (action == 5 && !can_mute())) return false;
     target_action_ = action; target_scope_ = scope(); target_room_ = selected;
     target_playing_ = !current().playing; target_volumes_ = {{-1, -1, -1}};
-    target_pair_ = action == 5 && uses_pair_controls();
-    volume_systems_.clear(); volume_reads_ = 0; group_volume_verified_ = false;
-    if ((action == 1 || action == 2) && captured_group_volume_) {
+    control_systems_.clear(); control_reads_ = 0; group_control_verified_ = false;
+    if ((action == 1 || action == 2 || action == 5) && captured_group_controls_) {
       const auto *anchor = systems_known ? system(current().uuid) : nullptr;
       if (!anchor || !systems_complete) return false;
-      for (const auto &s : systems) if (s.coordinator == anchor->coordinator) volume_systems_.push_back(s);
-      if (volume_systems_.size() > 1) {
-        // Read every visible member before the first write; stale caches must
-        // never make a loud room the baseline or omit a quiet group member.
-        volume_min_ = 100;
-        for (const auto &s : volume_systems_) requests_.push_back({s.host, "RenderingControl", "GetVolume",
+      for (const auto &s : systems) if (s.coordinator == anchor->coordinator) control_systems_.push_back(s);
+      if (control_systems_.size() > 1) {
+        // Read every member before writing: both the volume baseline and
+        // the all-muted toggle state must come from fresh group readings.
+        control_min_ = 100;
+        for (const auto &s : control_systems_) requests_.push_back({s.host, "RenderingControl", action == 5 ? "GetMute" : "GetVolume",
           "<InstanceID>0</InstanceID><Channel>Master</Channel>", selected});
         return true;
       }
-      volume_systems_.clear();
+      control_systems_.clear();
     }
     target_mute_ = !muted(); target_track_uri_ = current().track_uri;
     if (action == 0) requests_.push_back({current().coordinator_host, "AVTransport", target_playing_ ? "Play" : "Pause",
       std::string("<InstanceID>0</InstanceID>") + (target_playing_ ? "<Speed>1</Speed>" : ""), selected});
     else if (action == 3 || action == 4) requests_.push_back({current().coordinator_host, "AVTransport", action == 3 ? "Previous" : "Next", "<InstanceID>0</InstanceID>", selected});
     else if (action == 5) {
-      for (int i = 0; i < 3; ++i) if (i == selected || (i < 2 && target_pair_))
+      for (int i = 0; i < 3; ++i) if (i == selected)
         requests_.push_back({room(i).host, "RenderingControl", "SetMute", "<InstanceID>0</InstanceID><Channel>Master</Channel><DesiredMute>" + std::to_string(target_mute_) + "</DesiredMute>", i});
-    } else for (int i = 0; i < 3; ++i) if (i == selected || (i < 2 && target_pair_)) {
+    } else for (int i = 0; i < 3; ++i) if (i == selected) {
       target_volumes_[i] = std::max(0, std::min(100, room(i).volume + (action == 1 ? -2 : 2)));
       requests_.push_back({room(i).host, "RenderingControl", "SetVolume", "<InstanceID>0</InstanceID><Channel>Master</Channel><DesiredVolume>" +
         std::to_string(target_volumes_[i]) + "</DesiredVolume>", i});
@@ -972,9 +983,10 @@ class State {
     if (!r.known() || target_scope_ != r.uuid + "|" + r.coordinator + "|" + r.members) return false;
     if (target_action_ == 0) return !r.transitioning && r.playing == target_playing_;
     if (target_action_ == 3 || target_action_ == 4) return !r.track_uri.empty() && r.track_uri != target_track_uri_;
-    if (target_action_ == 5) return r.mute == target_mute_ && (!target_pair_ || rooms[1-target_room_].mute == target_mute_);
+    if (!control_systems_.empty() && target_action_ == 5) return !command_failed && group_control_verified_;
+    if (target_action_ == 5) return r.mute == target_mute_;
     if (target_action_ == 6) return r.playing && !r.transport_error && favorite_source_matches(favorite_uri_, r.uri) && (favorite_track_ < 0 || (r.track >= favorite_track_ && r.track < favorite_end_track_));
-    if (!volume_systems_.empty()) return !command_failed && group_volume_verified_;
+    if (!control_systems_.empty()) return !command_failed && group_control_verified_;
     for (int i = 0; i < 3; ++i) if (target_volumes_[i] >= 0 && room(i).volume != target_volumes_[i]) return false;
     return true;
   }
@@ -989,7 +1001,7 @@ class State {
   std::vector<Request> requests_;
   size_t cursor_ = 0;
   bool topology_ok_ = false, manual_ = false, commanding_ = false, target_playing_ = false;
-  bool compact_playing_ = false, read_retried_ = false, target_pair_ = false;
+  bool compact_playing_ = false, read_retried_ = false;
   bool system_playing_ = false, system_stopped_ = true;
   bool pending_complete_ = true;
   std::string explicit_uuid_, explicit_name_;
@@ -1002,10 +1014,10 @@ class State {
   std::string target_track_uri_, favorite_uri_;
   int target_mute_ = 0, favorite_track_ = -1, favorite_end_track_ = -1;
   unsigned favorite_settle_reads_ = 0;
-  bool captured_group_volume_ = false, group_volume_verified_ = false;
-  std::vector<System> volume_systems_;
-  size_t volume_reads_ = 0;
-  int volume_min_ = 100, volume_target_ = 0;
+  bool captured_group_controls_ = false, group_control_verified_ = false;
+  std::vector<System> control_systems_;
+  size_t control_reads_ = 0;
+  int control_min_ = 100, control_target_ = 0;
   std::array<int, 3> target_volumes_{{-1, -1, -1}};
   const System *system(const std::string &uuid) const {
     for (const auto &s : systems) if (s.uuid == uuid) return &s;

@@ -38,7 +38,7 @@ struct ScriptProbe {
 };
 static energydeck_sonos::State sonos;
 static energydeck_sonos::Queue sonos_queue;
-static lv_obj_t *music_queue_list, *music_queue_badge, *music_next_track;
+static lv_obj_t *music_queue_list, *music_queue_badge, *music_next_track, *music_next_caption;
 static energydeck_sonos::RoomActivity sonos_room_activity;
 static bool music_page_open = true, music_busy = false, music_favorite_pending = false;
 static int music_content_tab = 1;
@@ -203,6 +203,7 @@ int main() {
   music_queue_list = lv_obj_create(lv_screen_active());
   lv_obj_set_size(music_queue_list, 452, 200);
   music_queue_badge = lv_label_create(lv_screen_active());
+  music_next_caption = lv_label_create(lv_screen_active());
   music_next_track = lv_label_create(lv_screen_active());
   music_content_tab = 2; sonos = energydeck_sonos::State{};
   auto &room = sonos.rooms[0];
@@ -219,12 +220,14 @@ int main() {
   render_queue();
   assert(!std::strcmp(lv_label_get_text(music_queue_badge), "5"));
   assert(lv_obj_get_child_count(music_queue_list) == 5);
-  assert(std::strstr(lv_label_get_text(music_next_track), "Five"));
+  assert(std::strstr(lv_label_get_text(music_next_track), "Five\nArtist"));
+  assert(!lv_obj_has_flag(music_next_caption, LV_OBJ_FLAG_HIDDEN));
   auto *retained = lv_obj_get_child(music_queue_list, 0); render_queue();
   assert(lv_obj_get_child(music_queue_list, 0) == retained);
   room.track = 5; render_queue(); // Late snapshots cannot describe the newly selected/current track.
   assert(!std::strcmp(lv_label_get_text(music_queue_badge), "--"));
   assert(!std::strlen(lv_label_get_text(music_next_track)));
+  assert(lv_obj_has_flag(music_next_caption, LV_OBJ_FLAG_HIDDEN));
   assert(lv_obj_get_child_count(music_queue_list) == 1);
   room.uri = "x-sonosapi-stream:radio";
   sonos_queue.begin(room.coordinator_host, room.uri, room.track, true); render_queue();

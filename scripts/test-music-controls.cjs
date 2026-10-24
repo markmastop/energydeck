@@ -84,13 +84,24 @@ try {
   if (back.includes('\\uf060') || !back.includes('- line:') || !back.includes('clickable: false'))
     throw new Error('The back arrow must be drawn without a missing font glyph');
   const cover = page.split('id: music_cover_frame\n')[1].split('  - label:')[0];
-  if (!cover.includes('width: 272') || !cover.includes('height: 272'))
-    throw new Error('The detail cover must have the larger square footprint');
+  if (!cover.includes('width: 232') || !cover.includes('height: 232'))
+    throw new Error('The detail cover must leave room for readable track and up-next metadata');
   for (const id of ['music_previous', 'music_play', 'music_next', 'music_minus', 'music_plus', 'music_mute']) {
     const widget = page.split(`id: ${id}\n`)[1].split('  - ')[0];
     const x = Number(widget.match(/\bx: (\d+)/)[1]);
-    if (x < 310) throw new Error(`${id} must sit to the right of the cover`);
+    if (x < 266) throw new Error(`${id} must sit to the right of the cover`);
   }
+  const geometry = id => {
+    const widget = page.split(`id: ${id}\n`)[1].split('  - ')[0];
+    return Object.fromEntries(['x', 'y', 'width', 'height'].map(key => [key, Number(widget.match(new RegExp(`\\b${key}: (\\d+)`))[1])]));
+  };
+  const transport = ['music_previous', 'music_play', 'music_next'].map(geometry);
+  if (!transport.every(item => item.y === transport[0].y && item.height >= 44) ||
+      transport.some((item, index) => index && item.x < transport[index - 1].x + transport[index - 1].width))
+    throw new Error('Transport controls must share one non-overlapping touch row');
+  const upcoming = geometry('music_next_track'), tabs = geometry('music_queue_tab');
+  if (upcoming.height < 28 || upcoming.y + upcoming.height > tabs.y - 8)
+    throw new Error('Up next needs two lines and breathing room above the tabs');
   const dashboard = fs.readFileSync(path.join(__dirname, '../esphome/packages/dashboard.yaml'), 'utf8');
   const detail = dashboard.split('id: small_music_detail_target\n')[1]?.split('              - button:')[0];
   if (!detail?.includes('script.execute: open_music_page') || !detail.includes('clickable: true') ||

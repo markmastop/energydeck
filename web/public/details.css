@@ -233,3 +233,16 @@ dialog p { font-size: 14px; line-height: 1.6; color: var(--muted); }
 .queue-track-details strong, .queue-track-details small, .queue-next { overflow-wrap: anywhere; }
 .queue-track-details strong { font-size: 13px; }
 .queue-track-details small, .queue-next { font-size: 11px; line-height: 1.5; }
+
+/* Keep the prediction separate from current metadata and transport controls. */
+.up-next { display: flex; gap: 12px; margin: 18px 0; padding: 12px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); font-size: 12px; line-height: 1.5; }
+.up-next-caption { flex: 0 0 auto; color: var(--green); }
+.up-next-track { min-width: 0; display: grid; gap: 3px; overflow-wrap: anywhere; }
+.up-next-track strong { font-size: 13px; font-weight: 500; }
+.up-next-track small { font-size: 11px; }
+#full-player .player-controls { flex-direction: column; gap: 16px; }
+#full-player .transport-row { gap: 16px; }
+#full-player .volume-row { gap: 12px; }
+
+.transport[aria-pressed="true"] { color: var(--yellow); background: #4c4024; }
+.transport svg { vertical-align: middle; }

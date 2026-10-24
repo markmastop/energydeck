@@ -67,8 +67,8 @@ widgets:
       id: music_cover_frame
       x: 14
       y: 216
-      width: 272
-      height: 272
+      width: 232
+      height: 232
       radius: 10
       bg_color: 0x18231E
       border_color: 0x34463C
@@ -91,7 +91,7 @@ widgets:
   - label:
       id: music_title
       x: 14
-      y: 494
+      y: 460
       width: 452
       height: 26
       text: "${music_ready}"
@@ -101,20 +101,29 @@ widgets:
   - label:
       id: music_artist
       x: 14
-      y: 520
+      y: 490
       width: 330
-      height: 14
+      height: 18
       text: ""
-      text_font: montserrat_12
+      text_font: montserrat_14
       text_color: 0xA9B8AE
       text_align: LEFT
       long_mode: DOT
   - label:
-      id: music_next_track
+      id: music_next_caption
       x: 14
-      y: 536
-      width: 330
-      height: 14
+      y: 514
+      width: 56
+      height: 18
+      text: "${music_up_next_label}"
+      text_font: montserrat_12
+      text_color: 0x7FE0A2
+  - label:
+      id: music_next_track
+      x: 76
+      y: 514
+      width: 390
+      height: 28
       text: ""
       text_font: montserrat_12
       text_color: 0xA9B8AE
@@ -122,7 +131,7 @@ widgets:
   - label:
       id: music_status
       x: 350
-      y: 526
+      y: 490
       width: 116
       height: 18
       text: "${music_loading}"
@@ -132,10 +141,10 @@ widgets:
   - button:
       id: music_previous
       bg_opa: TRANSP
-      x: 310
-      y: 294
-      width: 64
-      height: 48
+      x: 266
+      y: 230
+      width: 52
+      height: 64
       radius: 8
       pad_all: 0
       bg_color: 0x18231E
@@ -149,8 +158,8 @@ widgets:
             action: 3
   - button:
       id: music_play
-      x: 356
-      y: 220
+      x: 330
+      y: 230
       width: 64
       height: 64
       radius: 32
@@ -168,9 +177,9 @@ widgets:
       id: music_next
       bg_opa: TRANSP
       x: 402
-      y: 294
-      width: 64
-      height: 48
+      y: 230
+      width: 52
+      height: 64
       radius: 8
       pad_all: 0
       bg_color: 0x18231E
@@ -185,10 +194,10 @@ widgets:
   - button:
       id: music_minus
       bg_opa: TRANSP
-      x: 310
-      y: 398
+      x: 282
+      y: 344
       width: 64
-      height: 44
+      height: 48
       radius: 8
       pad_all: 0
       bg_color: 0x18231E
@@ -203,10 +212,10 @@ widgets:
   - button:
       id: music_mute
       bg_opa: TRANSP
-      x: 310
-      y: 448
-      width: 156
-      height: 40
+      x: 282
+      y: 408
+      width: 164
+      height: 44
       radius: 8
       pad_all: 0
       bg_color: 0x18231E
@@ -221,10 +230,10 @@ widgets:
   - button:
       id: music_plus
       bg_opa: TRANSP
-      x: 402
-      y: 398
+      x: 382
+      y: 344
       width: 64
-      height: 44
+      height: 48
       radius: 8
       pad_all: 0
       bg_color: 0x18231E
@@ -238,10 +247,10 @@ widgets:
             action: 2
   - label:
       id: music_volume
-      x: 310
-      y: 350
-      width: 156
-      height: 42
+      x: 266
+      y: 316
+      width: 188
+      height: 22
       text: "${music_volume_unknown}"
       text_font: montserrat_12
       text_color: 0xA9B8AE

@@ -40,7 +40,7 @@ displayed room never starts music or a Homey Flow.
 
 Both players share room selection, current title/artist, volume, waiting/error
 state and playback controls. The compact cover scales the same decoded image to
-92×92 pixels without another network request; the full page uses a 272px cover.
+92×92 pixels without another network request; the full page uses a 232px cover.
 
 The compact live energy header stays at the top on both pages. Sonos starts at
 y=154, the top edge of the dashboard's Today/Tomorrow tabs. The same header widgets
@@ -52,7 +52,7 @@ its status/power copy the charging/discharging/standby text colors. Unavailable
 battery data shows dashes. Returning restores the original daily-energy gauge;
 solar stays on the right on both pages. This is display-only, with no extra polling.
 
-The page has a 272×272 cover, ellipsized title/artist, room selector, playback,
+The page has a 232×232 cover, ellipsized title/artist, room selector, playback,
 skip, volume and mute controls. A read-only **Up next** line shows the next
 queued title and artist when Sonos exposes a deterministic order. Below the
 player, **Queue / Rooms / Favorites** tabs switch between the queue, system list
@@ -114,8 +114,8 @@ the room name, without a trailing `>`; the name remains clickable.
 Both ESP player headings and the web Sonos header show all visible rooms in the
 selected room's actual group, including after explicit selection or external
 regrouping. They use discovered names and omit hidden bonded partners. A room
-selection scopes mute to that physical room. Player volume controls the actual
-group; on the Rooms tab, volume controls only the selected physical room.
+selection preserves the actual group scope of player volume and mute. On the
+Rooms tab, both controls target only the selected physical room.
 Unapplied grouping drafts do not change the heading.
 Favorites show a small type
 icon and up to two title lines, with six tiles visible before scrolling. Missing
@@ -200,13 +200,13 @@ Sonos updates.
   room, including rooms outside Woonkamer/Keuken. Keep the displayed room while
   it plays; otherwise choose the first playing room in the Rooms list's
   case-insensitive alphabetical order. A new target gets six read-only requests
-  for transport, metadata, actions, volume and mute plus one volume read for each
+  for transport, metadata, actions, volume and mute plus volume/mute reads for each
   other visible group member, using the just-discovered topology. Already-polled
   default rooms reuse their snapshot. No second full
   poll, extra timer, playback command or grouping change is needed.
 - Automatic following pauses while the full Sonos page is open or a control or
   favorite is in flight. Automatic room selection uses the same group-volume,
-  room/pair mute and
+  group mute and
   coordinator-based transport/favorites scope as a clicked room.
   All-room activity participates in compact playback edges; unknown,
   transitioning or incompletely discovered rooms never prove that all playback
@@ -226,8 +226,10 @@ Explicit room selection does not narrow player volume scope. On the **Rooms** ta
 the same minus/plus controls target only the selected room, labelled Room.
 Grouping drafts never determine volume targets. All group volumes must be valid
 before any write; a failed/uncertain write stops the sequence without retries or
-rollback. Both implementations read back every group member to confirm the result. Mute keeps
-its existing default-pair/explicit-room behavior. Transport and favorites follow
+rollback. Both implementations read back every group member to confirm the result. Mute
+uses the same group scope in the player and single-room scope on Rooms. A mixed
+group is shown as audible; the first mute click mutes every member. Only a fully
+muted group is offered Unmute. Missing readings abort without any write. Transport and favorites follow
 the actual coordinator, so they affect its current group.
 Previous/Next are enabled only when Sonos reports the action available.
 Playback controls and favorite selection inherently affect the coordinator's
@@ -236,8 +238,8 @@ actual group, so avoid adding unrelated rooms if they should remain unaffected.
 Commands are only created after a user click. For ordinary playback controls, the displayed target is captured,
 fresh topology/volume is read, and a changed group scope cancels the command.
 Controls are disabled while a command is being checked/sent and for unavailable
-data. Once Sonos acknowledges an ordinary playback/mute/skip or room-volume command,
-controls are released immediately. Group-volume commands also verify every
+data. Once Sonos acknowledges an ordinary playback/skip or room-volume command,
+controls are released immediately. Group volume/mute commands also verify every
 member with a volume read before releasing controls. A background poll starts
 without waiting for
 its result; subsequent status snapshots confirm the latest command. An
@@ -807,3 +809,15 @@ Regression checks: `node scripts/test-music-controls.cjs` includes the bounded
 queue model tests; `.venv/bin/python scripts/test-sonos-room-widgets.py` exercises
 the actual queue-render lambda with the simulator's LVGL. Web queue tests are in
 `web/test/features.test.mjs`. These use fixtures and issue no real controls.
+
+## Sonos layout refinement
+
+The full player uses a 232px square cover, with Previous / Play-Pause / Next on
+one row to its right. Volume and mute form two compact rows below that transport
+row. All touch targets remain at least 44px high. Current title and artist sit
+below the cover; a separate Up next caption and two-line title/artist block ends
+8px above the three tabs. Current and next metadata no longer compete on one
+compressed line. The web player uses a separate caption/title/artist block and
+stacked transport/volume rows, with a real speaker icon and visible muted state.
+Group mute is read and confirmed for every visible member, without changing any
+volume, group membership or playback state. Tests use synthetic controls only.

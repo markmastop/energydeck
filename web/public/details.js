@@ -266,6 +266,7 @@ export function initializeDetails({ api, t, format, time, svgNode, onUnauthorize
       const element = button(symbol, () => send(action, extra), action === 'play' || action === 'pause' ? 'transport play-button' : 'transport', locked || disabled);
       element.setAttribute('aria-busy', String(Boolean(commandBusy || sonos?.busy)));
       element.setAttribute('aria-label', t(label)); (['volume', 'mute'].includes(action) ? volumeRow : transportRow).append(element);
+      return element;
     };
     if (!compact) control('⏮', 'previous', 'previous', {}, player.tv || !actions.includes('Previous'));
     const playing = player.state === 'PLAYING';
@@ -278,7 +279,12 @@ export function initializeDetails({ api, t, format, time, svgNode, onUnauthorize
     volumeRow.append(node('span', 'volume-value', `${t(roomVolume ? 'roomVolume' : 'groupVolume')} ${displayed}`));
     control('+', 'volumeUp', 'volume', { delta: 2 }, volumeUnavailable);
     if (!compact) {
-      control(player.mute ? '◉' : '◌', player.mute ? 'unmute' : 'mute', 'mute', { mute: !player.mute }, player.mute === null);
+      const mute = control('', player.mute ? 'unmute' : 'mute', 'mute', { mute: !player.mute }, player.mute === null);
+      mute.setAttribute('aria-pressed', String(Boolean(player.mute)));
+      const speaker = svgNode('svg', { width: 22, height: 22, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': 1.8, 'aria-hidden': 'true' });
+      speaker.append(svgNode('path', { d: 'M11 4 6 8H3v8h3l5 4Z', 'stroke-linejoin': 'round' }));
+      speaker.append(svgNode('path', { d: player.mute ? 'm16 8 6 8m0-8-6 8' : 'M15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14', 'stroke-linecap': 'round' }));
+      mute.append(speaker);
     }
     controls.append(transportRow, volumeRow); return controls;
   }
@@ -293,9 +299,18 @@ export function initializeDetails({ api, t, format, time, svgNode, onUnauthorize
     if (compact) track.append(playerControls(player, true));
     if (!compact && sonos.queue?.known && sonos.queue.applicable) {
       const queue = sonos.queue;
-      const label = queue.next ? `${t('upNext')}: ${queue.next.title}${queue.next.artist ? ` · ${queue.next.artist}` : ''}` :
-        queue.mode?.includes('SHUFFLE') ? t('queueShuffle') : queue.current === queue.total && queue.total > 0 && queue.mode === 'NORMAL' ? t('queueEnd') : '';
-      if (label) track.append(node('p', 'muted queue-next', label));
+      const upcoming = node('div', 'up-next');
+      upcoming.append(node('span', 'up-next-caption', t('upNext')));
+      if (queue.next) {
+        const detail = node('div', 'up-next-track');
+        detail.append(node('strong', '', queue.next.title));
+        if (queue.next.artist) detail.append(node('small', 'muted', queue.next.artist));
+        upcoming.append(detail);
+      } else {
+        const label = queue.mode?.includes('SHUFFLE') ? t('queueShuffle') : queue.current === queue.total && queue.total > 0 && queue.mode === 'NORMAL' ? t('queueEnd') : '';
+        if (label) upcoming.append(node('span', 'muted', label));
+      }
+      if (upcoming.children.length > 1) track.append(upcoming);
     }
     layout.append(track); container.append(layout);
     if (!compact) container.append(playerControls(player));
@@ -374,7 +389,7 @@ export function initializeDetails({ api, t, format, time, svgNode, onUnauthorize
     commandBusy = true; message = t('commandSending');
     sonosVersion++;
     const version = generation;
-    const body = { action, roomId: sonos.player.roomId, scope: sonos.scope, combined: action === 'volume' ? !(page === 'sonos' && view === 'rooms') : !explicitRoom, ...extra };
+    const body = { action, roomId: sonos.player.roomId, scope: sonos.scope, combined: ['volume', 'mute'].includes(action) ? !(page === 'sonos' && view === 'rooms') : !explicitRoom, ...extra };
     renderSonos();
     try {
       await request('/api/sonos/command', body);

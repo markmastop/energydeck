@@ -126,7 +126,7 @@ image:
     url: "${sonos_bootstrap_address}/unavailable"
     format: JPEG
     type: RGB565
-    resize: 272x272
+    resize: 232x232
     buffer_size: 8192
     update_interval: never
     # No credentials: coordinator artwork or allowlisted Sonos HTTPS proxies.
@@ -148,10 +148,10 @@ image:
             // Fill the rounded square without stretching or a letterbox strip.
             const int w = id(music_cover).get_width(), h = id(music_cover).get_height();
             if (w > 0 && h > 0) {
-              const int scale = (272 * 256 + std::min(w, h) - 1) / std::min(w, h);
+              const int scale = (232 * 256 + std::min(w, h) - 1) / std::min(w, h);
               lv_image_set_pivot(id(music_cover_widget), 0, 0);
               lv_image_set_scale(id(music_cover_widget), scale);
-              lv_obj_set_pos(id(music_cover_widget), (272 - w * scale / 256) / 2, (272 - h * scale / 256) / 2);
+              lv_obj_set_pos(id(music_cover_widget), (232 - w * scale / 256) / 2, (232 - h * scale / 256) / 2);
               // Keep a separate native-size thumbnail: no shared transformed
               // RGB565 buffer/cache between the large and compact widgets.
               constexpr int thumbnail_side = ${music_compact_cover_size};
@@ -679,8 +679,8 @@ script:
           const std::string selected_volume = known && room.volume >= 0 ? std::to_string(room.volume) + "%" : "--";
           esphome::ui_performance::set_text(lv_obj_get_child(id(music_play), 0),
             waiting ? LV_SYMBOL_REFRESH : room.tv ? "${music_tv}" : playing ? LV_SYMBOL_PAUSE : LV_SYMBOL_PLAY);
-          esphome::ui_performance::set_text(lv_obj_get_child(id(music_mute), 0), s.muted() ? "${music_unmute}" : "${music_mute}");
-          esphome::ui_performance::set_style_bg_color(id(music_mute), lv_color_hex(s.muted() ? 0x66512A : 0x18231E), LV_PART_MAIN);
+          esphome::ui_performance::set_text(lv_obj_get_child(id(music_mute), 0), s.muted(!(id(music_page_open) && id(music_content_tab) == 1)) ? "${music_unmute}" : "${music_mute}");
+          esphome::ui_performance::set_style_bg_color(id(music_mute), lv_color_hex(s.muted(!(id(music_page_open) && id(music_content_tab) == 1)) ? 0x66512A : 0x18231E), LV_PART_MAIN);
           for (auto *button : {id(music_play), id(music_minus), id(music_plus), id(music_previous), id(music_next), id(music_mute)}) {
             bool unavailable = !known;
             if (button == id(music_play)) unavailable |= room.tv;
@@ -820,7 +820,7 @@ script:
             lv_obj_set_style_bg_opa(button, LV_OPA_TRANSP, lv_obj_get_state(button));
             lv_obj_set_style_border_width(button, 0, lv_obj_get_state(button));
             lv_obj_set_style_text_color(lv_obj_get_child(button, 0), lv_color_hex(disabled ? 0x67756D :
-              button == id(small_music_room_select) ? 0x7FE0A2 : button == id(music_mute) && s.muted() ? 0xE8B94C : 0xEEF6F0), 0);
+              button == id(small_music_room_select) ? 0x7FE0A2 : button == id(music_mute) && s.muted(!(id(music_page_open) && id(music_content_tab) == 1)) ? 0xE8B94C : 0xEEF6F0), 0);
           }
       - script.execute: render_music_systems
       - script.execute: render_music_queue
@@ -1057,10 +1057,12 @@ script:
           const bool known = room.known() && q.matches(room.coordinator_host, room.uri, room.track) && q.known;
           esphome::ui_performance::set_text_fmt(id(music_queue_badge), "%s", known ? std::to_string(q.total).c_str() : "--");
           const auto *next = known ? q.next() : nullptr;
-          const std::string preview = next ? std::string("${music_up_next}") + next->title + (next->artist.empty() ? "" : " - " + next->artist) :
+          const std::string preview = next ? next->title + (next->artist.empty() ? "" : "\n" + next->artist) :
             known && q.applicable && q.mode.find("SHUFFLE") != std::string::npos ? "${music_queue_shuffle_short}" :
             known && q.applicable && q.current == q.total && q.total > 0 && q.mode == "NORMAL" ? "${music_queue_end}" : "";
           esphome::ui_performance::set_text(id(music_next_track), preview.c_str());
+          if (preview.empty()) lv_obj_add_flag(id(music_next_caption), LV_OBJ_FLAG_HIDDEN);
+          else lv_obj_clear_flag(id(music_next_caption), LV_OBJ_FLAG_HIDDEN);
           if (!id(music_page_open) || id(music_content_tab) != 2 || lv_obj_is_scrolling(id(music_queue_list))) return;
           std::string signature = known ? std::to_string(q.total) + ":" + std::to_string(q.current) + ":" + q.mode + (q.applicable ? ":queue" : ":source") : "unknown";
           for (const auto &item : q.items) signature += std::to_string(item.number) + ":" + item.title + "\n" + item.artist;

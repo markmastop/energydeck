@@ -134,6 +134,33 @@ void test_group_volume() {
   }
 }
 
+void test_group_mute() {
+  State s; Fixture f;
+  const std::string office = "http://192.168.1.52:1400";
+  f.zones = "<ZoneGroups><ZoneGroup Coordinator=\"" + lid + "\">" + member(lid,living) + member(kid,kitchen) +
+    member("OFFICE",office) + "</ZoneGroup></ZoneGroups>";
+  f.mute[0] = 0; f.mute[1] = f.mute[2] = 1;
+  poll(s,f); assert(s.select_system(kid)); poll(s,f); assert(!s.muted(true));
+  for (int expected : {1, 0}) {
+    s.capture(true); poll(s,f); assert(s.prepare_command(5));
+    int writes = 0, reads = 0;
+    while (s.has_request()) {
+      auto q = s.request(); int i = q.host == living ? 0 : q.host == kitchen ? 1 : 2;
+      if (q.action == "GetMute") { ++reads; s.accept(200,response(q.action,"<CurrentMute>" + std::to_string(f.mute[i]) + "</CurrentMute>")); }
+      else {
+        assert(q.action == "SetMute" && reads == 3);
+        assert(q.arguments.find("<DesiredMute>" + std::to_string(expected) + "</DesiredMute>") != std::string::npos);
+        f.mute[i] = expected; ++writes; s.accept(200,response(q.action,""));
+      }
+    }
+    poll(s,f); assert(writes == 3 && reads == 6 && s.command_confirmed() && s.muted(true) == (expected == 1));
+  }
+  s.capture(false); assert(s.prepare_command(5));
+  assert(s.request().host == kitchen); s.accept(200,response("SetMute","")); assert(!s.has_request());
+  s.capture(true); assert(s.prepare_command(5));
+  s.accept(200,response("GetMute","<CurrentMute>2</CurrentMute>")); assert(s.command_failed && !s.has_request());
+}
+
 void test_xml() {
   State follow; Fixture playback;
   poll(follow, playback);
@@ -392,7 +419,7 @@ void test_dashboard_room_follow() {
   assert(!s.has_request()); // Automatic following is selection, never a write.
   s.begin_current();
   assert(s.request().host == study);
-  assert(poll_requests(s,f) == 7); // Selected playback plus one group-member volume read.
+  assert(poll_requests(s,f) == 8); // Selected playback plus one group-member volume read.
   assert(s.current().known() && s.current().title == "Other track" && s.current().volume == 23);
   assert(s.current().host == office && s.current().coordinator_host == study && !s.uses_pair_controls());
   assert(s.rooms[0].known() && !s.rooms[0].playing && s.systems.size() == 4);
@@ -440,7 +467,7 @@ void test_dashboard_room_follow() {
   scan("STOPPED"); assert(!activity.follow_dashboard(s, true) && s.all_stopped());
   assert(s.follow_compact_tab(1) == 0);
   scan("PLAYING"); assert(activity.follow_dashboard(s, true));
-  s.begin_current(); assert(poll_requests(s,f) == 14); // One bounded retry per failed playback/group-volume read.
+  s.begin_current(); assert(poll_requests(s,f) == 16); // One bounded retry per failed playback/group-volume read.
   assert(!s.current().known() && !s.can_volume() && !s.can_mute());
 }
 void test_progressive_room_refresh() {
@@ -485,7 +512,7 @@ void test_progressive_room_refresh() {
   assert(s.select_system(kid));
   s.begin_current();
   f.title[1] = "Fresh shared title";
-  assert(poll_requests(s,f) == 7);
+  assert(poll_requests(s,f) == 8);
   assert(s.current().title == "Fresh shared title" && s.rooms[0].title == "Fresh shared title");
   assert(s.rooms[0].volume == f.volume[0] && s.rooms[1].volume == f.volume[1]);
 }
@@ -557,7 +584,7 @@ void test_room_selection() {
   assert(!s.select_system("unknown"));
   assert(s.select_system(oid) && !s.has_request()); // Selecting is read-only.
   assert(s.selected == 2 && s.explicitly_selected() && !s.current().known());
-  assert(poll(s,f) == 16); // Three playback slots plus the selected group's fourth room volume.
+  assert(poll(s,f) == 17); // Three playback slots plus the selected group's fourth room volume.
   assert(s.current().known() && s.current().uuid == oid && s.current().coordinator == tid);
   assert(s.current().host == office && s.current().coordinator_host == study);
   assert(s.current().title == "Other track" && s.current().volume == 23 && !s.uses_pair_controls());
@@ -755,9 +782,9 @@ void test_favorites() {
   s.capture(); poll(s,fixture); assert(s.prepare_favorite(radio));
   s.accept(500,"<Fault/>"); assert(!s.has_request()); // No Play after failed SetURI.
   s.capture(); poll(s,fixture); assert(s.prepare_command(5));
-  assert(s.request().action == "SetMute" && s.request().host == living);
-  s.accept(200,response("SetMute","")); assert(s.request().host == kitchen);
-  s.accept(200,response("SetMute","")); s.rooms[0].mute = s.rooms[1].mute = 1; assert(s.command_confirmed());
+  assert(s.request().action == "SetMute" && s.request().host == s.current().host);
+  s.accept(200,response("SetMute","")); assert(!s.has_request());
+  s.rooms[s.selected].mute = 1; assert(s.command_confirmed());
   s.capture(); poll(s,fixture); assert(s.prepare_command(4)); assert(s.request().action == "Next");
   s.accept(200,response("Next","")); assert(!s.command_confirmed()); s.rooms[s.selected].track_uri = "new-track"; assert(s.command_confirmed());
 
@@ -953,7 +980,7 @@ int main(int argc, char **argv) {
     for(const auto &r:s.rooms) std::cout << "ROOM known=" << r.known() << " playing=" << r.playing << " tv=" << r.tv << " volume=" << r.volume << " title=" << r.title << " artist=" << r.artist << " cover=" << r.cover << std::endl;
     return 0;
   }
-  test_group_volume(); test_group_heading(); test_xml(); test_states(); test_controls(); test_read_recovery(); test_system_inventory(); test_room_selection(); test_dashboard_room_follow(); test_selection_during_poll(); test_progressive_room_refresh(); test_group_editing(); test_favorites(); test_favorite_readiness(); test_radio_source_normalization();
+  test_group_mute(); test_group_volume(); test_group_heading(); test_xml(); test_states(); test_controls(); test_read_recovery(); test_system_inventory(); test_room_selection(); test_dashboard_room_follow(); test_selection_during_poll(); test_progressive_room_refresh(); test_group_editing(); test_favorites(); test_favorite_readiness(); test_radio_source_normalization();
   std::cout << "PASS: group volume aligns four visible rooms to minimum plus/minus two, bounds 0-100, omits hidden speakers and aborts invalid reads, lost writes or changed scope" << std::endl;
   std::cout << "PASS: favorites preserve default/explicit rooms, existing groups, volume and mute; offline/stale scopes abort" << std::endl;
   std::cout << "PASS: favorites wait for source/transport/seek readiness, bound read retries, never retry writes and confirm the added track range or fresh playback after a lost acknowledgement" << std::endl;

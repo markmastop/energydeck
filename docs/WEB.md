@@ -23,7 +23,7 @@ are recognized. Missing or unrecognized provenance stays unknown; warnings or
 another day's source never establish today's source.
 
 The Sonos detail tabs are Queue (with the total track count), Rooms and Favorites.
-The player shows Up next with title and artist; the queue highlights the current
+The player separates Up next into caption, title and artist, above stacked transport and volume/mute rows; the queue highlights the current
 track. Queue browsing is read-only, scoped to the selected room's actual
 coordinator, and limited to 40 visible entries while preserving the exact total.
 Normal, Repeat One and Repeat All have deterministic previews; shuffle explicitly
@@ -31,7 +31,7 @@ leaves the next track unknown. Radio/TV show a no-queue message. Failed reads or
 queue changes between pages clear the snapshot. Room grouping keeps all three
 tabs in place and shows Apply/Cancel below the room list only for a pending draft.
 
-The phone layout scrolls and adapts to width instead of fixing every widget at the panel's 480×800 coordinates. Physical backlight dimming, USB flashing and hardware-specific timing remain display functions. Player volume targets every visible room in the actual group, including after explicit selection. Plus/minus first reads all members, then sets each to the lowest volume plus/minus two percentage points (bounded to 0–100). The Group label shows this minimum. On the Rooms tab, volume targets only the selected physical room and is labelled Room. Missing member volumes abort before any write; uncertain writes are never retried. Mute retains the default Woonkamer/Living and Keuken/Kitchen pair behavior before explicit selection and targets only the selected room afterward, matching the display. Transport and favorites affect the actual current Sonos group.
+The phone layout scrolls and adapts to width instead of fixing every widget at the panel's 480×800 coordinates. Physical backlight dimming, USB flashing and hardware-specific timing remain display functions. Player volume targets every visible room in the actual group, including after explicit selection. Plus/minus first reads all members, then sets each to the lowest volume plus/minus two percentage points (bounded to 0–100). The Group label shows this minimum. On the Rooms tab, volume targets only the selected physical room and is labelled Room. Missing member volumes abort before any write; uncertain writes are never retried. Mute follows the same group/room scope as volume, including explicit selections. Mixed groups are shown as audible; muted state is shown only when every member is muted. Group mute is read back for every member, matching the display. Transport and favorites affect the actual current Sonos group.
 
 ## Start on a trusted home network
 
@@ -141,7 +141,7 @@ uses a waiting cursor.
 
 Sonos reads and commands share one serialized worker queue; waiting controls skip queued background reads. Every command captures the displayed room and topology scope. Fresh discovery must still match before a write; external regrouping cancels stale commands/drafts. The browser sends identifiers and typed actions, never speaker URLs, arbitrary SOAP or raw favorite resources.
 
-Volume/mute target the selected physical room, or the implicit paired main rooms before an explicit choice; playback, skips and favorites target the fresh coordinator. Favorites are re-read from `FV:2` in bounded pages with one consistent UpdateID. Non-playable shortcuts are excluded. Radio sets the URI only when needed, waits for source readiness, then plays. Queue favorites append once, select the queue, seek to the first newly appended track and play; the old queue is never cleared. Source normalization only accepts the display's documented Sonos stream flag/percent-escape changes. Group/volume/mute are not changed by favorite playback.
+Volume/mute target the actual group in the player and the selected physical room on the Rooms tab; playback, skips and favorites target the fresh coordinator. Favorites are re-read from `FV:2` in bounded pages with one consistent UpdateID. Non-playable shortcuts are excluded. Radio sets the URI only when needed, waits for source readiness, then plays. Queue favorites append once, select the queue, seek to the first newly appended track and play; the old queue is never cleared. Source normalization only accepts the display's documented Sonos stream flag/percent-escape changes. Group/volume/mute are not changed by favorite playback.
 
 Room checkboxes are a draft. Apply rechecks the full visible inventory, promotes the selected anchor without clearing its source when necessary, preserves unrelated followers under a remaining coordinator, moves followers before old leaders and confirms the resulting coordinators. Hidden bonded/stereo partners are not shown as duplicate rooms and remain attached through Sonos' own grouping semantics. Partial failure stops the sequence and the UI refreshes actual topology. Writes are never automatically retried. A two-minute overall command deadline prevents delayed multi-stage writes after the interface has given up; ordinary writes allow eight seconds and favorite source/queue loads up to thirty seconds within that deadline.
 

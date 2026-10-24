@@ -11,12 +11,6 @@ const transportState = reply => value(reply.CurrentTransportStatus) === 'OK' && 
 function volumeRooms(rooms, selected, combined) {
   return combined ? rooms.filter(room => room.coordinator === selected.coordinator) : [selected];
 }
-function muteRooms(rooms, selected, combined) {
-  const main = /^(woonkamer|living(?: room)?|keuken|kitchen)$/i;
-  if (!combined || !main.test(selected.name)) return [selected];
-  const pair = rooms.filter(room => room.coordinator === selected.coordinator && main.test(room.name));
-  return pair.length === 2 ? pair : [selected];
-}
 export const escapeXml = raw => String(raw).replace(/[<>&'"]/g, char => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' })[char]);
 export function parseXml(raw) {
   // SOAP/DIDL need standard XML escapes, never document-defined or external entities.
@@ -97,6 +91,7 @@ export function createSonosService(config, fetcher = fetch, clock = Date.now, pa
     model.queue = { known: true, applicable: room.id !== 'RINCON_BEDROOM', total: room.id === 'RINCON_BEDROOM' ? 0 : 3, current: 1, start: 0, mode: 'NORMAL',
       items: room.id === 'RINCON_BEDROOM' ? [] : [{ number: 1, title: 'Dreams', artist: 'Fleetwood Mac' }, { number: 2, title: 'Never Going Back Again', artist: 'Fleetwood Mac' }, { number: 3, title: "Don't Stop", artist: 'Fleetwood Mac' }],
       next: room.id === 'RINCON_BEDROOM' ? null : { number: 2, title: 'Never Going Back Again', artist: 'Fleetwood Mac' } };
+    model.player.mute = volumeRooms(model.rooms, room, combined).every(target => demoMutes.get(target.id));
     model.player.volumeValues = volumeRooms(model.rooms, room, combined).map(item => ({ id: item.id, value: demoVolumes.get(item.id) }));
     return model;
   }
@@ -111,7 +106,7 @@ export function createSonosService(config, fetcher = fetch, clock = Date.now, pa
       for (const target of volumeRooms(demoModel.rooms, room, body.combined)) demoVolumes.set(target.id, next);
     } else if (body.action === 'mute') {
       if (typeof body.mute !== 'boolean') throw new AppError('invalidCommand', 400);
-      for (const target of muteRooms(demoModel.rooms, room, body.combined)) demoMutes.set(target.id, body.mute);
+      for (const target of volumeRooms(demoModel.rooms, room, body.combined)) demoMutes.set(target.id, body.mute);
     } else if (body.action === 'group') {
       if (!Array.isArray(body.members)) throw new AppError('invalidGroup', 400);
       const plan = planGroup(demoModel.rooms.map((room, i) => ({ ...room, origin: `http://192.168.1.${i + 1}:1400` })), room.id, body.members);
@@ -338,8 +333,8 @@ export function createSonosService(config, fetcher = fetch, clock = Date.now, pa
           } else if (body.action === 'volume' || body.action === 'mute') {
             const args = { ...instance, Channel: 'Master' };
             if (body.combined !== undefined && typeof body.combined !== 'boolean') throw new AppError('invalidCommand', 400);
-            // Group volume follows actual topology; mute retains its existing room/pair scope.
-            const targets = (body.action === 'volume' ? volumeRooms : muteRooms)(inventory.rooms, room, body.combined);
+            // Volume and mute follow the same actual group or selected-room scope.
+            const targets = volumeRooms(inventory.rooms, room, body.combined);
             if (body.action === 'volume') {
               if (![2, -2].includes(body.delta)) throw new AppError('invalidCommand', 400);
               const planned = [];
@@ -360,7 +355,15 @@ export function createSonosService(config, fetcher = fetch, clock = Date.now, pa
               }
             } else {
               if (typeof body.mute !== 'boolean') throw new AppError('invalidCommand', 400);
+              for (const selected of targets) {
+                const initial = value((await soap(selected.origin, 'RenderingControl', 'GetMute', args)).CurrentMute);
+                if (!['0', '1'].includes(initial)) throw new AppError('sonosFailed');
+              }
               for (const selected of targets) await soap(selected.origin, 'RenderingControl', 'SetMute', { ...args, DesiredMute: Number(body.mute) }, true);
+              for (const selected of targets) {
+                const actual = value((await soap(selected.origin, 'RenderingControl', 'GetMute', args)).CurrentMute);
+                if (actual !== String(Number(body.mute))) throw new AppError('sonosFailed');
+              }
             }
           } else {
             const current = await snapshot(inventory, room.id);
@@ -403,10 +406,14 @@ export function createSonosService(config, fetcher = fetch, clock = Date.now, pa
       }
       if (!roomId) autoRoom = chosen.id;
       player = { ...player, volumeValues: [] };
+      const mutes = [];
       for (const selected of volumeRooms(inventory.rooms, chosen, combined)) {
         const raw = selected.id === chosen.id ? String(player.volume ?? '') : value((await soap(selected.origin, 'RenderingControl', 'GetVolume', { ...instance, Channel: 'Master' })).CurrentVolume);
         player.volumeValues.push({ id: selected.id, value: /^\d+$/.test(raw) && Number(raw) <= 100 ? Number(raw) : null });
+        const mute = selected.id === chosen.id ? player.mute === null ? '' : String(Number(player.mute)) : value((await soap(selected.origin, 'RenderingControl', 'GetMute', { ...instance, Channel: 'Master' })).CurrentMute);
+        mutes.push(['0', '1'].includes(mute) ? mute === '1' : null);
       }
+      player.mute = mutes.includes(null) ? null : mutes.every(Boolean);
       let entries = [];
       if (withFavorites) { try { entries = publicFavorites(await browse(inventory, chosen.id)); } catch { favoritesAt = 0; } }
       let queue;

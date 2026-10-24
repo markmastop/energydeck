@@ -120,7 +120,8 @@ const didl = (title = 'Test track', art = '') => `<DIDL-Lite xmlns:dc="urn:dc" x
 function speakerMock(options = {}) {
   const rooms = seedRooms(), calls = [], states = new Map([['A', 'PLAYING'], ['C', 'STOPPED']]);
   const volumes = new Map(rooms.map(room => [room.id, options.initialVolumes?.[room.id] ?? 24]));
-  let muted = false, uri = options.activeQueue ? 'x-rincon-queue:A#0' : 'x-sonosapi-stream:s87683?sid=254&flags=8224', track = options.queueTrack ?? 1;
+  const mutes = new Map(rooms.map(room => [room.id, options.initialMutes?.[room.id] ?? false]));
+  let uri = options.activeQueue ? 'x-rincon-queue:A#0' : 'x-sonosapi-stream:s87683?sid=254&flags=8224', track = options.queueTrack ?? 1;
   const fetcher = async (url, init) => {
     const action = init.headers?.SOAPAction?.match(/#([^"#]+)"$/)?.[1];
     if (!action) return new Response(new Uint8Array([255, 216, 255]), { headers: { 'Content-Type': 'image/jpeg' } });
@@ -136,9 +137,9 @@ function speakerMock(options = {}) {
     else if (action === 'GetPositionInfo') { result.TrackMetaData = didl('Test track', options.art || '/getaa?s=1'); result.Track = track; }
     else if (action === 'GetCurrentTransportActions') result.Actions = options.actions ?? 'Play,Pause,Next,Previous';
     else if (action === 'GetVolume') result.CurrentVolume = options.missingVolume ? '' : volumes.get(room.id);
-    else if (action === 'GetMute') result.CurrentMute = muted ? 1 : 0;
+    else if (action === 'GetMute') result.CurrentMute = options.missingMute ? '' : mutes.get(room.id) ? 1 : 0;
     else if (action === 'SetVolume' && !options.ignoreVolumeWrite) volumes.set(room.id, Number(args.DesiredVolume));
-    else if (action === 'SetMute') muted = args.DesiredMute === '1';
+    else if (action === 'SetMute') mutes.set(room.id, args.DesiredMute === '1');
     else if (action === 'Play') states.set(room.coordinator, 'PLAYING');
     else if (action === 'Pause') states.set(room.coordinator, 'PAUSED_PLAYBACK');
     else if (action === 'SetAVTransportURI') { if (args.CurrentURI.startsWith('x-rincon:')) room.coordinator = args.CurrentURI.slice(9); else uri = args.CurrentURI; }
@@ -322,6 +323,29 @@ test('group volume reads every member before writing, handles bounds and never r
     await assert.rejects(service.command({ action: 'volume', roomId: 'B', scope: initial.scope, delta: 2, combined: true }));
     assert.equal(mock.calls.filter(call => call.action === 'SetVolume').length, options.failWrite ? 1 : options.ignoreVolumeWrite ? 2 : 0);
   }
+});
+
+test('mute uses the same group scope as volume and reports mixed groups as audible', async () => {
+  const mock = speakerMock({ initialMutes: { A: false, B: true, C: true } }); mock.rooms[2].coordinator = 'A';
+  const service = createSonosService(sonosSettings(), mock.fetcher);
+  const initial = await service.get('B', false, true);
+  assert.equal(initial.player.mute, false);
+  for (const mute of [true, false]) {
+    mock.calls.length = 0;
+    await service.command({ action: 'mute', roomId: 'B', scope: initial.scope, combined: true, mute });
+    assert.equal(mock.calls.filter(call => call.action === 'SetMute').length, 3);
+    assert.equal((await service.get('B', false, true)).player.mute, mute);
+  }
+  await service.command({ action: 'mute', roomId: 'B', scope: initial.scope, combined: false, mute: true });
+  assert.equal((await service.get('B')).player.mute, true);
+  assert.equal((await service.get('A')).player.mute, false);
+  assert.equal((await service.get('B', false, true)).player.mute, false);
+  const missing = speakerMock({ missingMute: true });
+  const other = createSonosService(sonosSettings(), missing.fetcher);
+  const data = await other.get('B', false, true);
+  assert.equal(data.player.mute, null);
+  await assert.rejects(other.command({ action: 'mute', roomId: 'B', scope: data.scope, combined: true, mute: true }));
+  assert.equal(missing.calls.filter(call => call.action === 'SetMute').length, 0);
 });
 
 test('radio favorites preserve group/volume and queue favorites append without clearing', async () => {

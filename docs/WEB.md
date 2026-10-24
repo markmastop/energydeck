@@ -22,7 +22,7 @@ older bridges without that field use `sources[date]`. Both canonical
 are recognized. Missing or unrecognized provenance stays unknown; warnings or
 another day's source never establish today's source.
 
-The phone layout scrolls and adapts to width instead of fixing every widget at the panel's 480×800 coordinates. Physical backlight dimming, USB flashing and hardware-specific timing remain display functions. Before an explicit room/group choice, a grouped Woonkamer/Living and Keuken/Kitchen pair shares volume/mute controls with per-room offsets preserved. An explicit choice targets only that room, matching the display. Transport and favorites affect the actual current Sonos group.
+The phone layout scrolls and adapts to width instead of fixing every widget at the panel's 480×800 coordinates. Physical backlight dimming, USB flashing and hardware-specific timing remain display functions. Player volume targets every visible room in the actual group, including after explicit selection. Plus/minus first reads all members, then sets each to the lowest volume plus/minus two percentage points (bounded to 0–100). The Group label shows this minimum. On the Rooms tab, volume targets only the selected physical room and is labelled Room. Missing member volumes abort before any write; uncertain writes are never retried. Mute retains the default Woonkamer/Living and Keuken/Kitchen pair behavior before explicit selection and targets only the selected room afterward, matching the display. Transport and favorites affect the actual current Sonos group.
 
 ## Start on a trusted home network
 

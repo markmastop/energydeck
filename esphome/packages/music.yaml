@@ -514,7 +514,7 @@ script:
             lambda: return !id(music_favorite_pending) && !id(music_busy);
           then:
             - lambda: |-
-                id(sonos).capture();
+                id(sonos).capture(!(id(music_page_open) && id(music_content_tab) == 1));
                 id(music_control_pending) = false;
                 id(music_busy) = true;
                 id(music_command_failed) = false;
@@ -673,15 +673,7 @@ script:
             playing ? "${music_playing}" : "${music_ready}");
           esphome::ui_performance::set_text(id(music_artist), playing && !room.tv ? room.artist.c_str() : "");
           esphome::ui_performance::set_text(id(music_cover_fallback), room.tv ? "${music_tv}" : LV_SYMBOL_AUDIO);
-          char a[12], b[12];
-          for (int i = 0; i < 2; ++i) {
-            char *v = i == 0 ? a : b;
-            if (s.rooms[i].known() && s.rooms[i].volume >= 0) snprintf(v, 12, "%d%%", s.rooms[i].volume);
-            else snprintf(v, 12, "--");
-          }
           const std::string selected_volume = known && room.volume >= 0 ? std::to_string(room.volume) + "%" : "--";
-          if (s.uses_pair_controls()) esphome::ui_performance::set_text_fmt(id(music_volume), "${music_volume_format}", a, b);
-          else esphome::ui_performance::set_text_fmt(id(music_volume), "${music_single_volume_format}", selected_volume.c_str());
           esphome::ui_performance::set_text(lv_obj_get_child(id(music_play), 0),
             waiting ? LV_SYMBOL_REFRESH : room.tv ? "${music_tv}" : playing ? LV_SYMBOL_PAUSE : LV_SYMBOL_PLAY);
           esphome::ui_performance::set_text(lv_obj_get_child(id(music_mute), 0), s.muted() ? "${music_unmute}" : "${music_mute}");
@@ -801,11 +793,13 @@ script:
           // Retain clear word labels in the compact card's existing layout.
           esphome::ui_performance::set_text(lv_obj_get_child(id(small_music_play), 0),
             waiting ? "${music_button_wait}" : room.tv ? "${music_tv}" : playing ? "${music_pause}" : "${music_resume}");
-          if (s.uses_pair_controls()) {
-            // Name both volumes: discovered group names can have another order or extra rooms.
-            esphome::ui_performance::set_text_fmt(id(small_music_volume), "${music_compact_pair_volume_format}", a, b);
-            esphome::ui_performance::set_text_fmt(id(music_volume), "${music_volume_side_format}", a, b);
-          }
+          // Group values show the lowest member, the baseline of the next step.
+          const int lowest = s.group_volume_min();
+          const std::string group_volume = lowest < 0 ? "--" : std::to_string(lowest) + "%";
+          esphome::ui_performance::set_text_fmt(id(music_volume),
+            id(music_page_open) && id(music_content_tab) == 1 ? "${music_room_volume_format}" : "${music_group_volume_format}",
+            id(music_page_open) && id(music_content_tab) == 1 ? selected_volume.c_str() : group_volume.c_str());
+          esphome::ui_performance::set_text_fmt(id(small_music_volume), "${music_group_volume_format}", group_volume.c_str());
           // Explicit combined-state styling prevents the LVGL disabled theme
           // from reintroducing filled rectangles around secondary controls.
           const lv_state_t plain_states[] = {LV_STATE_DEFAULT, LV_STATE_DISABLED, LV_STATE_FOCUSED, LV_STATE_PRESSED,

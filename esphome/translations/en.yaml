@@ -212,3 +212,6 @@ energy_history_ready: "Updated %02d:%02d | Power in kW"
 energy_history_gas_ready: "Updated %02d:%02d | Gas in m3/hour"
 energy_history_subtitle: "Power and gas usage throughout the day"
 energy_history_incomplete: "History partially available"
+
+music_group_volume_format: "Group %s"
+music_room_volume_format: "Room %s"

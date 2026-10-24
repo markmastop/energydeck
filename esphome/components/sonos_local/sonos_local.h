@@ -371,7 +371,7 @@ class State {
     return explicitly_selected() ? explicit_name_ : current().uuid;
   }
   std::string current_group_name() const {
-    // Selection scopes room volume; transport still belongs to the actual group.
+    // Room selection and transport share this actual group heading.
     // Use the published inventory so discovery updates the heading immediately,
     // even before the selected room's playback snapshot has been refreshed.
     const auto *anchor = systems_known ? system(current().uuid) : nullptr;
@@ -382,6 +382,17 @@ class State {
       name += s.name;
     }
     return name.empty() ? current_name() : name;
+  }
+  int group_volume_min() const {
+    const auto *anchor = systems_known && systems_complete ? system(current().uuid) : nullptr;
+    if (!anchor) return -1;
+    int lowest = 100;
+    for (const auto &s : systems) if (s.coordinator == anchor->coordinator) {
+      const auto r = cached_room(s);
+      if (r.volume < 0) return -1;
+      lowest = std::min(lowest, r.volume);
+    }
+    return lowest;
   }
   bool select_system(const std::string &uuid) {
     const auto *s = system(uuid);
@@ -449,9 +460,15 @@ class State {
       if (!pending_[i].host.empty()) requests_.push_back({pending_[i].host, "ZoneGroupTopology", "GetZoneGroupState", "", i});
     }
   }
-  // A newly followed room needs its own snapshot, not another full system poll.
-  // Reuse the topology just discovered by this cycle; user commands still do
-  // their normal fresh topology/scope check before any write.
+  // Group volume is independent of playback metadata and includes every visible member.
+  void queue_group_volumes() {
+    const auto *anchor = system(current().uuid);
+    if (!anchor) return;
+    for (const auto &s : systems) if (s.coordinator == anchor->coordinator &&
+        std::none_of(requests_.begin(), requests_.end(), [&](const Request &r) { return r.host == s.host && r.action == "GetVolume"; }))
+      requests_.push_back({s.host, "RenderingControl", "GetVolume", "<InstanceID>0</InstanceID><Channel>Master</Channel>", -2});
+  }
+  // Reuse discovered topology; only fetch selected playback and group volume.
   void begin_current() {
     requests_.clear(); cursor_ = 0; commanding_ = false; read_retried_ = false;
     topology_ok_ = systems_known; pending_complete_ = systems_complete;
@@ -468,6 +485,7 @@ class State {
       requests_.push_back({r.coordinator_host, "AVTransport", action, "<InstanceID>0</InstanceID>", selected});
     requests_.push_back({r.host, "RenderingControl", "GetVolume", "<InstanceID>0</InstanceID><Channel>Master</Channel>", selected});
     requests_.push_back({r.host, "RenderingControl", "GetMute", "<InstanceID>0</InstanceID><Channel>Master</Channel>", selected});
+    queue_group_volumes();
   }
   void accept(int status, const std::string &body) {
     if (!has_request()) return;
@@ -484,6 +502,25 @@ class State {
         if (settling && transient && ++favorite_settle_reads_ < MAX_FAVORITE_SETTLE_READS) return;
         command_error = xml.has("Fault") ? std::max(0, number(xml.text("errorCode"))) : 0;
         command_failed = true; requests_.clear(); cursor_ = 0; return;
+      }
+      if (!volume_systems_.empty() && req.action == "GetVolume") {
+        const int v = number(xml.text("CurrentVolume"), 100);
+        if (v < 0 || (volume_reads_ >= volume_systems_.size() && v != volume_target_)) {
+          command_failed = true; requests_.clear(); cursor_ = 0; return;
+        }
+        const auto &member = volume_systems_[volume_reads_ % volume_systems_.size()];
+        auto cached = cached_room(member); cached.volume = v; room_cache_[member.uuid] = cached;
+        if (volume_reads_ < volume_systems_.size()) volume_min_ = std::min(volume_min_, v);
+        ++volume_reads_;
+        if (volume_reads_ == volume_systems_.size()) {
+          volume_target_ = std::max(0, std::min(100, volume_min_ + (target_action_ == 1 ? -2 : 2)));
+          for (const auto &s : volume_systems_) requests_.push_back({s.host, "RenderingControl", "SetVolume",
+            "<InstanceID>0</InstanceID><Channel>Master</Channel><DesiredVolume>" + std::to_string(volume_target_) + "</DesiredVolume>", target_room_});
+          // Verify all members, including rooms outside the three playback slots.
+          for (const auto &s : volume_systems_) requests_.push_back({s.host, "RenderingControl", "GetVolume",
+            "<InstanceID>0</InstanceID><Channel>Master</Channel>", target_room_});
+        }
+        if (volume_reads_ == volume_systems_.size() * 2) group_volume_verified_ = true;
       }
       if (settling) {
         bool ready = false;
@@ -586,6 +623,14 @@ class State {
         if (r.cover.empty()) r.cover = r.station_cover;
       }
     }
+    if (req.room == -2 && req.action == "GetVolume") {
+      const auto it = std::find_if(pending_systems_.begin(), pending_systems_.end(), [&](const System &s) { return s.host == req.host; });
+      if (it != pending_systems_.end()) {
+        auto r = cached_room(*it); r.volume = ok ? number(xml.text("CurrentVolume"), 100) : -1;
+        room_cache_[it->uuid] = r;
+        for (auto &pending : pending_) if (pending.uuid == it->uuid) pending.volume = r.volume;
+      }
+    }
     ++cursor_;
     // Discovery seeds are tried only until one succeeds. Topology supplies
     // coordinator addresses, including leaders outside the default rooms.
@@ -602,6 +647,10 @@ class State {
         requests_.push_back({r.host, "RenderingControl", "GetVolume", "<InstanceID>0</InstanceID><Channel>Master</Channel>", i});
         requests_.push_back({r.host, "RenderingControl", "GetMute", "<InstanceID>0</InstanceID><Channel>Master</Channel>", i});
       }
+      const auto anchor = std::find_if(pending_systems_.begin(), pending_systems_.end(), [&](const System &s) { return s.uuid == current().uuid; });
+      if (anchor != pending_systems_.end()) for (const auto &s : pending_systems_) if (s.coordinator == anchor->coordinator &&
+          std::none_of(requests_.begin(), requests_.end(), [&](const Request &r) { return r.host == s.host && r.action == "GetVolume"; }))
+        requests_.push_back({s.host, "RenderingControl", "GetVolume", "<InstanceID>0</InstanceID><Channel>Master</Channel>", -2});
     }
   }
   // Transport/media/position arrive before optional action and speaker controls.
@@ -682,7 +731,9 @@ class State {
   }
   // Freeze the displayed target before refresh. Abort if regrouping changed its
   // scope in the meantime, so a delayed click cannot control the other room.
-  void capture() { captured_room_ = selected; captured_scope_ = scope(); }
+  void capture(bool group_volume = false) {
+    captured_room_ = selected; captured_scope_ = scope(); captured_group_volume_ = group_volume;
+  }
   bool prepare_command(int action) {
     selected = captured_room_;
     command_failed = false; command_error = 0; requests_.clear(); cursor_ = 0; commanding_ = true;
@@ -692,7 +743,22 @@ class State {
         (action == 5 && !can_mute())) return false;
     target_action_ = action; target_scope_ = scope(); target_room_ = selected;
     target_playing_ = !current().playing; target_volumes_ = {{-1, -1, -1}};
-    target_pair_ = uses_pair_controls();
+    target_pair_ = action == 5 && uses_pair_controls();
+    volume_systems_.clear(); volume_reads_ = 0; group_volume_verified_ = false;
+    if ((action == 1 || action == 2) && captured_group_volume_) {
+      const auto *anchor = systems_known ? system(current().uuid) : nullptr;
+      if (!anchor || !systems_complete) return false;
+      for (const auto &s : systems) if (s.coordinator == anchor->coordinator) volume_systems_.push_back(s);
+      if (volume_systems_.size() > 1) {
+        // Read every visible member before the first write; stale caches must
+        // never make a loud room the baseline or omit a quiet group member.
+        volume_min_ = 100;
+        for (const auto &s : volume_systems_) requests_.push_back({s.host, "RenderingControl", "GetVolume",
+          "<InstanceID>0</InstanceID><Channel>Master</Channel>", selected});
+        return true;
+      }
+      volume_systems_.clear();
+    }
     target_mute_ = !muted(); target_track_uri_ = current().track_uri;
     if (action == 0) requests_.push_back({current().coordinator_host, "AVTransport", target_playing_ ? "Play" : "Pause",
       std::string("<InstanceID>0</InstanceID>") + (target_playing_ ? "<Speed>1</Speed>" : ""), selected});
@@ -826,6 +892,7 @@ class State {
     if (target_action_ == 3 || target_action_ == 4) return !r.track_uri.empty() && r.track_uri != target_track_uri_;
     if (target_action_ == 5) return r.mute == target_mute_ && (!target_pair_ || rooms[1-target_room_].mute == target_mute_);
     if (target_action_ == 6) return r.playing && !r.transport_error && favorite_source_matches(favorite_uri_, r.uri) && (favorite_track_ < 0 || (r.track >= favorite_track_ && r.track < favorite_end_track_));
+    if (!volume_systems_.empty()) return !command_failed && group_volume_verified_;
     for (int i = 0; i < 3; ++i) if (target_volumes_[i] >= 0 && room(i).volume != target_volumes_[i]) return false;
     return true;
   }
@@ -853,6 +920,10 @@ class State {
   std::string target_track_uri_, favorite_uri_;
   int target_mute_ = 0, favorite_track_ = -1, favorite_end_track_ = -1;
   unsigned favorite_settle_reads_ = 0;
+  bool captured_group_volume_ = false, group_volume_verified_ = false;
+  std::vector<System> volume_systems_;
+  size_t volume_reads_ = 0;
+  int volume_min_ = 100, volume_target_ = 0;
   std::array<int, 3> target_volumes_{{-1, -1, -1}};
   const System *system(const std::string &uuid) const {
     for (const auto &s : systems) if (s.uuid == uuid) return &s;

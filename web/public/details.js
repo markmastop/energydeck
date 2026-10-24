@@ -79,7 +79,7 @@ export function initializeDetails({ api, t, format, time, svgNode, onUnauthorize
     if (!dashboard || commandBusy || sonosPending || !force && Date.now() - sonosAt < 10000) return;
     sonosPending = true; const version = generation, selection = sonosVersion, chosen = page === 'overview' ? '' : room;
     try {
-      const result = await request(`/api/sonos?room=${encodeURIComponent(chosen)}&favorites=${page === 'sonos' && view === 'favorites' || page === 'overview' && card === 'sonos'}&combined=${!explicitRoom}`);
+      const result = await request(`/api/sonos?room=${encodeURIComponent(chosen)}&favorites=${page === 'sonos' && view === 'favorites' || page === 'overview' && card === 'sonos'}&combined=${!(page === 'sonos' && view === 'rooms')}`);
       if (version !== generation || selection !== sonosVersion) return;
       // Scope changes invalidate a grouping draft, never silently rebase its membership.
       if (draft && draft.scope !== result.scope) draft.stale = true;
@@ -261,7 +261,7 @@ export function initializeDetails({ api, t, format, time, svgNode, onUnauthorize
     const controls = node('div', 'player-controls');
     const transportRow = node('div', 'transport-row'), volumeRow = node('div', 'volume-row');
     const actions = player.actions || [], locked = commandBusy || sonos?.busy || Date.now() - player.updatedAt > 45000;
-    const volumeUnavailable = player.volume === null || player.volumeValues?.some(item => item.value === null);
+    const volumeUnavailable = player.volume === null || (!(page === 'sonos' && view === 'rooms') && player.volumeValues?.some(item => item.value === null));
     const control = (symbol, label, action, extra, disabled = false) => {
       const element = button(symbol, () => send(action, extra), action === 'play' || action === 'pause' ? 'transport play-button' : 'transport', locked || disabled);
       element.setAttribute('aria-busy', String(Boolean(commandBusy || sonos?.busy)));
@@ -272,7 +272,10 @@ export function initializeDetails({ api, t, format, time, svgNode, onUnauthorize
     control(playing ? 'Ⅱ' : '▶', playing ? 'pause' : 'play', playing ? 'pause' : 'play', {}, player.tv || !actions.includes(playing ? 'Pause' : 'Play'));
     if (!compact) control('⏭', 'next', 'next', {}, player.tv || !actions.includes('Next'));
     control('−', 'volumeDown', 'volume', { delta: -2 }, volumeUnavailable);
-    volumeRow.append(node('span', 'volume-value', player.volumeValues?.length > 1 ? `${player.volumeValues.map(item => item.value ?? '—').join('/')}%` : player.volume === null ? '—' : `${player.volume}%`));
+    const roomVolume = page === 'sonos' && view === 'rooms';
+    const values = roomVolume ? [player.volume] : (player.volumeValues || [{ value: player.volume }]).map(item => item.value);
+    const displayed = values.some(value => value === null) ? '—' : `${Math.min(...values)}%`;
+    volumeRow.append(node('span', 'volume-value', `${t(roomVolume ? 'roomVolume' : 'groupVolume')} ${displayed}`));
     control('+', 'volumeUp', 'volume', { delta: 2 }, volumeUnavailable);
     if (!compact) {
       control(player.mute ? '◉' : '◌', player.mute ? 'unmute' : 'mute', 'mute', { mute: !player.mute }, player.mute === null);
@@ -345,7 +348,7 @@ export function initializeDetails({ api, t, format, time, svgNode, onUnauthorize
     commandBusy = true; message = t('commandSending');
     sonosVersion++;
     const version = generation;
-    const body = { action, roomId: sonos.player.roomId, scope: sonos.scope, combined: !explicitRoom, ...extra };
+    const body = { action, roomId: sonos.player.roomId, scope: sonos.scope, combined: action === 'volume' ? !(page === 'sonos' && view === 'rooms') : !explicitRoom, ...extra };
     renderSonos();
     try {
       await request('/api/sonos/command', body);
@@ -388,8 +391,8 @@ export function initializeDetails({ api, t, format, time, svgNode, onUnauthorize
     element.addEventListener('click', () => { yearTotals = !yearTotals; renderTotals(); });
     element.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); yearTotals = !yearTotals; renderTotals(); } });
   }
-  for (const next of ['favorites', 'rooms']) $(`${next}-tab`).addEventListener('click', () => { view = next; renderSonos(); if (next === 'favorites') { sonosVersion++; loadSonos(true); } });
-  $('sonos-room-heading').addEventListener('click', () => { view = 'rooms'; renderSonos(); });
+  for (const next of ['favorites', 'rooms']) $(`${next}-tab`).addEventListener('click', () => { view = next; renderSonos(); sonosVersion++; loadSonos(true); });
+  $('sonos-room-heading').addEventListener('click', () => { view = 'rooms'; renderSonos(); sonosVersion++; loadSonos(true); });
   const poll = () => { if (!document.hidden) update(); };
   setInterval(() => {
     if (!dashboard || document.hidden) return;

@@ -9,6 +9,9 @@ const value = raw => typeof raw === 'string' ? raw : raw?.['#text'] || '';
 const hash = raw => createHash('sha256').update(raw).digest('hex');
 const transportState = reply => value(reply.CurrentTransportStatus) === 'OK' && ['PLAYING', 'PAUSED_PLAYBACK', 'STOPPED', 'TRANSITIONING', 'NO_MEDIA_PRESENT'].includes(value(reply.CurrentTransportState)) ? value(reply.CurrentTransportState) : 'UNKNOWN';
 function volumeRooms(rooms, selected, combined) {
+  return combined ? rooms.filter(room => room.coordinator === selected.coordinator) : [selected];
+}
+function muteRooms(rooms, selected, combined) {
   const main = /^(woonkamer|living(?: room)?|keuken|kitchen)$/i;
   if (!combined || !main.test(selected.name)) return [selected];
   const pair = rooms.filter(room => room.coordinator === selected.coordinator && main.test(room.name));
@@ -101,10 +104,11 @@ export function createSonosService(config, fetcher = fetch, clock = Date.now, pa
     if (body.scope !== model.scope) throw new AppError('roomChanged', 409);
     if (body.action === 'volume') {
       if (![2, -2].includes(body.delta)) throw new AppError('invalidCommand', 400);
-      for (const target of volumeRooms(demoModel.rooms, room, body.combined)) demoVolumes.set(target.id, Math.max(0, Math.min(100, demoVolumes.get(target.id) + body.delta)));
+      const next = Math.max(0, Math.min(100, Math.min(...volumeRooms(demoModel.rooms, room, body.combined).map(target => demoVolumes.get(target.id))) + body.delta));
+      for (const target of volumeRooms(demoModel.rooms, room, body.combined)) demoVolumes.set(target.id, next);
     } else if (body.action === 'mute') {
       if (typeof body.mute !== 'boolean') throw new AppError('invalidCommand', 400);
-      for (const target of volumeRooms(demoModel.rooms, room, body.combined)) demoMutes.set(target.id, body.mute);
+      for (const target of muteRooms(demoModel.rooms, room, body.combined)) demoMutes.set(target.id, body.mute);
     } else if (body.action === 'group') {
       if (!Array.isArray(body.members)) throw new AppError('invalidGroup', 400);
       const plan = planGroup(demoModel.rooms.map((room, i) => ({ ...room, origin: `http://192.168.1.${i + 1}:1400` })), room.id, body.members);
@@ -297,7 +301,8 @@ export function createSonosService(config, fetcher = fetch, clock = Date.now, pa
           } else if (body.action === 'volume' || body.action === 'mute') {
             const args = { ...instance, Channel: 'Master' };
             if (body.combined !== undefined && typeof body.combined !== 'boolean') throw new AppError('invalidCommand', 400);
-            const targets = volumeRooms(inventory.rooms, room, body.combined);
+            // Group volume follows actual topology; mute retains its existing room/pair scope.
+            const targets = (body.action === 'volume' ? volumeRooms : muteRooms)(inventory.rooms, room, body.combined);
             if (body.action === 'volume') {
               if (![2, -2].includes(body.delta)) throw new AppError('invalidCommand', 400);
               const planned = [];
@@ -305,9 +310,17 @@ export function createSonosService(config, fetcher = fetch, clock = Date.now, pa
                 const returned = value((await soap(selected.origin, 'RenderingControl', 'GetVolume', args)).CurrentVolume);
                 const raw = Number(returned);
                 if (!/^\d+$/.test(returned) || !Number.isInteger(raw) || raw < 0 || raw > 100) throw new AppError('sonosFailed');
-                planned.push({ origin: selected.origin, volume: Math.max(0, Math.min(100, raw + body.delta)) });
+                planned.push({ origin: selected.origin, volume: raw });
               }
-              for (const selected of planned) await soap(selected.origin, 'RenderingControl', 'SetVolume', { ...args, DesiredVolume: selected.volume }, true);
+              const next = Math.max(0, Math.min(100, Math.min(...planned.map(item => item.volume)) + body.delta));
+              for (const selected of planned) await soap(selected.origin, 'RenderingControl', 'SetVolume', { ...args, DesiredVolume: next }, true);
+              if (body.combined && planned.length > 1) {
+                // Acknowledgements alone do not establish that every member reached the target.
+                for (const selected of planned) {
+                  const actual = value((await soap(selected.origin, 'RenderingControl', 'GetVolume', args)).CurrentVolume);
+                  if (!/^\d+$/.test(actual) || Number(actual) !== next) throw new AppError('sonosFailed');
+                }
+              }
             } else {
               if (typeof body.mute !== 'boolean') throw new AppError('invalidCommand', 400);
               for (const selected of targets) await soap(selected.origin, 'RenderingControl', 'SetMute', { ...args, DesiredMute: Number(body.mute) }, true);

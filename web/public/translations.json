@@ -183,7 +183,9 @@
     "rainModerate": "Matig",
     "rainLight": "Licht",
     "roomAtTarget": "Op temperatuur",
-    "climateControlNote": "Automatisch bijgewerkt | Bediening via Homey"
+    "climateControlNote": "Automatisch bijgewerkt | Bediening via Homey",
+    "groupVolume": "Groep",
+    "roomVolume": "Kamer"
   },
   "en": {
     "logout": "Sign out",
@@ -369,6 +371,8 @@
     "rainModerate": "Mod.",
     "rainLight": "Light",
     "roomAtTarget": "At target",
-    "climateControlNote": "Updates automatically | Control through Homey"
+    "climateControlNote": "Updates automatically | Control through Homey",
+    "groupVolume": "Group",
+    "roomVolume": "Room"
   }
 }

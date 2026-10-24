@@ -136,7 +136,7 @@ function speakerMock(options = {}) {
     else if (action === 'GetCurrentTransportActions') result.Actions = options.actions ?? 'Play,Pause,Next,Previous';
     else if (action === 'GetVolume') result.CurrentVolume = options.missingVolume ? '' : volumes.get(room.id);
     else if (action === 'GetMute') result.CurrentMute = muted ? 1 : 0;
-    else if (action === 'SetVolume') volumes.set(room.id, Number(args.DesiredVolume));
+    else if (action === 'SetVolume' && !options.ignoreVolumeWrite) volumes.set(room.id, Number(args.DesiredVolume));
     else if (action === 'SetMute') muted = args.DesiredMute === '1';
     else if (action === 'Play') states.set(room.coordinator, 'PLAYING');
     else if (action === 'Pause') states.set(room.coordinator, 'PAUSED_PLAYBACK');
@@ -239,16 +239,40 @@ test('changed group scope blocks playback and TV disables transport while preser
   await assert.rejects(tvService.command({ action: 'pause', roomId: 'A', scope: state.scope }), error => error.code === 'actionUnavailable');
 });
 
-test('implicit main-room volume preserves offsets; explicit selection only changes one room', async () => {
+test('group volume aligns to the quietest member; room controls remain independent', async () => {
   const mock = speakerMock({ initialVolumes: { A: 24, B: 16 } });
   const service = createSonosService(sonosSettings(), mock.fetcher);
   const initial = await service.get('A', false, true);
   assert.equal(initial.player.volumeValues.length, 2);
   await service.command({ action: 'volume', roomId: 'A', scope: initial.scope, delta: 2, combined: true });
   const writes = mock.calls.filter(call => call.action === 'SetVolume');
-  assert.deepEqual(writes.map(call => Number(call.args.DesiredVolume)).sort((a,b) => a-b), [18, 26]);
+  assert.deepEqual(writes.map(call => Number(call.args.DesiredVolume)).sort((a,b) => a-b), [18, 18]);
   await service.command({ action: 'volume', roomId: 'B', scope: initial.scope, delta: -2, combined: false });
-  assert.equal((await service.get('A')).player.volume, 26); assert.equal((await service.get('B')).player.volume, 16);
+  assert.equal((await service.get('A')).player.volume, 18); assert.equal((await service.get('B')).player.volume, 16);
+});
+
+test('group volume reads every member before writing, handles bounds and never retries writes', async () => {
+  for (const [lowest, delta, expected] of [[10, 2, 12], [10, -2, 8], [0, -2, 0], [99, 2, 100], [100, 2, 100]]) {
+    const mock = speakerMock({ initialVolumes: { A: 100, B: 100, C: lowest } });
+    mock.rooms[2].coordinator = 'A';
+    const service = createSonosService(sonosSettings(), mock.fetcher);
+    const initial = await service.get('B', false, true);
+    assert.equal(initial.player.volumeValues.length, 3);
+    mock.calls.length = 0;
+    await service.command({ action: 'volume', roomId: 'B', scope: initial.scope, delta, combined: true });
+    const firstWrite = mock.calls.findIndex(call => call.action === 'SetVolume');
+    assert.equal(mock.calls.slice(0, firstWrite).filter(call => call.action === 'GetVolume').length, 3);
+    const writes = mock.calls.filter(call => call.action === 'SetVolume');
+    assert.equal(writes.length, 3);
+    assert.ok(writes.every(call => Number(call.args.DesiredVolume) === expected));
+  }
+  for (const options of [{ missingVolume: true }, { failWrite: true }, { ignoreVolumeWrite: true }]) {
+    const mock = speakerMock(options), service = createSonosService(sonosSettings(), mock.fetcher);
+    const initial = await service.get('B', false, true);
+    mock.calls.length = 0;
+    await assert.rejects(service.command({ action: 'volume', roomId: 'B', scope: initial.scope, delta: 2, combined: true }));
+    assert.equal(mock.calls.filter(call => call.action === 'SetVolume').length, options.failWrite ? 1 : options.ignoreVolumeWrite ? 2 : 0);
+  }
 });
 
 test('radio favorites preserve group/volume and queue favorites append without clearing', async () => {

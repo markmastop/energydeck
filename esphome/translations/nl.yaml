@@ -212,3 +212,6 @@ energy_history_ready: "Bijgewerkt %02d:%02d | Vermogen in kW"
 energy_history_gas_ready: "Bijgewerkt %02d:%02d | Gas in m3/uur"
 energy_history_subtitle: "Vermogen en gasverbruik door de dag"
 energy_history_incomplete: "Historie gedeeltelijk beschikbaar"
+
+music_group_volume_format: "Groep %s"
+music_room_volume_format: "Kamer %s"

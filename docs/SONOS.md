@@ -22,8 +22,9 @@ a two-line track title, artist/status and volume aligned in one column beside it
 The cover's left edge aligns with the volume-down button below it.
 Long room/group names and titles are ellipsized within fixed two-line boxes;
 waiting, pause and error text replace the artist row. The room selector opens
-Rooms. Empty artist rows and unused title lines collapse; combined default-room
-volumes use compact percentages labelled W/K (Dutch) or L/K (English). The selector
+Rooms. Empty artist rows and unused title lines collapse. The volume label shows
+Group and the lowest visible member volume, or Room and the selected room volume
+while the Rooms tab is open. The selector
 keeps its own touch target above the shared cover/track target. The
 cover is clipped to its rounded frame; idle favorites retain their full-width
 room heading. Playback controls remain in the full-width bottom row. The separate
@@ -107,8 +108,9 @@ the room name, without a trailing `>`; the name remains clickable.
 Both ESP player headings and the web Sonos header show all visible rooms in the
 selected room's actual group, including after explicit selection or external
 regrouping. They use discovered names and omit hidden bonded partners. A room
-selection still scopes volume/mute to that physical room; the group heading does
-not change the control target. Unapplied grouping drafts do not change the heading.
+selection scopes mute to that physical room. Player volume controls the actual
+group; on the Rooms tab, volume controls only the selected physical room.
+Unapplied grouping drafts do not change the heading.
 Favorites show a small type
 icon and up to two title lines, with six tiles visible before scrolling. Missing
 font glyphs are omitted from display only; playback metadata remains untouched.
@@ -140,8 +142,9 @@ EnergyDeck now polls Sonos locally every **10 seconds** (formerly Homey every
 30 seconds). It reads ZoneGroupTopology first, then transport state, media source
 and track metadata/actions from each distinct polled coordinator, and volume/mute
 from each polled room. The two default rooms remain polled; selecting another
-zone adds just that room and its coordinator, rather than polling the entire
-household. The selected zone also acts as a fallback discovery seed when the
+zone adds that room and its coordinator. Volume is also read from every visible
+member of the selected room's actual group; unrelated rooms do not receive extra
+volume reads. The selected zone also acts as a fallback discovery seed when the
 two defaults are unavailable.
 Requests are sequential on the background worker with a 10 ms UI yield. A slow
 cycle is not overlapped. Each failed read gets at most one retry for a network
@@ -172,7 +175,8 @@ Sonos updates.
   immediately, without a busy lock, a full system poll or waiting in the click
   handler. A previously unseen room shows **Updating...** until its first
   snapshot arrives; navigation and further room choices stay available.
-  One coalesced flag requests the latest chosen room's six background reads.
+  One coalesced flag requests the latest chosen room's six background reads
+  plus the other group members' volume readings.
   Only the already-sent request is drained safely; the rest of an older status
   queue (including retries) is abandoned before fetching the latest choice.
   Priority is checked again after waiting for another worker owner. Partial
@@ -190,12 +194,14 @@ Sonos updates.
   room, including rooms outside Woonkamer/Keuken. Keep the displayed room while
   it plays; otherwise choose the first playing room in the Rooms list's
   case-insensitive alphabetical order. A new target gets six read-only requests
-  for transport, metadata, actions, volume and mute using the just-discovered
-  topology. Already-polled default rooms reuse their snapshot. No second full
+  for transport, metadata, actions, volume and mute plus one volume read for each
+  other visible group member, using the just-discovered topology. Already-polled
+  default rooms reuse their snapshot. No second full
   poll, extra timer, playback command or grouping change is needed.
 - Automatic following pauses while the full Sonos page is open or a control or
-  favorite is in flight. Automatic room selection uses the same single-room
-  volume/mute and coordinator-based transport/favorites scope as a clicked room.
+  favorite is in flight. Automatic room selection uses the same group-volume,
+  room/pair mute and
+  coordinator-based transport/favorites scope as a clicked room.
   All-room activity participates in compact playback edges; unknown,
   transitioning or incompletely discovered rooms never prove that all playback
   stopped. Detection uses the existing ten-second poll and bounded activity scan.
@@ -205,12 +211,18 @@ Sonos updates.
 - Starting or stopping playback does not change the current page. Dashboard Gas
   and Climate remain manually available.
 
-Pause/Play goes directly to the selected room's coordinator. Minus/plus adjust
-the displayed room by two percentage points, clamped to 0–100. For the combined
-Woonkamer/Keuken group before an explicit room choice, both configured rooms are
-adjusted, preserving their volume offset except at the bounds. After selecting
-any room or editing a group, volume and mute target only that room. Transport
-and favorites follow its actual coordinator, so they affect its current group.
+Pause/Play goes directly to the selected room's coordinator. Player minus/plus
+reads every visible member of its actual group and sets them all to the lowest
+volume minus/plus two percentage points, clamped to 0–100. For example, 10%/20%
+becomes 8%/8% with minus or 12%/12% with plus. Thus the first plus can lower the
+louder rooms. Equal percentages do not imply equal perceived loudness.
+Explicit room selection does not narrow player volume scope. On the **Rooms** tab,
+the same minus/plus controls target only the selected room, labelled Room.
+Grouping drafts never determine volume targets. All group volumes must be valid
+before any write; a failed/uncertain write stops the sequence without retries or
+rollback. Both implementations read back every group member to confirm the result. Mute keeps
+its existing default-pair/explicit-room behavior. Transport and favorites follow
+the actual coordinator, so they affect its current group.
 Previous/Next are enabled only when Sonos reports the action available.
 Playback controls and favorite selection inherently affect the coordinator's
 actual group, so avoid adding unrelated rooms if they should remain unaffected.
@@ -218,8 +230,10 @@ actual group, so avoid adding unrelated rooms if they should remain unaffected.
 Commands are only created after a user click. For ordinary playback controls, the displayed target is captured,
 fresh topology/volume is read, and a changed group scope cancels the command.
 Controls are disabled while a command is being checked/sent and for unavailable
-data. Once Sonos acknowledges an ordinary playback/volume/mute/skip command,
-controls are released immediately. A background poll starts without waiting for
+data. Once Sonos acknowledges an ordinary playback/mute/skip or room-volume command,
+controls are released immediately. Group-volume commands also verify every
+member with a volume read before releasing controls. A background poll starts
+without waiting for
 its result; subsequent status snapshots confirm the latest command. An
 unconfirmed action is reported after 15 seconds as observed by a completed poll.
 There is no fixed two-second post-command delay and no automatic write retry.

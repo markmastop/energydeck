@@ -255,6 +255,7 @@ script:
           lv_obj_set_parent(id(shared_energy_header), id(energydeck_main_page)->obj);
           lv_obj_set_pos(id(shared_energy_header), 0, 0);
       - lvgl.page.show: energydeck_main_page
+      - script.execute: render_music_queue
       - script.execute: render_energy_header
       - script.execute: select_detail_tab
 
@@ -1063,14 +1064,36 @@ script:
           esphome::ui_performance::set_text(id(music_next_track), preview.c_str());
           if (preview.empty()) lv_obj_add_flag(id(music_next_caption), LV_OBJ_FLAG_HIDDEN);
           else lv_obj_clear_flag(id(music_next_caption), LV_OBJ_FLAG_HIDDEN);
-          if (!id(music_page_open) || id(music_content_tab) != 2 || lv_obj_is_scrolling(id(music_queue_list))) return;
+          static bool was_visible = false;
+          static std::string centered;
+          static int playing_y = -1;
+          const bool visible = id(music_page_open) && id(music_content_tab) == 2;
+          const bool opening = visible && !was_visible;
+          was_visible = visible;
+          if (!known) centered.clear();
+          if (!visible || lv_obj_is_scrolling(id(music_queue_list))) return;
+          const std::string follow_key = known ? room.coordinator_host + "|" + room.uri + "|" + std::to_string(q.current) : "";
+          const auto follow = [&]() {
+            if (known && playing_y >= 0 && (opening || centered != follow_key)) {
+              lv_obj_update_layout(id(music_queue_list));
+              lv_obj_scroll_to_y(id(music_queue_list), std::max(0, playing_y + 24 - lv_obj_get_height(id(music_queue_list)) / 2), LV_ANIM_OFF);
+              centered = follow_key;
+              return true;
+            }
+            return false;
+          };
           std::string signature = known ? std::to_string(q.total) + ":" + std::to_string(q.current) + ":" + q.mode + (q.applicable ? ":queue" : ":source") : "unknown";
           for (const auto &item : q.items) signature += std::to_string(item.number) + ":" + item.title + "\n" + item.artist;
           static std::string previous;
-          if (previous == signature) return;
+          if (previous == signature) { follow(); return; }
           previous = signature;
           const int scroll = lv_obj_get_scroll_y(id(music_queue_list));
           lv_obj_clean(id(music_queue_list));
+          playing_y = -1;
+          lv_obj_update_layout(id(music_queue_list));
+          const int edge_space = std::max(0, (lv_obj_get_height(id(music_queue_list)) - 48) / 2);
+          // End padding allows even the first and last tracks to be centered.
+          lv_obj_set_style_pad_bottom(id(music_queue_list), edge_space, 0);
           int y = 0;
           const auto note = [&](const std::string &text) {
             auto *label = lv_label_create(id(music_queue_list));
@@ -1086,11 +1109,13 @@ script:
           else {
             if (q.mode.find("SHUFFLE") != std::string::npos) note("${music_queue_shuffle}");
             if (static_cast<int>(q.items.size()) < q.total) note("${music_queue_limited}");
+            y = std::max(y, edge_space);
             for (const auto &item : q.items) {
               auto *row = lv_obj_create(id(music_queue_list));
               lv_obj_remove_style_all(row); lv_obj_set_pos(row, 0, y); lv_obj_set_size(row, 452, 48);
               lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
               if (item.number == q.current) {
+                playing_y = y;
                 lv_obj_set_style_bg_opa(row, LV_OPA_COVER, 0);
                 // A quiet marker keeps the transport button as the main green accent.
                 lv_obj_set_style_bg_color(row, lv_color_hex(0x14221A), 0);
@@ -1111,7 +1136,7 @@ script:
               y += 54;
             }
           }
-          lv_obj_scroll_to_y(id(music_queue_list), scroll, LV_ANIM_OFF);
+          if (!follow()) lv_obj_scroll_to_y(id(music_queue_list), scroll, LV_ANIM_OFF);
 
   - id: refresh_music_favorites
     mode: single

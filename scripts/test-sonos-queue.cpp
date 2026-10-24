@@ -35,8 +35,8 @@ int main() {
   for (const auto &mode : {"SHUFFLE", "SHUFFLE_NOREPEAT", "SHUFFLE_REPEAT_ONE", "UNKNOWN"}) {
     q.begin(host, uri, 4); run(q, 5, mode); assert(q.known && !q.next());
   }
-  q.begin(host, uri, 80, true); assert(run(q, 100, "NORMAL") == 3);
-  assert(q.known && q.total == 100 && q.items.front().number == 80 && q.items.size() == 21 && q.next()->number == 81);
+  q.begin(host, uri, 80, true); assert(run(q, 100, "NORMAL") == 5);
+  assert(q.known && q.total == 100 && q.items.front().number == 61 && q.items.size() == 40 && q.next()->number == 81);
   q.begin(host, uri, 1, true); assert(run(q, 1000, "NORMAL") == 5);
   assert(q.known && q.items.size() == 40 && q.total == 1000);
   q.begin(host, uri, 1, true); run(q, 20, "NORMAL", true); assert(q.failed && !q.known && q.items.empty());

@@ -350,7 +350,8 @@ class Queue {
     items.clear(); pending_.clear(); version_.clear(); mode.clear(); total = 0;
     known = failed = false; wrap_ = false; phase_ = 0;
     applicable = uri.rfind("x-rincon-queue:", 0) == 0;
-    start = full && track <= 40 ? 0 : std::max(0, track - 1);
+    // Keep preceding context around the playing row in a bounded full view.
+    start = std::max(0, track - (full ? 20 : 1));
     offset_ = start; limit_ = full ? 40 : 2;
     active_ = applicable && !host_.empty();
     if (!applicable) known = true;

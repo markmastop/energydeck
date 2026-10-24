@@ -792,8 +792,8 @@ and service account data are not exposed. Radio/TV and other non-queue sources
 show an explicit no-queue state, without showing a previous queue's tracks.
 
 Summary refreshes read the current and following track; opening Queue reads up
-to 40 entries, in pages of at most eight. For a current track beyond the first
-40, the list starts at that track. The exact total remains in the badge. Long
+to 40 entries, in pages of at most eight. Full views include up to 19 preceding tracks so the current row has context
+above and below it. The exact total remains in the badge. Long
 queues have an explicit truncation notice. Every page must report consistent
 UpdateID and total values; a change, malformed entry or failed read invalidates
 the snapshot. Queue refreshes use the existing ten-second cadence and selected
@@ -823,3 +823,9 @@ compressed line. The web player uses a separate caption/title/artist block and
 stacked transport/volume rows, with a real speaker icon and visible muted state.
 Group mute is read and confirmed for every visible member, without changing any
 volume, group membership or playback state. Tests use synthetic controls only.
+
+The Queue card automatically centers the current track when opened and when the
+track changes. Top/bottom space allows centering the first and last rows too.
+Unchanged polls preserve manual scrolling. Active gestures defer rendering and
+following; on web a short scroll-idle delay finishes the gesture before a pending
+track change is centered. Only the queue card scrolls, never the whole web page.

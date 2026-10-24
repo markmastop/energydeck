@@ -23,8 +23,9 @@ are recognized. Missing or unrecognized provenance stays unknown; warnings or
 another day's source never establish today's source.
 
 The Sonos detail tabs are Queue (with the total track count), Rooms and Favorites.
-The player separates Up next into caption, title and artist, above stacked transport and volume/mute rows; the queue highlights the current
-track. Queue browsing is read-only, scoped to the selected room's actual
+The player separates Up next into caption, title and artist, above stacked transport and volume/mute rows; the queue marks and automatically centers the current
+track inside its own scrollable card. Manual scrolling is retained until a track
+change or reopening; active gestures finish before automatic following resumes. Queue browsing is read-only, scoped to the selected room's actual
 coordinator, and limited to 40 visible entries while preserving the exact total.
 Normal, Repeat One and Repeat All have deterministic previews; shuffle explicitly
 leaves the next track unknown. Radio/TV show a no-queue message. Failed reads or

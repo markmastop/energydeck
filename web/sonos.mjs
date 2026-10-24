@@ -206,7 +206,7 @@ export function createSonosService(config, fetcher = fetch, clock = Date.now, pa
     if (!source?.uri.startsWith('x-rincon-queue:')) return { known: true, applicable: false, total: 0, items: [], next: null };
     const { coordinator } = target(inventory, roomId);
     const mode = value((await soap(coordinator.origin, 'AVTransport', 'GetTransportSettings', instance)).PlayMode);
-    const current = source.track, start = full && current <= 40 ? 0 : Math.max(0, current - 1), limit = full ? 40 : 2;
+    const current = source.track, start = Math.max(0, current - (full ? 20 : 1)), limit = full ? 40 : 2;
     let offset = start, total = null, version, wrap = false;
     const items = [];
     for (let page = 0; page < 6; page++) {

@@ -18,6 +18,8 @@ export function initializeDetails({ api, t, format, time, svgNode, onUnauthorize
   let page = 'overview', card = 'gas', view = 'queue', dashboard = null, weather = null, history = null, sonos = null;
   let room = '', sonosError = '', message = '', commandBusy = false, generation = 0, sonosVersion = 0, explicitRoom = false;
   let weatherAt = 0, historyAt = 0, sonosAt = 0, weatherPending = false, historyPending = false, sonosPending = false;
+  let queueSignature = '', queueCentered = '', queueVisible = false, queueHeight = 0;
+  let queueQuietUntil = 0, queueHeld = false, queueDeferred = false, queueFollowTimer;
   let draft = null, yearTotals = false, chargeUntil = 0, chargeMessage = '', chargeBusy = false, wasPlaying = false, chargeTarget = null;
   const knownErrors = new Set(['sonosOffline', 'sonosUnconfigured', 'roomChanged', 'favoritesChanged', 'actionUnavailable', 'commandBusy', 'commandUnconfirmed', 'chargerNotReady', 'unconfigured', 'rateLimited', 'invalidGroup']);
   const errorLabel = error => t(knownErrors.has(error?.code) ? error.code : 'commandFailed');
@@ -327,8 +329,35 @@ export function initializeDetails({ api, t, format, time, svgNode, onUnauthorize
     return grid;
   }
   function renderQueue() {
-    const container = $('sonos-queue'); container.replaceChildren();
+    const container = $('sonos-queue');
+    const visible = page === 'sonos' && view === 'queue';
+    const opening = visible && !queueVisible;
+    queueVisible = visible;
+    if (!visible) return;
+    // Keep the DOM and scroll thumb stable while a touch/wheel/scrollbar gesture is active.
+    if (queueHeld || Date.now() < queueQuietUntil) { queueDeferred = true; return; }
+    queueDeferred = false;
     const queue = sonos?.queue;
+    const signature = JSON.stringify([queue || null, t('queueCurrent')]);
+    const scroll = container.scrollTop;
+    const changed = queueSignature !== signature;
+    if (changed) { container.replaceChildren(); queueSignature = signature; }
+    const center = () => {
+      const current = container.querySelector('[aria-current="true"]');
+      if (!current) { queueCentered = ''; container.style.paddingBlock = ''; return; }
+      const key = `${sonos.scope}:${sonos.player.roomId}:${queue.current}:${current.textContent}`;
+      const height = container.clientHeight;
+      const padding = Math.max(0, (height - current.offsetHeight) / 2);
+      container.style.paddingBlock = `${padding}px`;
+      if (opening || queueCentered !== key || queueHeight !== height) {
+        // Scroll the queue card only; scrollIntoView would also move the whole page.
+        container.scrollTop = Math.max(0, current.offsetTop + current.offsetHeight / 2 - height / 2);
+        queueCentered = key;
+      } else if (changed) container.scrollTop = scroll;
+      queueHeight = height;
+    };
+    if (!queue?.known || !queue.applicable || !queue.total) { queueCentered = ''; container.style.paddingBlock = ''; }
+    if (!changed) { center(); return; }
     if (!queue?.known) { container.append(node('p', 'empty', t(sonos ? 'queueUnavailable' : 'loading'))); return; }
     if (!queue.applicable) { container.append(node('p', 'empty', t('queueNoSource'))); return; }
     if (!queue.total) { container.append(node('p', 'empty', t('queueEmpty'))); return; }
@@ -344,6 +373,7 @@ export function initializeDetails({ api, t, format, time, svgNode, onUnauthorize
       details.append(node('strong', '', item.title), node('small', 'muted', item.artist));
       row.append(details); container.append(row);
     }
+    center();
   }
   function renderSonos() {
     renderPlayer('full-player', false); renderPlayer('compact-player', true);
@@ -434,6 +464,18 @@ export function initializeDetails({ api, t, format, time, svgNode, onUnauthorize
     element.addEventListener('click', () => { yearTotals = !yearTotals; renderTotals(); });
     element.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); yearTotals = !yearTotals; renderTotals(); } });
   }
+  const queueCard = $('sonos-queue');
+  const queueGesture = () => {
+    queueQuietUntil = Date.now() + 900;
+    clearTimeout(queueFollowTimer);
+    queueFollowTimer = setTimeout(() => { if (queueDeferred && !queueHeld) renderQueue(); }, 950);
+  };
+  queueCard.addEventListener('pointerdown', () => { queueHeld = true; queueGesture(); }, { passive: true });
+  for (const event of ['pointerup', 'pointercancel']) document.addEventListener(event, () => {
+    if (queueHeld) { queueHeld = false; queueGesture(); }
+  }, { passive: true });
+  for (const event of ['wheel', 'touchmove', 'scroll', 'keydown']) queueCard.addEventListener(event, queueGesture, { passive: true });
+  window.addEventListener('resize', () => { queueHeight = 0; renderQueue(); });
   for (const next of ['queue', 'rooms', 'favorites']) $(`${next}-tab`).addEventListener('click', () => { view = next; renderSonos(); sonosVersion++; loadSonos(true); });
   $('sonos-room-heading').addEventListener('click', () => { view = 'rooms'; renderSonos(); sonosVersion++; loadSonos(true); });
   const poll = () => { if (!document.hidden) update(); };
@@ -454,6 +496,8 @@ export function initializeDetails({ api, t, format, time, svgNode, onUnauthorize
     reset() {
       generation++; sonosVersion++; dashboard = null; weather = null; history = null; sonos = null;
       weatherAt = historyAt = sonosAt = 0; draft = null; room = ''; message = ''; chargeMessage = ''; chargeUntil = 0;
+      queueSignature = queueCentered = ''; queueVisible = false; queueHeight = 0;
+      queueQuietUntil = 0; queueHeld = queueDeferred = false; clearTimeout(queueFollowTimer);
       wasPlaying = false;
       explicitRoom = false;
       display.reset(); homeCards.reset(); card = 'gas'; lastInteraction = Date.now();

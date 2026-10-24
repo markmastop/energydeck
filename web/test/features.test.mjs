@@ -235,7 +235,7 @@ test('queue previews handle radio, TV, repeat, shuffle, empty and large queues w
     assert.equal(data.queue.applicable, false); assert.equal(data.queue.total, 0);
     assert.ok(!mock.calls.some(call => call.action === 'Browse' && call.args.ObjectID === 'Q:0'));
   }
-  for (const [total, current, count] of [[0, 0, 0], [1000, 1, 40], [100, 80, 21]]) {
+  for (const [total, current, count] of [[0, 0, 0], [1000, 1, 40], [100, 80, 40]]) {
     const mock = speakerMock({ activeQueue: true, queueTotal: total, queueTrack: current });
     const data = await createSonosService(sonosSettings(), mock.fetcher).get('B', false, false, true);
     assert.equal(data.queue.known, true); assert.equal(data.queue.total, total); assert.equal(data.queue.items.length, count);

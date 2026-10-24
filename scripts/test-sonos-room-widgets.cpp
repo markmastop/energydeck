@@ -201,6 +201,7 @@ int main() {
   assert(lv_obj_get_child_count(music_systems_list) == 1);
   std::cout << "PASS: production queue guards prioritize selection; LVGL highlights immediately, hides stale covers, retains scroll and drags/taps correctly\n";
   music_queue_list = lv_obj_create(lv_screen_active());
+  lv_obj_remove_style_all(music_queue_list);
   lv_obj_set_size(music_queue_list, 452, 200);
   music_queue_badge = lv_label_create(lv_screen_active());
   music_next_caption = lv_label_create(lv_screen_active());
@@ -222,13 +223,25 @@ int main() {
   assert(lv_obj_get_child_count(music_queue_list) == 5);
   assert(std::strstr(lv_label_get_text(music_next_track), "Five\nArtist"));
   assert(!lv_obj_has_flag(music_next_caption, LV_OBJ_FLAG_HIDDEN));
+  lv_obj_update_layout(music_queue_list);
+  assert(lv_obj_get_y(lv_obj_get_child(music_queue_list, 3)) + 24 - lv_obj_get_scroll_y(music_queue_list) == 100);
+  lv_obj_scroll_to_y(music_queue_list, 0, LV_ANIM_OFF); // Same-track polls respect a manual position.
   auto *retained = lv_obj_get_child(music_queue_list, 0); render_queue();
+  assert(lv_obj_get_scroll_y(music_queue_list) == 0);
   assert(lv_obj_get_child(music_queue_list, 0) == retained);
   room.track = 5; render_queue(); // Late snapshots cannot describe the newly selected/current track.
   assert(!std::strcmp(lv_label_get_text(music_queue_badge), "--"));
   assert(!std::strlen(lv_label_get_text(music_next_track)));
   assert(lv_obj_has_flag(music_next_caption, LV_OBJ_FLAG_HIDDEN));
   assert(lv_obj_get_child_count(music_queue_list) == 1);
+  for (int track : {1, 5}) {
+    room.track = track;
+    sonos_queue.begin(room.coordinator_host, room.uri, room.track, true);
+    sonos_queue.accept(200, "<GetTransportSettingsResponse><PlayMode>NORMAL</PlayMode></GetTransportSettingsResponse>");
+    sonos_queue.accept(200, "<BrowseResponse><NumberReturned>5</NumberReturned><TotalMatches>5</TotalMatches><UpdateID>1</UpdateID><Result>" + energydeck_sonos::xml_escape(result) + "</Result></BrowseResponse>");
+    render_queue(); lv_obj_update_layout(music_queue_list);
+    assert(lv_obj_get_y(lv_obj_get_child(music_queue_list, track - 1)) + 24 - lv_obj_get_scroll_y(music_queue_list) == 100);
+  }
   room.uri = "x-sonosapi-stream:radio";
   sonos_queue.begin(room.coordinator_host, room.uri, room.track, true); render_queue();
   assert(!std::strcmp(lv_label_get_text(music_queue_badge), "0"));

@@ -15,7 +15,7 @@ export function initializeDetails({ api, t, format, time, svgNode, onUnauthorize
   const button = (label, fn, className = 'quiet', disabled = false) => {
     const element = node('button', className, label); element.type = 'button'; element.disabled = disabled; element.addEventListener('click', fn); return element;
   };
-  let page = 'overview', card = 'gas', view = 'favorites', dashboard = null, weather = null, history = null, sonos = null;
+  let page = 'overview', card = 'gas', view = 'queue', dashboard = null, weather = null, history = null, sonos = null;
   let room = '', sonosError = '', message = '', commandBusy = false, generation = 0, sonosVersion = 0, explicitRoom = false;
   let weatherAt = 0, historyAt = 0, sonosAt = 0, weatherPending = false, historyPending = false, sonosPending = false;
   let draft = null, yearTotals = false, chargeUntil = 0, chargeMessage = '', chargeBusy = false, wasPlaying = false, chargeTarget = null;
@@ -79,7 +79,7 @@ export function initializeDetails({ api, t, format, time, svgNode, onUnauthorize
     if (!dashboard || commandBusy || sonosPending || !force && Date.now() - sonosAt < 10000) return;
     sonosPending = true; const version = generation, selection = sonosVersion, chosen = page === 'overview' ? '' : room;
     try {
-      const result = await request(`/api/sonos?room=${encodeURIComponent(chosen)}&favorites=${page === 'sonos' && view === 'favorites' || page === 'overview' && card === 'sonos'}&combined=${!(page === 'sonos' && view === 'rooms')}`);
+      const result = await request(`/api/sonos?room=${encodeURIComponent(chosen)}&favorites=${page === 'sonos' && view === 'favorites' || page === 'overview' && card === 'sonos'}&queue=${page === 'sonos' && view === 'queue'}&combined=${!(page === 'sonos' && view === 'rooms')}`);
       if (version !== generation || selection !== sonosVersion) return;
       // Scope changes invalidate a grouping draft, never silently rebase its membership.
       if (draft && draft.scope !== result.scope) draft.stale = true;
@@ -291,6 +291,12 @@ export function initializeDetails({ api, t, format, time, svgNode, onUnauthorize
     track.append(button(player.group, () => { view = 'rooms'; navigate('sonos'); renderSonos(); }, 'room-heading'), node(compact ? 'h3' : 'h2', '', player.title || t('ready')),
       node('p', 'muted track-artist', player.artist || t(`state${player.state}`)), node('p', 'muted track-album', player.album || ''));
     if (compact) track.append(playerControls(player, true));
+    if (!compact && sonos.queue?.known && sonos.queue.applicable) {
+      const queue = sonos.queue;
+      const label = queue.next ? `${t('upNext')}: ${queue.next.title}${queue.next.artist ? ` · ${queue.next.artist}` : ''}` :
+        queue.mode?.includes('SHUFFLE') ? t('queueShuffle') : queue.current === queue.total && queue.total > 0 && queue.mode === 'NORMAL' ? t('queueEnd') : '';
+      if (label) track.append(node('p', 'muted queue-next', label));
+    }
     layout.append(track); container.append(layout);
     if (!compact) container.append(playerControls(player));
     if (compact && player.state !== 'PLAYING') container.append(favoriteGrid(true));
@@ -305,10 +311,30 @@ export function initializeDetails({ api, t, format, time, svgNode, onUnauthorize
     if (!sonos?.favorites?.length) grid.append(node('p', 'empty', t('favoritesUnavailable')));
     return grid;
   }
+  function renderQueue() {
+    const container = $('sonos-queue'); container.replaceChildren();
+    const queue = sonos?.queue;
+    if (!queue?.known) { container.append(node('p', 'empty', t(sonos ? 'queueUnavailable' : 'loading'))); return; }
+    if (!queue.applicable) { container.append(node('p', 'empty', t('queueNoSource'))); return; }
+    if (!queue.total) { container.append(node('p', 'empty', t('queueEmpty'))); return; }
+    if (queue.mode?.includes('SHUFFLE')) container.append(node('p', 'muted fine-print', t('queueShuffle')));
+    if (queue.items.length < queue.total) container.append(node('p', 'muted fine-print', t('queueLimited')));
+    for (const item of queue.items) {
+      const row = node('div', `queue-track${item.number === queue.current ? ' current' : ''}`);
+      if (item.number === queue.current) row.setAttribute('aria-current', 'true');
+      row.append(node('span', 'queue-number', String(item.number)));
+      const details = node('div', 'queue-track-details');
+      details.append(node('strong', '', item.title), node('small', 'muted', `${item.artist}${item.number === queue.current ? ` · ${t('queueCurrent')}` : ''}`));
+      row.append(details); container.append(row);
+    }
+  }
   function renderSonos() {
     renderPlayer('full-player', false); renderPlayer('compact-player', true);
     text('sonos-room-heading', sonos?.player?.group || sonos?.player?.name || t('rooms')); text('sonos-message', message || sonosError);
-    $('favorites-tab').setAttribute('aria-pressed', String(view === 'favorites')); $('rooms-tab').setAttribute('aria-pressed', String(view === 'rooms'));
+    for (const tab of ['queue', 'rooms', 'favorites']) $(`${tab}-tab`).setAttribute('aria-pressed', String(view === tab));
+    text('queue-count', sonos?.queue?.known ? String(sonos.queue.total) : '—');
+    $('sonos-queue').hidden = view !== 'queue';
+    renderQueue();
     $('favorites-grid').hidden = view !== 'favorites'; $('sonos-rooms').hidden = view !== 'rooms';
     $('favorites-grid').replaceChildren(favoriteGrid());
     const container = $('sonos-rooms'); container.replaceChildren();
@@ -391,7 +417,7 @@ export function initializeDetails({ api, t, format, time, svgNode, onUnauthorize
     element.addEventListener('click', () => { yearTotals = !yearTotals; renderTotals(); });
     element.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); yearTotals = !yearTotals; renderTotals(); } });
   }
-  for (const next of ['favorites', 'rooms']) $(`${next}-tab`).addEventListener('click', () => { view = next; renderSonos(); sonosVersion++; loadSonos(true); });
+  for (const next of ['queue', 'rooms', 'favorites']) $(`${next}-tab`).addEventListener('click', () => { view = next; renderSonos(); sonosVersion++; loadSonos(true); });
   $('sonos-room-heading').addEventListener('click', () => { view = 'rooms'; renderSonos(); sonosVersion++; loadSonos(true); });
   const poll = () => { if (!document.hidden) update(); };
   setInterval(() => {

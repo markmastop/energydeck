@@ -84,7 +84,7 @@ export function planGroup(rooms, anchorId, selectedIds) {
 export function createSonosService(config, fetcher = fetch, clock = Date.now, pause = ms => new Promise(resolve => setTimeout(resolve, ms))) {
   const seeds = (config.sonosSeeds || []).map(speakerOrigin);
   let topology = null, topologyAt = 0, favorites = [], favoritesAt = 0, favoritesScope = '', tail = Promise.resolve(), busy = false, autoRoom = '', scanCursor = 0, commandDeadline = 0;
-  const snapshots = new Map(), pending = new Map(), artwork = new Map();
+  const snapshots = new Map(), queueSources = new Map(), pending = new Map(), artwork = new Map();
   const demoModel = demoSonos();
   const demoVolumes = new Map(demoModel.rooms.map(room => [room.id, 24]));
   const demoMutes = new Map(demoModel.rooms.map(room => [room.id, false]));
@@ -94,6 +94,9 @@ export function createSonosService(config, fetcher = fetch, clock = Date.now, pa
     model.scope = hash(JSON.stringify(model.rooms.map(room => [room.id, room.coordinator])));
     model.player = { ...model.player, roomId: room.id, name: room.name, group: model.rooms.filter(r => r.coordinator === room.coordinator).map(r => r.name).join(' + '),
       scope: model.scope, state: room.state, volume: demoVolumes.get(room.id), mute: demoMutes.get(room.id), updatedAt: clock() };
+    model.queue = { known: true, applicable: room.id !== 'RINCON_BEDROOM', total: room.id === 'RINCON_BEDROOM' ? 0 : 3, current: 1, start: 0, mode: 'NORMAL',
+      items: room.id === 'RINCON_BEDROOM' ? [] : [{ number: 1, title: 'Dreams', artist: 'Fleetwood Mac' }, { number: 2, title: 'Never Going Back Again', artist: 'Fleetwood Mac' }, { number: 3, title: "Don't Stop", artist: 'Fleetwood Mac' }],
+      next: room.id === 'RINCON_BEDROOM' ? null : { number: 2, title: 'Never Going Back Again', artist: 'Fleetwood Mac' } };
     model.player.volumeValues = volumeRooms(model.rooms, room, combined).map(item => ({ id: item.id, value: demoVolumes.get(item.id) }));
     return model;
   }
@@ -199,8 +202,42 @@ export function createSonosService(config, fetcher = fetch, clock = Date.now, pa
       volume: /^\d+$/.test(value(volume.CurrentVolume)) && Number.isInteger(number) && number >= 0 && number <= 100 ? number : null,
       mute: ['0', '1'].includes(value(mute.CurrentMute)) ? value(mute.CurrentMute) === '1' : null,
       actions: healthy ? available : [], updatedAt: clock() };
+    queueSources.set(room.id, { uri: value(media.CurrentURI), track: /^\d+$/.test(value(position.Track)) ? Number(value(position.Track)) : 0 });
     snapshots.set(room.id, result);
     return result;
+  }
+  async function readQueue(inventory, roomId, full) {
+    const source = queueSources.get(roomId);
+    if (!source?.uri.startsWith('x-rincon-queue:')) return { known: true, applicable: false, total: 0, items: [], next: null };
+    const { coordinator } = target(inventory, roomId);
+    const mode = value((await soap(coordinator.origin, 'AVTransport', 'GetTransportSettings', instance)).PlayMode);
+    const current = source.track, start = full && current <= 40 ? 0 : Math.max(0, current - 1), limit = full ? 40 : 2;
+    let offset = start, total = null, version, wrap = false;
+    const items = [];
+    for (let page = 0; page < 6; page++) {
+      if (busy) throw new AppError('commandBusy', 409);
+      const count = wrap ? 1 : Math.min(8, limit - (offset - start));
+      const reply = await soap(coordinator.origin, 'ContentDirectory', 'Browse', { ObjectID: 'Q:0', BrowseFlag: 'BrowseDirectChildren', Filter: '*', StartingIndex: offset, RequestedCount: count, SortCriteria: '' });
+      const returned = Number(value(reply.NumberReturned)), matches = Number(value(reply.TotalMatches)), update = value(reply.UpdateID);
+      if (!/^\d+$/.test(value(reply.NumberReturned)) || !/^\d+$/.test(value(reply.TotalMatches)) || returned > count || matches > 100000 || offset + returned > matches || !update || !returned && offset < matches || total !== null && (total !== matches || version !== update)) throw new AppError('invalidSonos');
+      total = matches; version = update;
+      const entries = returned ? list(parseXml(value(reply.Result))?.['DIDL-Lite']?.item) : [];
+      if (entries.length !== returned) throw new AppError('invalidSonos');
+      for (const [index, item] of entries.entries()) {
+        const title = value(item.title), artist = value(item.creator);
+        if (!title || title.length > 512 || artist.length > 256) throw new AppError('invalidSonos');
+        // Expose text only; upstream resource URLs and account identifiers stay private.
+        items.push({ number: offset + index + 1, title, artist });
+      }
+      offset += returned;
+      if (!wrap && offset < total && offset - start < limit) continue;
+      if (!wrap && mode === 'REPEAT_ALL' && current === total && start > 0) { wrap = true; offset = 0; continue; }
+      let wanted = mode === 'REPEAT_ONE' ? current : current + 1;
+      if (wanted > total && mode === 'REPEAT_ALL') wanted = 1;
+      const next = ['NORMAL', 'REPEAT_ALL', 'REPEAT_ONE'].includes(mode) && current > 0 ? items.find(item => item.number === wanted) || null : null;
+      return { known: true, applicable: true, total, current, start, mode, items, next };
+    }
+    throw new AppError('invalidSonos');
   }
   function publicRooms(inventory, states = {}) {
     return inventory.rooms.map(({ id, name, coordinator }) => ({ id, name, coordinator, state: states[coordinator] || snapshots.get(id)?.state || 'UNKNOWN' }))
@@ -336,9 +373,9 @@ export function createSonosService(config, fetcher = fetch, clock = Date.now, pa
       });
     } finally { busy = false; commandDeadline = 0; }
   }
-  async function get(roomId = '', withFavorites = false, combined = false) {
+  async function get(roomId = '', withFavorites = false, combined = false, withQueue = false) {
     if (roomId.length > 128) throw new AppError('invalidCommand', 400);
-    const key = `${roomId}:${withFavorites}:${combined}`;
+    const key = `${roomId}:${withFavorites}:${combined}:${withQueue}`;
     if (pending.has(key)) return pending.get(key);
     if (pending.size >= 32) throw new AppError('commandBusy', 409);
     const operation = serial(async () => {
@@ -348,7 +385,7 @@ export function createSonosService(config, fetcher = fetch, clock = Date.now, pa
       const preferred = inventory.rooms.find(room => /^(woonkamer|living(?: room)?)$/i.test(room.name));
       let chosen = target(inventory, roomId || (inventory.rooms.some(room => room.id === autoRoom) ? autoRoom : preferred?.id || '')).room;
       const existing = snapshots.get(chosen.id);
-      let player = existing && clock() - existing.updatedAt < 10000 ? existing : await snapshot(inventory, chosen.id);
+      let player = existing && existing.scope === inventory.scope && clock() - existing.updatedAt < 10000 ? existing : await snapshot(inventory, chosen.id);
       const states = { [chosen.coordinator]: player.state };
       // Bound all-room activity scans; selecting a room always reads that room itself.
       const deadline = clock() + 4000;
@@ -372,7 +409,10 @@ export function createSonosService(config, fetcher = fetch, clock = Date.now, pa
       }
       let entries = [];
       if (withFavorites) { try { entries = publicFavorites(await browse(inventory, chosen.id)); } catch { favoritesAt = 0; } }
-      return { player, rooms: publicRooms(inventory, states), favorites: entries, scope: inventory.scope, busy, demo: false };
+      let queue;
+      try { queue = await readQueue(inventory, chosen.id, withQueue); }
+      catch { queue = { known: false, applicable: true, total: null, items: [], next: null }; }
+      return { player, queue, rooms: publicRooms(inventory, states), favorites: entries, scope: inventory.scope, busy, demo: false };
     }).finally(() => pending.delete(key));
     pending.set(key, operation); return operation;
   }

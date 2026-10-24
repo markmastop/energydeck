@@ -146,7 +146,7 @@ export function createApp(config, { service = createDataService(config), extras 
         if (url.pathname === '/api/dashboard') return reply(res, 200, await service.get());
         if (url.pathname === '/api/history') return reply(res, 200, await extras.history());
         if (url.pathname === '/api/weather') return reply(res, 200, await extras.weather());
-        if (url.pathname === '/api/sonos') return reply(res, 200, await sonos.get(url.searchParams.get('room') || '', url.searchParams.get('favorites') === 'true', url.searchParams.get('combined') === 'true'));
+        if (url.pathname === '/api/sonos') return reply(res, 200, await sonos.get(url.searchParams.get('room') || '', url.searchParams.get('favorites') === 'true', url.searchParams.get('combined') === 'true', url.searchParams.get('queue') === 'true'));
         if (/^\/api\/sonos\/artwork\/[a-f0-9]{64}$/.test(url.pathname)) {
           const asset = await sonos.artwork(url.pathname.split('/').at(-1));
           res.writeHead(200, { 'Content-Type': asset.type }); return res.end(asset.body);

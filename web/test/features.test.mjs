@@ -120,7 +120,7 @@ const didl = (title = 'Test track', art = '') => `<DIDL-Lite xmlns:dc="urn:dc" x
 function speakerMock(options = {}) {
   const rooms = seedRooms(), calls = [], states = new Map([['A', 'PLAYING'], ['C', 'STOPPED']]);
   const volumes = new Map(rooms.map(room => [room.id, options.initialVolumes?.[room.id] ?? 24]));
-  let muted = false, uri = 'x-sonosapi-stream:s87683?sid=254&flags=8224', track = 1;
+  let muted = false, uri = options.activeQueue ? 'x-rincon-queue:A#0' : 'x-sonosapi-stream:s87683?sid=254&flags=8224', track = options.queueTrack ?? 1;
   const fetcher = async (url, init) => {
     const action = init.headers?.SOAPAction?.match(/#([^"#]+)"$/)?.[1];
     if (!action) return new Response(new Uint8Array([255, 216, 255]), { headers: { 'Content-Type': 'image/jpeg' } });
@@ -132,6 +132,7 @@ function speakerMock(options = {}) {
     if (action === 'GetZoneGroupState') result.ZoneGroupState = topologyXml(rooms);
     else if (action === 'GetTransportInfo') { result.CurrentTransportState = states.get(room.coordinator) || 'STOPPED'; result.CurrentTransportStatus = 'OK'; }
     else if (action === 'GetMediaInfo') { result.CurrentURI = options.tv ? 'x-sonos-htastream:A:spdif' : uri; result.CurrentURIMetaData = didl('Qmusic'); }
+    else if (action === 'GetTransportSettings') result.PlayMode = options.playMode ?? 'NORMAL';
     else if (action === 'GetPositionInfo') { result.TrackMetaData = didl('Test track', options.art || '/getaa?s=1'); result.Track = track; }
     else if (action === 'GetCurrentTransportActions') result.Actions = options.actions ?? 'Play,Pause,Next,Previous';
     else if (action === 'GetVolume') result.CurrentVolume = options.missingVolume ? '' : volumes.get(room.id);
@@ -145,6 +146,13 @@ function speakerMock(options = {}) {
     else if (action === 'Seek') track = Number(args.Target);
     else if (action === 'DelegateGroupCoordinationTo') { const old = room.coordinator; for (const entry of rooms) if (entry.coordinator === old) entry.coordinator = args.NewCoordinator; }
     else if (action === 'BecomeCoordinatorOfStandaloneGroup') room.coordinator = room.id;
+    else if (action === 'Browse' && args.ObjectID === 'Q:0') {
+      if (options.queueReadFailure) throw new Error('queue unavailable');
+      const total = options.queueTotal ?? 5, start = Number(args.StartingIndex), count = Math.max(0, Math.min(Number(args.RequestedCount), total-start));
+      result.NumberReturned = count; result.TotalMatches = total;
+      result.UpdateID = options.queueChanged && calls.filter(call => call.action === 'Browse' && call.args.ObjectID === 'Q:0').length > 1 ? '2' : '1';
+      result.Result = options.queueMalformed ? '<DIDL-Lite/>' : `<DIDL-Lite>${Array.from({ length: count }, (_, i) => `<item id="Q:0/${start+i+1}"><title>${room.id} Track ${start+i+1} &amp; title</title><creator>Artist</creator><res>secret-resource-url</res></item>`).join('')}</DIDL-Lite>`;
+    }
     else if (action === 'Browse') {
       result.NumberReturned = 1; result.TotalMatches = 1; result.UpdateID = '1';
       const metadata = options.queue ? didl().replace('audioBroadcast', 'musicTrack') : didl();
@@ -199,6 +207,47 @@ test('selected Sonos room keeps the actual group heading through external regrou
   data = await sonos.get('B', true);
   assert.equal(data.player.group, 'Kitchen');
   assert.equal(mock.calls.filter(call => writeActions.includes(call.action)).length, 0);
+});
+
+test('queue is read from the coordinator with count, current, next and private text-only entries', async () => {
+  const mock = speakerMock({ activeQueue: true, queueTrack: 4 });
+  const service = createSonosService(sonosSettings(), mock.fetcher);
+  const data = await service.get('B', false, false, true);
+  assert.equal(data.queue.total, 5); assert.equal(data.queue.current, 4);
+  assert.equal(data.queue.items.length, 5); assert.equal(data.queue.next.title, 'A Track 5 & title');
+  assert.ok(mock.calls.filter(call => call.action === 'Browse').every(call => call.url.startsWith(origins[0])));
+  assert.equal(mock.calls.filter(call => writeActions.includes(call.action)).length, 0);
+  assert.doesNotMatch(JSON.stringify(data), /secret-resource|x-rincon-queue|192\.168/);
+  const other = await service.get('C', false, false, true);
+  assert.equal(other.queue.next.title, 'C Track 5 & title');
+});
+
+test('queue previews handle radio, TV, repeat, shuffle, empty and large queues without inventing the next song', async () => {
+  for (const [options, number] of [[{ playMode: 'NORMAL' }, null], [{ playMode: 'REPEAT_ALL' }, 1], [{ playMode: 'REPEAT_ONE' }, 5], [{ playMode: 'SHUFFLE' }, null]]) {
+    const mock = speakerMock({ activeQueue: true, queueTrack: 5, ...options });
+    const data = await createSonosService(sonosSettings(), mock.fetcher).get('B');
+    assert.equal(data.queue.next?.number ?? null, number);
+  }
+  for (const options of [{}, { tv: true }]) {
+    const mock = speakerMock(options), service = createSonosService(sonosSettings(), mock.fetcher);
+    const data = await service.get('B', false, false, true);
+    assert.equal(data.queue.applicable, false); assert.equal(data.queue.total, 0);
+    assert.ok(!mock.calls.some(call => call.action === 'Browse' && call.args.ObjectID === 'Q:0'));
+  }
+  for (const [total, current, count] of [[0, 0, 0], [1000, 1, 40], [100, 80, 21]]) {
+    const mock = speakerMock({ activeQueue: true, queueTotal: total, queueTrack: current });
+    const data = await createSonosService(sonosSettings(), mock.fetcher).get('B', false, false, true);
+    assert.equal(data.queue.known, true); assert.equal(data.queue.total, total); assert.equal(data.queue.items.length, count);
+  }
+});
+
+test('queue read failures, malformed entries and edits between pages clear the snapshot', async () => {
+  for (const option of ['queueReadFailure', 'queueMalformed', 'queueChanged']) {
+    const mock = speakerMock({ activeQueue: true, queueTotal: 20, [option]: true });
+    const data = await createSonosService(sonosSettings(), mock.fetcher).get('B', false, false, true);
+    assert.equal(data.queue.known, false); assert.equal(data.queue.total, null); assert.deepEqual(data.queue.items, []); assert.equal(data.queue.next, null);
+    assert.equal(mock.calls.filter(call => writeActions.includes(call.action)).length, 0);
+  }
 });
 
 test('volume and mute target the selected room, preserve grouping and never retry a write', async () => {

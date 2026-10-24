@@ -334,6 +334,88 @@ class Favorites {
   void fail() { active_ = false; failed = true; known = false; pending_.clear(); }
 };
 
+// Read-only queue snapshots. Never retain resource URLs or credentials from DIDL.
+struct QueueTrack {
+  int number = 0;
+  std::string title, artist;
+};
+class Queue {
+ public:
+  std::vector<QueueTrack> items;
+  bool known = false, failed = false, applicable = false;
+  int total = 0, current = 0, start = 0;
+  std::string mode;
+  void begin(const std::string &host, const std::string &uri, int track, bool full = false) {
+    host_ = origin(host); uri_ = uri; current = track;
+    items.clear(); pending_.clear(); version_.clear(); mode.clear(); total = 0;
+    known = failed = false; wrap_ = false; phase_ = 0;
+    applicable = uri.rfind("x-rincon-queue:", 0) == 0;
+    start = full && track <= 40 ? 0 : std::max(0, track - 1);
+    offset_ = start; limit_ = full ? 40 : 2;
+    active_ = applicable && !host_.empty();
+    if (!applicable) known = true;
+    else if (host_.empty()) fail();
+  }
+  bool matches(const std::string &host, const std::string &uri, int track) const {
+    return host_ == host && uri_ == uri && current == track;
+  }
+  bool has_request() const { return active_; }
+  Request request() const {
+    if (phase_ == 0) return {host_, "AVTransport", "GetTransportSettings", "<InstanceID>0</InstanceID>", -1};
+    return {host_, "ContentDirectory", "Browse", "<ObjectID>Q:0</ObjectID><BrowseFlag>BrowseDirectChildren</BrowseFlag><Filter>*</Filter><StartingIndex>" +
+      std::to_string(offset_) + "</StartingIndex><RequestedCount>" + std::to_string(count()) + "</RequestedCount><SortCriteria></SortCriteria>", -1};
+  }
+  void accept(int status, const std::string &body) {
+    if (!active_) return;
+    Xml reply(body);
+    if (status != 200 || !reply.valid || reply.has("Fault") || !reply.has(phase_ == 0 ? "GetTransportSettingsResponse" : "BrowseResponse")) { fail(); return; }
+    if (phase_ == 0) {
+      mode = reply.text("PlayMode"); phase_ = 1; return;
+    }
+    const int returned = number(reply.text("NumberReturned"), count());
+    const int matches = number(reply.text("TotalMatches"), 100000);
+    const auto version = reply.text("UpdateID");
+    if (returned < 0 || matches < 0 || version.empty() || offset_ + returned > matches ||
+        (!returned && offset_ < matches) || (phase_ > 1 && (version != version_ || total != matches))) { fail(); return; }
+    total = matches; version_ = version; phase_ = 2;
+    Xml didl(reply.text("Result"));
+    if (returned && !didl.valid) { fail(); return; }
+    int entries = 0;
+    for (size_t i = 0; i < didl.nodes.size(); ++i) {
+      const auto &item = didl.nodes[i];
+      if (item.parent != 0 || Xml::local(item.name) != "item") continue;
+      QueueTrack t; t.number = offset_ + ++entries;
+      for (const auto &n : didl.nodes) if (n.parent == static_cast<int>(i)) {
+        if (Xml::local(n.name) == "title") t.title = n.text;
+        else if (Xml::local(n.name) == "creator") t.artist = n.text;
+      }
+      if (t.title.empty() || t.title.size() > 512 || t.artist.size() > 256) { fail(); return; }
+      pending_.push_back(std::move(t));
+    }
+    if (entries != returned) { fail(); return; }
+    offset_ += returned;
+    if (!wrap_ && offset_ < total && offset_ - start < limit_) return;
+    // At the end of a repeating queue, the next track is the first one.
+    if (!wrap_ && mode == "REPEAT_ALL" && current == total && start > 0) { wrap_ = true; offset_ = 0; return; }
+    items.swap(pending_); pending_.clear(); known = true; active_ = false;
+  }
+  const QueueTrack *next() const {
+    if (!known || !applicable || current < 1 || current > total) return nullptr;
+    int wanted = mode == "REPEAT_ONE" ? current : current + 1;
+    if (mode != "NORMAL" && mode != "REPEAT_ALL" && mode != "REPEAT_ONE") return nullptr; // Shuffle order is not a prediction.
+    if (wanted > total && mode == "REPEAT_ALL") wanted = 1;
+    for (const auto &item : items) if (item.number == wanted) return &item;
+    return nullptr;
+  }
+ private:
+  bool active_ = false, wrap_ = false;
+  int phase_ = 0, offset_ = 0, limit_ = 2;
+  std::string host_, uri_, version_;
+  std::vector<QueueTrack> pending_;
+  int count() const { return wrap_ ? 1 : std::min(8, limit_ - (offset_ - start)); }
+  void fail() { active_ = known = false; failed = true; items.clear(); pending_.clear(); }
+};
+
 // Discovery includes every visible zone; bonded/hidden members are not separate
 // selection/grouping targets. Hosts are validated LAN origins from topology.
 struct System {

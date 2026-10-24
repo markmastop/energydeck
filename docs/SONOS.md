@@ -53,8 +53,14 @@ battery data shows dashes. Returning restores the original daily-energy gauge;
 solar stays on the right on both pages. This is display-only, with no extra polling.
 
 The page has a 272×272 cover, ellipsized title/artist, room selector, playback,
-skip, volume and mute controls. Below the player, **Favorites / Rooms** tabs
-switch between the three-column favorites grid and a scrollable system list.
+skip, volume and mute controls. A read-only **Up next** line shows the next
+queued title and artist when Sonos exposes a deterministic order. Below the
+player, **Queue / Rooms / Favorites** tabs switch between the queue, system list
+and three-column favorites grid. Queue opens by default; its badge counts the
+complete queue, including tracks already played. The current track is highlighted.
+Room membership uses the existing per-row plus/check controls. Apply and Cancel
+appear below the room list only while a grouping draft exists; all three tabs
+remain available in their fixed positions.
 The selected tab is retained when leaving and reopening detail. Rooms shows up
 to 32 visible Sonos zones from the existing topology response, with their actual
 zone names and group membership. Hidden bonded/stereo partners are omitted to
@@ -772,3 +778,32 @@ The navigation/model regressions, simulator build and LVGL room-widget/input
 checks passed before this rollout. An actual playing-to-stopped UI transition
 was not triggered on the physical display, so physical automatic return from
 detail and the compact player remains user-verifiable.
+
+## Read-only queue and Up next
+
+Both clients browse the actual coordinator's `Q:0` ContentDirectory and read
+`GetTransportSettings`; no Seek, Play, queue edit or other write is issued by the
+queue view. Metadata is text-only: titles and artists are retained, resource URLs
+and service account data are not exposed. Radio/TV and other non-queue sources
+show an explicit no-queue state, without showing a previous queue's tracks.
+
+Summary refreshes read the current and following track; opening Queue reads up
+to 40 entries, in pages of at most eight. For a current track beyond the first
+40, the list starts at that track. The exact total remains in the badge. Long
+queues have an explicit truncation notice. Every page must report consistent
+UpdateID and total values; a change, malformed entry or failed read invalidates
+the snapshot. Queue refreshes use the existing ten-second cadence and selected
+room/coordinator, and do not block input. The ESP yields the shared worker to
+commands and room selection between reads. Late ESP snapshots are matched to
+coordinator, source and current track before being displayed.
+
+Normal order shows the following track. Repeat One shows the current track again;
+Repeat All wraps to the first track, reading it separately when needed. Shuffle
+shows an explanatory note and does not predict the next track from list order.
+At the last track in normal mode, Up next says the queue ends after this track.
+The queue count includes already played tracks and is not a remaining-song count.
+
+Regression checks: `node scripts/test-music-controls.cjs` includes the bounded
+queue model tests; `.venv/bin/python scripts/test-sonos-room-widgets.py` exercises
+the actual queue-render lambda with the simulator's LVGL. Web queue tests are in
+`web/test/features.test.mjs`. These use fixtures and issue no real controls.

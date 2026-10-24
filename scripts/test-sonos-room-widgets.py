@@ -22,6 +22,9 @@ guards = [line.split("lambda: ", 1)[1] for line in requests.splitlines() if "lam
 # Evaluate both the loop guard and the guard after waiting for another owner.
 source = source.replace("// PRODUCTION_REQUEST_GUARD", guards[0])
 source = source.replace("// PRODUCTION_SUBMIT_GUARD", guards[2])
+queue_body = music.split("  - id: render_music_queue\n", 1)[1].split("  - id: refresh_music_favorites\n", 1)[0].split("      - lambda: |-\n", 1)[1]
+queue_body = "\n".join(line[10:] if line.startswith("          ") else line for line in queue_body.splitlines())
+source = source.replace("// PRODUCTION_QUEUE_RENDER", queue_body)
 with tempfile.TemporaryDirectory(prefix="energydeck-room-widgets-") as temp:
     cpp = Path(temp) / "room-widgets.cpp"
     # Resolve the model include relative to the checked-in test, not the temp dir.

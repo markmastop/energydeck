@@ -3,6 +3,7 @@
 #include "../esphome/components/sonos_local/sonos_local.h"
 #include <cassert>
 #include <cstring>
+#include <cstdio>
 #include <cstdlib>
 #include <iostream>
 #include <functional>
@@ -21,6 +22,9 @@ lv_result_t lv_mem_test_core() { return LV_RESULT_OK; }
 }
 
 namespace esphome::ui_performance {
+template<typename... Args> void set_text_fmt(lv_obj_t *label, const char *format, Args... args) {
+  char text[512]; std::snprintf(text, sizeof(text), format, args...); lv_label_set_text(label, text);
+}
 inline void set_text(lv_obj_t *label, const char *text) {
   if (std::strcmp(lv_label_get_text(label), text)) lv_label_set_text(label, text);
 }
@@ -33,6 +37,8 @@ struct ScriptProbe {
   void execute(const std::string &value) { uuid = value; ++calls; if (on_select) on_select(value); }
 };
 static energydeck_sonos::State sonos;
+static energydeck_sonos::Queue sonos_queue;
+static lv_obj_t *music_queue_list, *music_queue_badge, *music_next_track;
 static energydeck_sonos::RoomActivity sonos_room_activity;
 static bool music_page_open = true, music_busy = false, music_favorite_pending = false;
 static int music_content_tab = 1;
@@ -66,6 +72,9 @@ static void test_request_priority() {
 }
 static void render_rooms() {
 // PRODUCTION_ROOM_RENDER
+}
+static void render_queue() {
+// PRODUCTION_QUEUE_RENDER
 }
 static void select_room(const std::string &uuid) {
 // PRODUCTION_ROOM_SELECT
@@ -191,5 +200,36 @@ int main() {
   sonos.systems.clear(); update_activity(); render_rooms();
   assert(lv_obj_get_child_count(music_systems_list) == 1);
   std::cout << "PASS: production queue guards prioritize selection; LVGL highlights immediately, hides stale covers, retains scroll and drags/taps correctly\n";
+  music_queue_list = lv_obj_create(lv_screen_active());
+  lv_obj_set_size(music_queue_list, 452, 200);
+  music_queue_badge = lv_label_create(lv_screen_active());
+  music_next_track = lv_label_create(lv_screen_active());
+  music_content_tab = 2; sonos = energydeck_sonos::State{};
+  auto &room = sonos.rooms[0];
+  room.topology = room.transport = room.media = room.position = true;
+  room.coordinator_host = "http://192.168.1.50:1400";
+  room.uri = "x-rincon-queue:ROOM#0"; room.track = 4;
+  sonos_queue.begin(room.coordinator_host, room.uri, room.track, true);
+  sonos_queue.accept(200, "<GetTransportSettingsResponse><PlayMode>NORMAL</PlayMode></GetTransportSettingsResponse>");
+  std::string result = "<DIDL-Lite>";
+  for (const auto &title : {"One", "Two", "Three", "Four", "Five"})
+    result += std::string("<item><title>") + title + "</title><creator>Artist</creator></item>";
+  result += "</DIDL-Lite>";
+  sonos_queue.accept(200, "<BrowseResponse><NumberReturned>5</NumberReturned><TotalMatches>5</TotalMatches><UpdateID>1</UpdateID><Result>" + energydeck_sonos::xml_escape(result) + "</Result></BrowseResponse>");
+  render_queue();
+  assert(!std::strcmp(lv_label_get_text(music_queue_badge), "5"));
+  assert(lv_obj_get_child_count(music_queue_list) == 5);
+  assert(std::strstr(lv_label_get_text(music_next_track), "Five"));
+  auto *retained = lv_obj_get_child(music_queue_list, 0); render_queue();
+  assert(lv_obj_get_child(music_queue_list, 0) == retained);
+  room.track = 5; render_queue(); // Late snapshots cannot describe the newly selected/current track.
+  assert(!std::strcmp(lv_label_get_text(music_queue_badge), "--"));
+  assert(!std::strlen(lv_label_get_text(music_next_track)));
+  assert(lv_obj_get_child_count(music_queue_list) == 1);
+  room.uri = "x-sonosapi-stream:radio";
+  sonos_queue.begin(room.coordinator_host, room.uri, room.track, true); render_queue();
+  assert(!std::strcmp(lv_label_get_text(music_queue_badge), "0"));
+  assert(lv_obj_get_child_count(music_queue_list) == 1);
+  std::cout << "PASS: production LVGL queue count, next track, retained rows, stale-snapshot clearing and radio state\n";
   lv_deinit();
 }

@@ -22,6 +22,15 @@ older bridges without that field use `sources[date]`. Both canonical
 are recognized. Missing or unrecognized provenance stays unknown; warnings or
 another day's source never establish today's source.
 
+The Sonos detail tabs are Queue (with the total track count), Rooms and Favorites.
+The player shows Up next with title and artist; the queue highlights the current
+track. Queue browsing is read-only, scoped to the selected room's actual
+coordinator, and limited to 40 visible entries while preserving the exact total.
+Normal, Repeat One and Repeat All have deterministic previews; shuffle explicitly
+leaves the next track unknown. Radio/TV show a no-queue message. Failed reads or
+queue changes between pages clear the snapshot. Room grouping keeps all three
+tabs in place and shows Apply/Cancel below the room list only for a pending draft.
+
 The phone layout scrolls and adapts to width instead of fixing every widget at the panel's 480×800 coordinates. Physical backlight dimming, USB flashing and hardware-specific timing remain display functions. Player volume targets every visible room in the actual group, including after explicit selection. Plus/minus first reads all members, then sets each to the lowest volume plus/minus two percentage points (bounded to 0–100). The Group label shows this minimum. On the Rooms tab, volume targets only the selected physical room and is labelled Room. Missing member volumes abort before any write; uncertain writes are never retried. Mute retains the default Woonkamer/Living and Keuken/Kitchen pair behavior before explicit selection and targets only the selected room afterward, matching the display. Transport and favorites affect the actual current Sonos group.
 
 ## Start on a trusted home network

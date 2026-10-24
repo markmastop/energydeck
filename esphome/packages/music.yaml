@@ -20,6 +20,8 @@ globals:
     type: esphome::online_image::FavoriteArtwork
   - id: sonos
     type: energydeck_sonos::State
+  - id: sonos_queue
+    type: energydeck_sonos::Queue
   - id: sonos_favorites
     type: energydeck_sonos::Favorites
   - id: sonos_room_activity
@@ -40,7 +42,7 @@ globals:
     initial_value: "false"
   - id: music_content_tab
     type: int
-    initial_value: "0"
+    initial_value: "2"
   - id: music_busy
     type: bool
     initial_value: "false"
@@ -391,6 +393,7 @@ script:
           id(sonos).follow_compact_tab(id(detail_tab));
           id(update_home_card).execute();
       - script.execute: select_detail_tab
+      - script.execute: refresh_music_queue
 
   - id: refresh_music_room_activity
     mode: single
@@ -716,11 +719,14 @@ script:
           if (id(music_content_tab) == 1) lv_obj_clear_flag(id(music_systems_list), LV_OBJ_FLAG_HIDDEN);
           else lv_obj_add_flag(id(music_systems_list), LV_OBJ_FLAG_HIDDEN);
           for (auto *widget : {id(music_group_apply), id(music_group_reset)}) {
-            if (id(music_content_tab) == 1) lv_obj_clear_flag(widget, LV_OBJ_FLAG_HIDDEN);
+            if (id(music_content_tab) == 1 && s.group_dirty()) lv_obj_clear_flag(widget, LV_OBJ_FLAG_HIDDEN);
             else lv_obj_add_flag(widget, LV_OBJ_FLAG_HIDDEN);
           }
-          lv_obj_t *content_tabs[] = {id(music_favorites_tab), id(music_systems_tab)};
-          for (int i = 0; i < 2; ++i) {
+          lv_obj_set_height(id(music_systems_list), s.group_dirty() ? 148 : 200);
+          if (id(music_content_tab) == 2) lv_obj_clear_flag(id(music_queue_list), LV_OBJ_FLAG_HIDDEN);
+          else lv_obj_add_flag(id(music_queue_list), LV_OBJ_FLAG_HIDDEN);
+          lv_obj_t *content_tabs[] = {id(music_favorites_tab), id(music_systems_tab), id(music_queue_tab)};
+          for (int i = 0; i < 3; ++i) {
             const bool active = i == id(music_content_tab);
             lv_obj_set_style_bg_color(content_tabs[i], lv_color_hex(active ? 0x24583B : 0x18231E), 0);
             lv_obj_set_style_border_color(content_tabs[i], lv_color_hex(active ? 0x45BD70 : 0x34463C), 0);
@@ -817,6 +823,7 @@ script:
               button == id(small_music_room_select) ? 0x7FE0A2 : button == id(music_mute) && s.muted() ? 0xE8B94C : 0xEEF6F0), 0);
           }
       - script.execute: render_music_systems
+      - script.execute: render_music_queue
 
   - id: render_music_systems
     then:
@@ -1011,6 +1018,93 @@ script:
                 ESP_LOGD("network_performance", "Sonos Browse: %u ms (background)", static_cast<unsigned>(reply.duration_ms));
                 id(sonos_favorites).accept(reply.status, reply.body);
             - delay: 10ms
+
+  - id: refresh_music_queue
+    mode: single
+    then:
+      - if:
+          condition:
+            lambda: return !id(music_busy) && !id(music_favorite_pending) && !id(music_room_refresh_pending) && (id(music_page_open) || id(detail_tab) == 1);
+          then:
+            - lambda: |-
+                const auto &room = id(sonos).current();
+                id(sonos_queue).begin(room.coordinator_host, room.known() ? room.uri : "", room.track,
+                  id(music_page_open) && id(music_content_tab) == 2);
+            - while:
+                condition:
+                  lambda: return id(sonos_queue).has_request() && !id(music_busy) && !id(music_favorite_pending) && !id(music_room_refresh_pending) && !id(music_selection_loading);
+                then:
+                  - wait_until:
+                      lambda: return !id(sonos_transport).busy();
+                  - if:
+                      condition:
+                        lambda: return !id(music_busy) && !id(music_favorite_pending) && !id(music_room_refresh_pending) && !id(music_selection_loading);
+                      then:
+                        - lambda: id(sonos_transport).submit(id(sonos_queue).request(), 1500);
+                        - wait_until:
+                            lambda: return id(sonos_transport).ready() && esphome::ui_performance::background_allowed();
+                        - lambda: |-
+                            auto reply = id(sonos_transport).take();
+                            id(sonos_queue).accept(reply.status, reply.body);
+                        - delay: 10ms
+            - script.execute: render_music_queue
+
+  - id: render_music_queue
+    then:
+      - lambda: |-
+          auto &q = id(sonos_queue);
+          const auto &room = id(sonos).current();
+          const bool known = room.known() && q.matches(room.coordinator_host, room.uri, room.track) && q.known;
+          esphome::ui_performance::set_text_fmt(id(music_queue_badge), "%s", known ? std::to_string(q.total).c_str() : "--");
+          const auto *next = known ? q.next() : nullptr;
+          const std::string preview = next ? std::string("${music_up_next}") + next->title + (next->artist.empty() ? "" : " - " + next->artist) :
+            known && q.applicable && q.mode.find("SHUFFLE") != std::string::npos ? "${music_queue_shuffle_short}" :
+            known && q.applicable && q.current == q.total && q.total > 0 && q.mode == "NORMAL" ? "${music_queue_end}" : "";
+          esphome::ui_performance::set_text(id(music_next_track), preview.c_str());
+          if (!id(music_page_open) || id(music_content_tab) != 2 || lv_obj_is_scrolling(id(music_queue_list))) return;
+          std::string signature = known ? std::to_string(q.total) + ":" + std::to_string(q.current) + ":" + q.mode + (q.applicable ? ":queue" : ":source") : "unknown";
+          for (const auto &item : q.items) signature += std::to_string(item.number) + ":" + item.title + "\n" + item.artist;
+          static std::string previous;
+          if (previous == signature) return;
+          previous = signature;
+          const int scroll = lv_obj_get_scroll_y(id(music_queue_list));
+          lv_obj_clean(id(music_queue_list));
+          int y = 0;
+          const auto note = [&](const std::string &text) {
+            auto *label = lv_label_create(id(music_queue_list));
+            lv_obj_set_pos(label, 8, y); lv_obj_set_width(label, 432);
+            lv_obj_set_style_text_font(label, &lv_font_montserrat_12, 0);
+            lv_obj_set_style_text_color(label, lv_color_hex(0xA9B8AE), 0);
+            esphome::ui_performance::set_text(label, text.c_str());
+            lv_obj_update_layout(label); y += lv_obj_get_height(label) + 12;
+          };
+          if (!known) note("${music_queue_unavailable}");
+          else if (!q.applicable) note("${music_queue_no_source}");
+          else if (q.total == 0) note("${music_queue_empty}");
+          else {
+            if (q.mode.find("SHUFFLE") != std::string::npos) note("${music_queue_shuffle}");
+            if (static_cast<int>(q.items.size()) < q.total) note("${music_queue_limited}");
+            for (const auto &item : q.items) {
+              auto *row = lv_obj_create(id(music_queue_list));
+              lv_obj_remove_style_all(row); lv_obj_set_pos(row, 0, y); lv_obj_set_size(row, 452, 48);
+              lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
+              if (item.number == q.current) {
+                lv_obj_set_style_bg_opa(row, LV_OPA_COVER, 0);
+                lv_obj_set_style_bg_color(row, lv_color_hex(0x24583B), 0); lv_obj_set_style_radius(row, 6, 0);
+              }
+              for (int field = 0; field < 2; ++field) {
+                auto *label = lv_label_create(row);
+                lv_obj_set_pos(label, 10, field ? 27 : 5); lv_obj_set_size(label, 432, 18);
+                lv_label_set_long_mode(label, LV_LABEL_LONG_DOT);
+                lv_obj_set_style_text_font(label, field ? &lv_font_montserrat_12 : &lv_font_montserrat_14, 0);
+                lv_obj_set_style_text_color(label, lv_color_hex(field ? 0xA9B8AE : 0xEEF6F0), 0);
+                const std::string text = field ? item.artist : std::to_string(item.number) + ". " + item.title;
+                esphome::ui_performance::set_text(label, text.c_str());
+              }
+              y += 54;
+            }
+          }
+          lv_obj_scroll_to_y(id(music_queue_list), scroll, LV_ANIM_OFF);
 
   - id: refresh_music_favorites
     mode: single

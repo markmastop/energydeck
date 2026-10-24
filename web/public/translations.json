@@ -185,7 +185,16 @@
     "roomAtTarget": "Op temperatuur",
     "climateControlNote": "Automatisch bijgewerkt | Bediening via Homey",
     "groupVolume": "Groep",
-    "roomVolume": "Kamer"
+    "roomVolume": "Kamer",
+    "queue": "Wachtrij",
+    "upNext": "Hierna",
+    "queueCurrent": "Nu",
+    "queueUnavailable": "Wachtrij niet beschikbaar.",
+    "queueNoSource": "Deze bron heeft geen Sonos-wachtrij.",
+    "queueEmpty": "De wachtrij is leeg.",
+    "queueShuffle": "Shuffle: de lijst toont de wachtrijvolgorde; het volgende nummer is niet bekend.",
+    "queueLimited": "Er worden maximaal 40 nummers getoond. De badge telt de hele wachtrij.",
+    "queueEnd": "Hierna eindigt de wachtrij."
   },
   "en": {
     "logout": "Sign out",
@@ -373,6 +382,15 @@
     "roomAtTarget": "At target",
     "climateControlNote": "Updates automatically | Control through Homey",
     "groupVolume": "Group",
-    "roomVolume": "Room"
+    "roomVolume": "Room",
+    "queue": "Queue",
+    "upNext": "Up next",
+    "queueCurrent": "Now",
+    "queueUnavailable": "Queue unavailable.",
+    "queueNoSource": "This source has no Sonos queue.",
+    "queueEmpty": "The queue is empty.",
+    "queueShuffle": "Shuffle: the list shows queue order; the next track is unknown.",
+    "queueLimited": "Showing up to 40 tracks. The badge counts the full queue.",
+    "queueEnd": "The queue ends after this track."
   }
 }

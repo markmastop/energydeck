@@ -1076,7 +1076,7 @@ script:
           const auto follow = [&]() {
             if (known && playing_y >= 0 && (opening || centered != follow_key)) {
               lv_obj_update_layout(id(music_queue_list));
-              lv_obj_scroll_to_y(id(music_queue_list), std::max(0, playing_y + 24 - lv_obj_get_height(id(music_queue_list)) / 2), LV_ANIM_OFF);
+              lv_obj_scroll_to_y(id(music_queue_list), std::max<int>(0, playing_y + 24 - lv_obj_get_height(id(music_queue_list)) / 2), LV_ANIM_OFF);
               centered = follow_key;
               return true;
             }
@@ -1091,7 +1091,7 @@ script:
           lv_obj_clean(id(music_queue_list));
           playing_y = -1;
           lv_obj_update_layout(id(music_queue_list));
-          const int edge_space = std::max(0, (lv_obj_get_height(id(music_queue_list)) - 48) / 2);
+          const int edge_space = std::max<int>(0, (lv_obj_get_height(id(music_queue_list)) - 48) / 2);
           // End padding allows even the first and last tracks to be centered.
           lv_obj_set_style_pad_bottom(id(music_queue_list), edge_space, 0);
           int y = 0;

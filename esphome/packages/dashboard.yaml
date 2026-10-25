@@ -368,7 +368,7 @@ lvgl:
             x: 14
             y: 194
             width: 452
-            height: 236
+            height: 262
             radius: 8
             bg_color: 0x0F1712
             border_color: 0x343A37
@@ -1416,68 +1416,68 @@ lvgl:
                   y: 150
                   id: price_tick_0
                   text: "00"
-                  text_font: montserrat_10
+                  text_font: montserrat_12
                   text_color: 0x82958A
               - label:
                   x: 94
                   y: 150
                   id: price_tick_1
                   text: "03"
-                  text_font: montserrat_10
+                  text_font: montserrat_12
                   text_color: 0x82958A
               - label:
                   x: 142
                   y: 150
                   id: price_tick_2
                   text: "06"
-                  text_font: montserrat_10
+                  text_font: montserrat_12
                   text_color: 0x82958A
               - label:
                   x: 190
                   y: 150
                   id: price_tick_3
                   text: "09"
-                  text_font: montserrat_10
+                  text_font: montserrat_12
                   text_color: 0x82958A
               - label:
                   x: 238
                   y: 150
                   id: price_tick_4
                   text: "12"
-                  text_font: montserrat_10
+                  text_font: montserrat_12
                   text_color: 0x82958A
               - label:
                   x: 286
                   y: 150
                   id: price_tick_5
                   text: "15"
-                  text_font: montserrat_10
+                  text_font: montserrat_12
                   text_color: 0x82958A
               - label:
                   x: 334
                   y: 150
                   id: price_tick_6
                   text: "18"
-                  text_font: montserrat_10
+                  text_font: montserrat_12
                   text_color: 0x82958A
               - label:
                   x: 382
                   y: 150
                   id: price_tick_7
                   text: "21"
-                  text_font: montserrat_10
+                  text_font: montserrat_12
                   text_color: 0x82958A
               - label:
                   x: 414
                   y: 150
                   id: price_tick_8
                   text: "23"
-                  text_font: montserrat_10
+                  text_font: montserrat_12
                   text_color: 0x82958A
               - label:
                   id: price_strategy_caption
                   x: 46
-                  y: 165
+                  y: 168
                   text: "${battery_plan_unavailable}"
                   text_font: montserrat_10
                   text_color: 0xA9B8AE
@@ -1485,9 +1485,9 @@ lvgl:
               - obj:
                   id: price_battery_strategy_plot
                   x: 46
-                  y: 179
+                  y: 184
                   width: 384
-                  height: 29
+                  height: 44
                   bg_opa: TRANSP
                   border_width: 0
                   pad_all: 0
@@ -1496,7 +1496,7 @@ lvgl:
               - label:
                   x: 3
                   id: price_strategy_max
-                  y: 176
+                  y: 184
                   width: 35
                   text: "100%"
                   text_align: RIGHT
@@ -1505,17 +1505,42 @@ lvgl:
               - label:
                   x: 3
                   id: price_strategy_min
-                  y: 195
+                  y: 215
                   width: 35
                   text: "0%"
                   text_align: RIGHT
                   text_font: montserrat_10
                   text_color: 0x48BD70
               - label:
+                  x: 46
+                  y: 231
+                  text: "${battery_action_charge}"
+                  text_font: montserrat_10
+                  text_color: 0x3AA7D8
+              - label:
+                  x: 124
+                  y: 231
+                  text: "${battery_action_discharge}"
+                  text_font: montserrat_10
+                  text_color: 0xE7A052
+              - label:
+                  x: 214
+                  y: 231
+                  text: "${battery_action_hold}"
+                  text_font: montserrat_10
+                  text_color: 0xA9B8AE
+              - label:
+                  x: 304
+                  y: 231
+                  text: "${battery_strategy_sun}"
+                  text_font: montserrat_10
+                  text_color: 0xFFD35A
+              - label:
                   id: cheapest_period_label
-                  x: 105
-                  y: 211
+                  x: 46
+                  y: 246
                   text: "${cheapest_period}"
+                  text_font: montserrat_12
                   text_color: 0x7FE0A2
 
         - obj:
@@ -1524,9 +1549,9 @@ lvgl:
             on_click:
               - script.execute: open_battery_page
             x: 14
-            y: 440
+            y: 466
             width: 294
-            height: 126
+            height: 100
             radius: 8
             bg_color: 0x0F1712
             border_color: 0x343A37
@@ -1591,290 +1616,18 @@ lvgl:
             - label:
                 id: battery_plan_label
                 x: 12
-                y: 75
+                y: 78
                 text: ${battery_plan_unavailable}
-                text_font: montserrat_10
+                text_font: montserrat_12
                 text_color: 0xA9B8AE
                 width: 268
                 long_mode: DOT
-            - obj:
-                id: battery_plan_track
-                hidden: true
-                x: 12
-                y: 96
-                width: 268
-                height: 5
-                bg_color: 0x26362D
-                border_width: 0
-                radius: 2
-                pad_all: 0
-                scrollable: false
-            - obj:
-                id: battery_plan_solar
-                hidden: true
-                x: 12
-                y: 96
-                width: 134
-                height: 5
-                bg_color: 0x48BD70
-                border_width: 0
-                radius: 2
-                pad_all: 0
-                scrollable: false
-            - obj:
-                id: battery_plan_topup
-                hidden: true
-                x: 146
-                y: 96
-                width: 134
-                height: 5
-                bg_color: 0x3AA7D8
-                border_width: 0
-                radius: 2
-                pad_all: 0
-                scrollable: false
-            - obj:
-                id: battery_sun_00
-                hidden: true
-                x: 12
-                y: 89
-                width: 8
-                height: 4
-                bg_color: 0xF3C654
-                border_width: 0
-                radius: 1
-                pad_all: 0
-                scrollable: false
-            - obj:
-                id: battery_sun_01
-                hidden: true
-                x: 12
-                y: 89
-                width: 8
-                height: 4
-                bg_color: 0xF3C654
-                border_width: 0
-                radius: 1
-                pad_all: 0
-                scrollable: false
-            - obj:
-                id: battery_sun_02
-                hidden: true
-                x: 12
-                y: 89
-                width: 8
-                height: 4
-                bg_color: 0xF3C654
-                border_width: 0
-                radius: 1
-                pad_all: 0
-                scrollable: false
-            - obj:
-                id: battery_sun_03
-                hidden: true
-                x: 12
-                y: 89
-                width: 8
-                height: 4
-                bg_color: 0xF3C654
-                border_width: 0
-                radius: 1
-                pad_all: 0
-                scrollable: false
-            - obj:
-                id: battery_sun_04
-                hidden: true
-                x: 12
-                y: 89
-                width: 8
-                height: 4
-                bg_color: 0xF3C654
-                border_width: 0
-                radius: 1
-                pad_all: 0
-                scrollable: false
-            - obj:
-                id: battery_sun_05
-                hidden: true
-                x: 12
-                y: 89
-                width: 8
-                height: 4
-                bg_color: 0xF3C654
-                border_width: 0
-                radius: 1
-                pad_all: 0
-                scrollable: false
-            - obj:
-                id: battery_sun_06
-                hidden: true
-                x: 12
-                y: 89
-                width: 8
-                height: 4
-                bg_color: 0xF3C654
-                border_width: 0
-                radius: 1
-                pad_all: 0
-                scrollable: false
-            - obj:
-                id: battery_sun_07
-                hidden: true
-                x: 12
-                y: 89
-                width: 8
-                height: 4
-                bg_color: 0xF3C654
-                border_width: 0
-                radius: 1
-                pad_all: 0
-                scrollable: false
-            - obj:
-                id: battery_sun_08
-                hidden: true
-                x: 12
-                y: 89
-                width: 8
-                height: 4
-                bg_color: 0xF3C654
-                border_width: 0
-                radius: 1
-                pad_all: 0
-                scrollable: false
-            - obj:
-                id: battery_sun_09
-                hidden: true
-                x: 12
-                y: 89
-                width: 8
-                height: 4
-                bg_color: 0xF3C654
-                border_width: 0
-                radius: 1
-                pad_all: 0
-                scrollable: false
-            - obj:
-                id: battery_sun_10
-                hidden: true
-                x: 12
-                y: 89
-                width: 8
-                height: 4
-                bg_color: 0xF3C654
-                border_width: 0
-                radius: 1
-                pad_all: 0
-                scrollable: false
-            - obj:
-                id: battery_sun_11
-                hidden: true
-                x: 12
-                y: 89
-                width: 8
-                height: 4
-                bg_color: 0xF3C654
-                border_width: 0
-                radius: 1
-                pad_all: 0
-                scrollable: false
-            - obj:
-                id: battery_sun_12
-                hidden: true
-                x: 12
-                y: 89
-                width: 8
-                height: 4
-                bg_color: 0xF3C654
-                border_width: 0
-                radius: 1
-                pad_all: 0
-                scrollable: false
-            - obj:
-                id: battery_sun_13
-                hidden: true
-                x: 12
-                y: 89
-                width: 8
-                height: 4
-                bg_color: 0xF3C654
-                border_width: 0
-                radius: 1
-                pad_all: 0
-                scrollable: false
-            - obj:
-                id: battery_sun_14
-                hidden: true
-                x: 12
-                y: 89
-                width: 8
-                height: 4
-                bg_color: 0xF3C654
-                border_width: 0
-                radius: 1
-                pad_all: 0
-                scrollable: false
-            - obj:
-                id: battery_sun_15
-                hidden: true
-                x: 12
-                y: 89
-                width: 8
-                height: 4
-                bg_color: 0xF3C654
-                border_width: 0
-                radius: 1
-                pad_all: 0
-                scrollable: false
-            - obj:
-                id: battery_plan_now
-                hidden: true
-                x: 12
-                y: 93
-                width: 2
-                height: 11
-                bg_color: 0xEEF6F0
-                border_width: 0
-                radius: 2
-                pad_all: 0
-                scrollable: false
-            - label:
-                id: battery_plan_reserve_label
-                hidden: true
-                x: 12
-                y: 106
-                text: --:--
-                text_font: montserrat_10
-                text_color: 0xA9B8AE
-                width: 55
-                long_mode: DOT
-            - label:
-                id: battery_plan_start_label
-                hidden: true
-                x: 85
-                y: 106
-                text: --:--
-                text_font: montserrat_10
-                text_color: 0xA9B8AE
-                width: 110
-                long_mode: DOT
-                text_align: CENTER
-            - label:
-                id: battery_plan_deadline_label
-                hidden: true
-                x: 180
-                y: 106
-                text: --:--
-                text_font: montserrat_10
-                text_color: 0xA9B8AE
-                width: 100
-                long_mode: DOT
-                text_align: RIGHT
         - obj:
             id: ev_card
             x: 322
-            y: 440
+            y: 466
             width: 124
-            height: 126
+            height: 100
             radius: 0
             bg_opa: TRANSP
             border_width: 0
@@ -1884,7 +1637,7 @@ lvgl:
             - label:
                 id: ev_status_label
                 x: 0
-                y: 10
+                y: 2
                 text: ${car_checking}
                 text_color: 0xF0F5FF
                 width: 124
@@ -1894,19 +1647,19 @@ lvgl:
             - label:
                 id: ev_detail_label
                 x: 0
-                y: 43
+                y: 30
                 text: ${car_try_again}
                 text_color: 0xB7C7DD
                 width: 124
-                height: 30
-                text_font: montserrat_12
+                height: 24
+                text_font: montserrat_10
                 long_mode: WRAP
             # Keep the shared button column, with extra breathing room above Gas.
             - button:
                 id: force_charge_button
                 pad_all: 0
                 x: 0
-                y: 83
+                y: 60
                 width: 124
                 height: 34
                 radius: 6
@@ -1929,7 +1682,7 @@ lvgl:
                     bg_color: 0x626A70
                     state:
                       disabled: true
-                - delay: 100ms
+                - delay: 20ms
                 - script.execute: trigger_charge_advanced_flow
 
         - obj:

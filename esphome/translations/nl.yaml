@@ -277,3 +277,6 @@ battery_detail_assumptions: "Voorstel | verbruik en laadruimte zijn aannames"
 battery_detail_select: "Kies een tijdstip met de schuif"
 
 battery_strategy: "Accustrategie"
+
+battery_strategy_sun: "Zon"
+battery_strategy_from: "vanaf"

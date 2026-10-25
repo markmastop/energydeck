@@ -269,7 +269,7 @@ dialog p { font-size: 14px; line-height: 1.6; color: var(--muted); }
 #page-overview { gap:14px; align-items:start; }
 #page-overview .panel { padding:18px; }
 #page-overview .chart-info { margin-top:12px; }
-#page-overview #price-chart { height:225px; }
+#page-overview #price-chart { height:255px; }
 #page-overview .chart-summary { margin-top:12px; padding-top:12px; }
 #page-overview .cheapest { margin-top:12px; padding:10px 12px; }
 #page-overview .battery-heading { margin:12px 0 10px; }
@@ -307,7 +307,7 @@ dialog p { font-size: 14px; line-height: 1.6; color: var(--muted); }
   .energy-actions { grid-template-columns:1fr; gap:10px; }
   #page-overview, .energy-overview { gap:12px; }
   #page-overview .panel { padding:15px; }
-  #page-overview #price-chart { height:215px; }
+  #page-overview #price-chart { height:245px; }
   #page-overview .totals { gap:8px; }
   #page-overview .stat { grid-template-columns:1fr; gap:5px; padding:12px 9px; }
   #page-overview .stat-icon { display:none; }
@@ -334,3 +334,15 @@ dialog p { font-size: 14px; line-height: 1.6; color: var(--muted); }
 
 #price-chart .strategy-percent { fill:#48bd70; }
 #price-strategy-caption { margin:4px 0 0; font-size:.72rem; }
+
+#price-chart text { font-size:12px; }
+#price-chart .strategy-percent { font-size:10px; }
+.strategy-legend { display:flex; flex-wrap:wrap; gap:8px 16px; margin-top:6px; font-size:.72rem; }
+.strategy-legend span::before { content:""; display:inline-block; width:12px; height:3px; margin:0 5px 3px 0; background:currentColor; }
+.strategy-legend .charge { color:#3aa7d8; }
+.strategy-legend .discharge { color:#e7a052; }
+.strategy-legend .hold { color:var(--muted); }
+.strategy-legend .sun { color:#ffd35a; }
+#page-overview .battery-plan-heading { flex-direction:column; align-items:flex-start; gap:6px; }
+#page-overview #battery-plan-status { font-size:.85rem; }
+#page-overview #battery-plan-rate:empty { display:none; }

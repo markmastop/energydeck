@@ -277,3 +277,6 @@ battery_detail_assumptions: "Proposal | demand and headroom are assumptions"
 battery_detail_select: "Select a time with the slider"
 
 battery_strategy: "Battery strategy"
+
+battery_strategy_sun: "Sun"
+battery_strategy_from: "from"

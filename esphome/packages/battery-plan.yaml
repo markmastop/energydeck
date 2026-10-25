@@ -157,15 +157,7 @@ script:
           }
           if (known && live) set_text_fmt(id(battery_energy_label), "${battery_energy_format}", s.battery.value * p.capacity / 100, p.capacity);
           else set_text(id(battery_energy_label), "-- / -- kWh");
-          // Allocate the small forward-phase rectangles only when a v2 snapshot
-          // is received. Existing v1 cards retain their current layout and controls.
-          static std::array<lv_obj_t *, 145> phases{}, forward_sun{};
-          for (auto *o : forward_sun) if (o) lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
-          for (auto *o : phases) if (o) lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
           if (known && p.version == 2) {
-            for (auto *o : {id(battery_plan_solar), id(battery_plan_topup), id(battery_plan_start_label)}) lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_t *sun[] = {id(battery_sun_00), id(battery_sun_01), id(battery_sun_02), id(battery_sun_03), id(battery_sun_04), id(battery_sun_05), id(battery_sun_06), id(battery_sun_07), id(battery_sun_08), id(battery_sun_09), id(battery_sun_10), id(battery_sun_11), id(battery_sun_12), id(battery_sun_13), id(battery_sun_14), id(battery_sun_15)};
-            for (auto *o : sun) lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
             const int index = p.current(time.timestamp);
             const auto &current = p.intervals[index];
             auto action_text = [](int action) { return action == 1 ? "${battery_action_charge}" : action == 2 ? "${battery_action_discharge}" : "${battery_action_hold}"; };
@@ -178,63 +170,21 @@ script:
               else snprintf(label, sizeof(label), "%02d:%02d", at.hour, at.minute);
               return std::string(label);
             };
-            std::string status = p.shadow ? "${battery_forward_shadow}" : "${battery_forward_active}";
-            status += ": "; status += action_text(current.action);
-            set_text(id(battery_plan_label), status.c_str());
-            if (p.at_risk) set_text(id(battery_goal_label), "${battery_forward_risk}");
-            else if (next) {
-              std::string goal = action_text(next->action); goal += " "; goal += stamp(next->from, true);
-              set_text(id(battery_goal_label), goal.c_str());
-            } else set_text(id(battery_goal_label), "${battery_forward_no_next}");
-            set_style_text_color(id(battery_goal_label), lv_color_hex(0xA9B8AE), LV_PART_MAIN);
-            if (current.ev != 0) set_text(id(battery_plan_label), "${battery_forward_ev}");
-            for (size_t i = 0; i < p.interval_count; i++) {
-              const auto &q = p.intervals[i];
-              const int left = p.forward_position(q.from, 268), right = p.forward_position(q.until, 268);
-              if (!phases[i]) {
-                phases[i] = lv_obj_create(id(battery_card));
-                lv_obj_remove_style_all(phases[i]);
-                lv_obj_remove_flag(phases[i], LV_OBJ_FLAG_CLICKABLE);
-                lv_obj_remove_flag(phases[i], LV_OBJ_FLAG_SCROLLABLE);
-              }
-              auto *o = phases[i];
-              lv_obj_set_pos(o, 12 + left, 96); lv_obj_set_size(o, std::max(1, right - left), 5);
-              lv_obj_set_style_bg_color(o, lv_color_hex(q.action == 1 ? 0x3AA7D8 : q.action == 2 ? 0xE7A052 : 0x617064), LV_PART_MAIN);
-              lv_obj_set_style_bg_opa(o, LV_OPA_COVER, LV_PART_MAIN);
-              lv_obj_clear_flag(o, LV_OBJ_FLAG_HIDDEN);
-              auto *mark = forward_sun[i];
-              if (mark) lv_obj_add_flag(mark, LV_OBJ_FLAG_HIDDEN);
-              if (std::isfinite(q.sun) && q.until > time.timestamp) {
-                if (!mark) {
-                  mark = lv_obj_create(id(battery_card)); forward_sun[i] = mark;
-                  lv_obj_remove_style_all(mark);
-                  lv_obj_remove_flag(mark, LV_OBJ_FLAG_CLICKABLE);
-                  lv_obj_remove_flag(mark, LV_OBJ_FLAG_SCROLLABLE);
-                }
-                lv_obj_set_pos(mark, 12 + left, q.sun > 0 ? 89 : 92);
-                lv_obj_set_size(mark, std::max(1, right - left - 1), q.sun > 0 ? 5 : 2);
-                lv_obj_set_style_bg_color(mark, lv_color_hex(q.sun > 0 ? 0xFFD35A : 0x617064), LV_PART_MAIN);
-                lv_obj_set_style_bg_opa(mark, LV_OPA_COVER, LV_PART_MAIN);
-                lv_obj_clear_flag(mark, LV_OBJ_FLAG_HIDDEN);
-              }
-            }
-            for (auto *o : {id(battery_plan_track), id(battery_plan_now), id(battery_plan_reserve_label), id(battery_plan_deadline_label)}) lv_obj_clear_flag(o, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_move_foreground(id(battery_plan_now));
-            lv_obj_set_x(id(battery_plan_now), 12 + p.forward_position(time.timestamp, 268));
-            set_text(id(battery_plan_reserve_label), stamp(p.intervals[0].from, false).c_str());
-            set_text(id(battery_plan_deadline_label), stamp(p.intervals[p.interval_count - 1].until, true).c_str());
-            lv_obj_set_width(id(battery_plan_start_label), 90);
-            set_text(id(battery_plan_start_label), p.provisional ? "${battery_forward_assumptions}" : "");
-            lv_obj_clear_flag(id(battery_plan_start_label), LV_OBJ_FLAG_HIDDEN);
+            std::string state = p.shadow ? "${battery_forward_shadow}" : "${battery_forward_active}";
+            state += " | "; state += action_text(current.action);
+            set_text(id(battery_goal_label), p.at_risk ? "${battery_forward_risk}" : current.ev != 0 ? "${battery_forward_ev}" : state.c_str());
+            set_style_text_color(id(battery_goal_label), lv_color_hex(p.at_risk ? 0xEA665F : 0xA9B8AE), LV_PART_MAIN);
+            if (next) {
+              std::string label = action_text(next->action); label += " ${battery_strategy_from} "; label += stamp(next->from, true);
+              set_text(id(battery_plan_label), label.c_str());
+            } else set_text(id(battery_plan_label), "${battery_forward_no_next}");
             return;
           }
-          lv_obj_set_width(id(battery_plan_start_label), 110);
           set_style_text_color(id(battery_goal_label), lv_color_hex(0x48BD70), LV_PART_MAIN);
-          char deadline[6], start[6], reserve[6];
+          char deadline[6], start[6];
           snprintf(deadline, sizeof(deadline), "%02d:%02d", p.deadline / 60, p.deadline % 60);
           const int beginning = std::isfinite(p.start) ? static_cast<int>(p.start) : 0;
           snprintf(start, sizeof(start), "%02d:%02d", beginning / 60, beginning % 60);
-          snprintf(reserve, sizeof(reserve), "%02d:%02d", p.reserve / 60, p.reserve % 60);
           if (known && p.enabled) set_text_fmt(id(battery_goal_label), "${battery_goal_format}", deadline);
           else set_text(id(battery_goal_label), "--");
           if (!known) set_text(id(battery_plan_label), "${battery_plan_unavailable}");
@@ -243,47 +193,3 @@ script:
           else if (p.phase == "full-reserve") set_text_fmt(id(battery_plan_label), "${battery_plan_reserve}", deadline);
           else if (p.phase == "normal") set_text(id(battery_plan_label), "${battery_plan_normal}");
           else set_text_fmt(id(battery_plan_label), "${battery_plan_solar}", std::isfinite(p.start) ? start : "--:--");
-          if (known && p.enabled && std::isfinite(p.sun_minutes)) {
-            std::string label = lv_label_get_text(id(battery_plan_label));
-            char sunshine[48];
-            snprintf(sunshine, sizeof(sunshine), "${battery_sun_forecast_format}", p.sun_minutes, p.sun_window / 60);
-            label += sunshine;
-            set_text(id(battery_plan_label), label.c_str());
-          }
-          for (auto *o : {id(battery_plan_track), id(battery_plan_solar), id(battery_plan_topup), id(battery_plan_now),
-              id(battery_plan_reserve_label), id(battery_plan_start_label), id(battery_plan_deadline_label)}) {
-            if (known && p.enabled) lv_obj_clear_flag(o, LV_OBJ_FLAG_HIDDEN);
-            else lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
-          }
-          // A separate high-contrast row encodes quarter-hour sunshine, independently
-          // of the green/blue charging windows. Empty/expired data hides the row.
-          lv_obj_t *sun_segments[] = {id(battery_sun_00), id(battery_sun_01), id(battery_sun_02), id(battery_sun_03), id(battery_sun_04), id(battery_sun_05), id(battery_sun_06), id(battery_sun_07), id(battery_sun_08), id(battery_sun_09), id(battery_sun_10), id(battery_sun_11), id(battery_sun_12), id(battery_sun_13), id(battery_sun_14), id(battery_sun_15)};
-          const float current = time.hour * 60 + time.minute + time.second / 60.0f;
-          for (size_t i = 0; i < 16; i++) {
-            auto *o = sun_segments[i];
-            lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
-            if (!known || !p.enabled || i >= p.sun_count) continue;
-            const auto &part = p.sun_periods[i];
-            if (part.until <= current) continue;
-            const int left = p.position(std::fmax(current, part.from), 268), right = p.position(part.until, 268);
-            if (right <= left) continue;
-            lv_obj_set_x(o, 12 + left);
-            lv_obj_set_width(o, std::max(1, right - left - 1));
-            // A fully opaque minimum mark keeps brief sunshine visible in daylight;
-            // zero-sun quarters remain grey, and uncovered time has no mark.
-            const int height = part.fraction > 0 ? std::max(3, static_cast<int>(std::round(part.fraction * 6))) : 2;
-            lv_obj_set_y(o, 94 - height);
-            lv_obj_set_height(o, height);
-            lv_obj_set_style_bg_color(o, lv_color_hex(part.fraction > 0 ? 0xFFD35A : 0x617064), LV_PART_MAIN);
-            lv_obj_set_style_bg_opa(o, LV_OPA_COVER, LV_PART_MAIN);
-            lv_obj_clear_flag(o, LV_OBJ_FLAG_HIDDEN);
-          }
-          if (!known || !p.enabled) return;
-          const int x = std::isfinite(p.start) ? p.position(p.start, 268) : 268;
-          lv_obj_set_width(id(battery_plan_solar), x);
-          lv_obj_set_x(id(battery_plan_topup), 12 + x);
-          lv_obj_set_width(id(battery_plan_topup), 268 - x);
-          lv_obj_set_x(id(battery_plan_now), 12 + p.position(time.hour * 60 + time.minute, 268));
-          set_text(id(battery_plan_reserve_label), reserve);
-          set_text(id(battery_plan_start_label), std::isfinite(p.start) ? start : "");
-          set_text(id(battery_plan_deadline_label), deadline);

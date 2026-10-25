@@ -144,7 +144,13 @@ rollover, errors, cloudy/sunny/expired forecasts, incorrectly optimistic full-da
 forecasts, sunshine units and partial quarters, and preservation of existing Flow guards/manual commands.
 Simulation results do not establish real battery completion at 17:00.
 
-The ESP and web app show the same read-only charge-plan card: measured SoC and
+**Presentation update (2026-10-25):** The current overview uses one forward-plan
+chart below prices. The battery card now summarises measured state and the next
+transition; it no longer repeats a timeline. Legacy v1 snapshots retain their
+text status and target time. The original presentation described below is kept
+as rollout history; see [the current strategy view](SESSY-PRICE-PLAN.md#strategy-below-overview-prices).
+
+The original ESP and web app showed the same read-only charge-plan card: measured SoC and
 battery power, estimated stored energy (`SoC × configured capacity`), the 100%
 target time, solar-first/active-top-up/full-reserve/normal/off status, and a
 09:00–17:00 timeline. Green indicates the solar-first window, blue the planned

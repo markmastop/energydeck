@@ -437,3 +437,29 @@ HTTP 200 and byte-identical `app.js`, `battery-plan.js`, `details.css`, `sw.js`
 and `translations.json`; the overview also contains the new strategy markup.
 These checks establish upload, network recovery and deployed web assets, not
 a physical visual/touch check. No charging Flow was triggered for this rollout.
+
+
+### Overview readability refinement
+
+The strategy strip on the display now has 32 px for the predicted SoC line
+(previously 20 px), while the web uses 60 px (previously 35 px). Both retain a
+fixed 0–100% scale so small changes are not exaggerated. Five larger time labels
+avoid overlap. A compact blue/orange/grey/yellow legend identifies charge,
+discharge, hold and sunshine.
+
+The overview battery card no longer repeats the forecast timeline. It keeps live
+percentage, status, energy and a text summary of the next action/time, including
+the following-day date when needed. Shadow status and EV/risk warnings remain
+visible, and tapping still opens the full battery detail page. On the display,
+26 px reclaimed from the battery/EV row enlarge the price/strategy card without
+moving the lower cards, weather or shared header. Charging controls retain their
+button size and aligned column. Legacy v1 snapshots keep status and target text.
+This presentation update does not change controller decisions or activate the
+shadow plan. It has not yet been pushed or flashed.
+
+
+Verification: simulator and both hardware configurations compile; setup stack
+frames are 2672 B on each target (4096 B guard budget). Native geometry checks
+and all 92 web tests pass. An LVGL capture with fixture data verifies the taller
+strategy, larger ticks, legend and shortened battery/EV row. Browser visual
+inspection was unavailable in this session; physical displays were not flashed.

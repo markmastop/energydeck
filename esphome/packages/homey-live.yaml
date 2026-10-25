@@ -458,9 +458,11 @@ script:
                       const int q = i * count / 8;
                       const auto tick = ESPTime::from_epoch_local(window.start + q * 900);
                       esphome::ui_performance::set_text_fmt(ticks[i], "%02d:%02d", tick.hour, tick.minute);
-                      // Compact centered labels leave room for the last midnight tick.
-                      lv_obj_set_style_text_font(ticks[i], &lv_font_montserrat_10, LV_PART_MAIN);
-                      lv_obj_set_x(ticks[i], 46 + q * 384 / count - (i == 8 ? 28 : i == 0 ? 0 : 14));
+                      // Five larger labels share the UTC axis without crowding midnight.
+                      if (i % 2) lv_obj_add_flag(ticks[i], LV_OBJ_FLAG_HIDDEN);
+                      else lv_obj_clear_flag(ticks[i], LV_OBJ_FLAG_HIDDEN);
+                      lv_obj_set_style_text_font(ticks[i], &lv_font_montserrat_12, LV_PART_MAIN);
+                      lv_obj_set_x(ticks[i], 46 + q * 384 / count - (i == 8 ? 34 : i == 0 ? 0 : 17));
                     }
 
                     // Weight every real quarter equally, including both repeated hours.

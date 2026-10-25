@@ -25,10 +25,10 @@ class BatteryStrategyChart {
       const auto &q = p->intervals[i]; int64_t a, b;
       if (!window.clip(q, a, b)) continue;
       const int x = window.x(a, w), width = window.x(b, w) - x;
-      rect(phases_[i], x, 25, width, 4, q.action == 1 ? 0x3AA7D8 : q.action == 2 ? 0xE7A052 : 0x617064);
+      rect(phases_[i], x, 40, width, 4, q.action == 1 ? 0x3AA7D8 : q.action == 2 ? 0xE7A052 : 0x617064);
       if (std::isfinite(q.sun)) rect(sun_[i], x, 0, q.sun > 0 ? std::max(1, int(width * q.sun)) : width, 2, q.sun > 0 ? 0xFFD35A : 0x34443A);
-      if (!count) points_[count++] = {x, 3 + BatteryDetailGeometry::soc_y(window.soc(q, a), 20)};
-      points_[count++] = {std::min(w - 1, window.x(b, w)), 3 + BatteryDetailGeometry::soc_y(window.soc(q, b), 20)};
+      if (!count) points_[count++] = {x, 3 + BatteryDetailGeometry::soc_y(window.soc(q, a), 32)};
+      points_[count++] = {std::min(w - 1, window.x(b, w)), 3 + BatteryDetailGeometry::soc_y(window.soc(q, b), 32)};
     }
     if (!count) return;
     if (!line_) {
@@ -38,7 +38,7 @@ class BatteryStrategyChart {
       lv_obj_set_style_line_width(line_, 2, 0); lv_obj_set_style_line_opa(line_, LV_OPA_COVER, 0);
     }
     lv_line_set_points(line_, points_.data(), count); lv_obj_clear_flag(line_, LV_OBJ_FLAG_HIDDEN); lv_obj_move_foreground(line_);
-    if (now >= from && now < until) { rect(now_, window.x(now, w), 0, 1, 29, 0xEEF6F0); lv_obj_move_foreground(now_); }
+    if (now >= from && now < until) { rect(now_, window.x(now, w), 0, 1, 44, 0xEEF6F0); lv_obj_move_foreground(now_); }
   }
 };
 class BatteryDetailChart {

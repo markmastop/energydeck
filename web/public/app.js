@@ -124,38 +124,11 @@ function render() {
   text('battery-status', t(data.battery.power === null ? 'unavailable' : data.battery.power < -25 ? 'charging' : data.battery.power > 25 ? 'discharging' : 'standby'));
   const view = batteryPlanView(data.battery.plan, now), plan = view.plan;
   text('battery-energy', plan && data.battery.percentage !== null ? `${format(plan.capacityKwh * data.battery.percentage / 100)} / ${format(plan.capacityKwh)} kWh` : '—');
-  $('battery-phase-windows').hidden = plan?.version !== 2;
-  $('battery-solar-window').hidden = $('battery-topup-window').hidden = plan?.version === 2;
-  if (plan?.version !== 2) {
+  if (plan?.version === 2) renderForwardBattery(view, t, now);
+  else {
     text('battery-goal', plan?.enabled ? `${t('batteryGoal')} ${planClock(plan.deadlineMinute)}` : '—');
     text('battery-plan-status', `${t(view.label).replace('{time}', planClock(plan?.deadlineMinute ?? null))}${view.label === 'batteryPlanSolar' && plan?.startMinute !== null ? ` ${planClock(plan.startMinute)}` : ''}`);
-    if (plan?.enabled && plan.sunMinutes !== null) {
-      const sunshine = t('batterySunForecast').replace('{minutes}', format(plan.sunMinutes, 0)).replace('{hours}', format(plan.sunWindowMinutes / 60));
-      text('battery-plan-status', `${$('battery-plan-status').textContent} · ${sunshine}`);
-    }
-  }
-  text('battery-plan-rate', plan?.enabled ? `${t('batteryPlanRate')} ${format(plan.topUpW / 1000)} kW` : '');
-  $('battery-sunshine').title = t('batterySunTimeline');
-  $('battery-sunshine').replaceChildren(...(plan?.enabled ? view.sunshine : []).map(period => {
-    const segment = document.createElement('span');
-    segment.style.left = `${period.left}%`;
-    segment.style.width = `${period.width}%`;
-    segment.style.height = `${period.fraction > 0 ? Math.max(3, Math.round(period.fraction * 6)) : 2}px`;
-    segment.style.background = period.fraction > 0 ? '#FFD35A' : '#617064';
-    return segment;
-  }));
-  $('battery-timeline').hidden = !plan?.enabled;
-  if (plan?.version === 2) renderForwardBattery(view, t, format, now);
-  else if (plan?.enabled) {
-    const start = view.start ?? 100;
-    $('battery-solar-window').style.width = `${start}%`;
-    $('battery-topup-window').style.left = `${start}%`;
-    $('battery-topup-window').style.width = `${100 - start}%`;
-    $('battery-now-marker').style.left = `${view.now}%`;
-    text('battery-reserve-time', planClock(plan.reserveMinute));
-    text('battery-start-time', plan.startMinute === null ? '' : `${t('batteryPlanStart')} ${planClock(plan.startMinute)}`);
-    text('battery-deadline-time', planClock(plan.deadlineMinute));
-    $('battery-timeline').setAttribute('aria-label', t('batteryPlanTimeline').replace('{reserve}', planClock(plan.reserveMinute)).replace('{start}', planClock(plan.startMinute)).replace('{deadline}', planClock(plan.deadlineMinute)) + (view.sunshine.length ? ` ${t('batterySunTimeline')}` : ''));
+    text('battery-plan-rate', plan?.enabled ? `${t('batteryPlanRate')} ${format(plan.topUpW / 1000)} kW` : '');
   }
   const charger = data.charger;
   const chargeState = charger.connected === false ? 'disconnected' : charger.fault === true ? 'fault' :
@@ -187,7 +160,7 @@ function svgNode(tag, attributes, label) {
 function drawChart(today, quarter) {
   const chart = $('price-chart'); chart.replaceChildren();
   const chartWidth = Math.max(280, chart.clientWidth || 720);
-  chart.setAttribute('viewBox', `0 0 ${chartWidth} 255`);
+  chart.setAttribute('viewBox', `0 0 ${chartWidth} 285`);
   $('today').setAttribute('aria-pressed', String(selected === 'today'));
   $('tomorrow').setAttribute('aria-pressed', String(selected === 'tomorrow'));
   const tomorrowDate = new Date(`${localDate(new Date())}T12:00:00Z`);
@@ -207,6 +180,7 @@ function drawChart(today, quarter) {
   $('chart-warning').hidden = !warning;
   text('chart-warning', warning ? `${day.cached ? t('cachedPrices') : day.source === 'epexprijzen' ? t('reservePrices') : t('unknownSource')} · ${t('priceWarning')}` : '');
   text('price-strategy-caption', '');
+  $('price-strategy-legend').hidden = true;
   if (!day) return;
   const window = priceWindow(day, selected === 'today' ? tomorrow : null, quarter);
   text('price-min', format(window.minimum)); text('price-avg', format(window.average)); text('price-max', format(window.maximum));
@@ -239,20 +213,21 @@ function drawChart(today, quarter) {
   const strategy = batteryStrategyView(data.battery.plan, from, until);
   text('price-strategy-caption', `${t('batteryStrategy')} · ${strategy?.points.length ? t(strategy.plan.mode === 'shadow' ? 'batteryShadow' : 'batteryActivePlan') : t('batteryPlanUnavailable')}`);
   if (strategy?.points.length) {
+    $('price-strategy-legend').hidden = false;
     const x = at => left + (at - from) / (until - from) * width;
-    const sy = soc => 236 - soc / 100 * 35;
+    const sy = soc => 261 - soc / 100 * 60;
     for (const soc of [0, 100]) chart.append(svgNode('text', {x:0, y:sy(soc)+3, class:'strategy-percent'}, `${soc}%`));
     for (const q of strategy.segments) {
       const w = Math.max(.5, x(q.until) - x(q.from));
       const color = q.action === 'charge' ? '#3aa7d8' : q.action === 'discharge' ? '#e7a052' : '#617064';
-      const phase = svgNode('rect', {x:x(q.from), y:245, width:w, height:5, fill:color});
+      const phase = svgNode('rect', {x:x(q.from), y:270, width:w, height:5, fill:color});
       phase.append(svgNode('title', {}, `${priceTime(q.from*1000)} · ${t(`batteryAction${q.action}`)} · ${format(q.socFrom)}–${format(q.socTo)}%`));
       chart.append(phase);
       if (q.sun !== null) chart.append(svgNode('rect', {x:x(q.from), y:195, width:q.sun > 0 ? Math.max(.5,w*q.sun) : w, height:2, fill:q.sun > 0 ? '#ffd35a' : '#34443a'}));
     }
     chart.append(svgNode('polyline', {points:strategy.points.map(p=>`${x(p.at)},${sy(p.soc)}`).join(' '), fill:'none', stroke:'#48bd70', 'stroke-width':2}));
     const epoch=Date.now()/1000;
-    if (epoch>=from && epoch<until) chart.append(svgNode('line', {x1:x(epoch),x2:x(epoch),y1:195,y2:250,stroke:'#eef6f0','stroke-width':1}));
+    if (epoch>=from && epoch<until) chart.append(svgNode('line', {x1:x(epoch),x2:x(epoch),y1:195,y2:275,stroke:'#eef6f0','stroke-width':1}));
   }
 }
 $('language').addEventListener('click', () => {

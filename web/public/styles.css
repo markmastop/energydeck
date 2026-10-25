@@ -481,7 +481,7 @@ h2 {
 .battery-heading>span {
   font-size:11px;
 }
-.battery-energy,.battery-plan-heading,.battery-timeline-labels {
+.battery-energy,.battery-plan-heading {
   display:flex;
   justify-content:space-between;
   gap:8px;
@@ -493,21 +493,6 @@ h2 {
 .battery-plan { margin-top:18px; }
 .battery-plan-heading { min-height:24px; flex-wrap:wrap; }
 #battery-plan-rate { white-space:nowrap; }
-.battery-timeline { margin-top:6px; }
-.battery-sunshine { height:6px; position:relative; margin-bottom:3px; }
-.battery-sunshine:empty { display:none; }
-.battery-sunshine>span { position:absolute; bottom:0; height:6px; background:#FFD35A; border-radius:1px; border-right:1px solid var(--panel); box-sizing:border-box; }
-.battery-timeline-track { height:6px; position:relative; border-radius:4px; background:var(--border); }
-.battery-timeline-track>span { position:absolute; top:0; height:6px; border-radius:4px; }
-#battery-solar-window { left:0; background:var(--green); opacity:.65; }
-#battery-topup-window { background:var(--blue); }
-#battery-now-marker { position:absolute; top:-4px; width:2px; height:14px; background:var(--text); transform:translateX(-1px); }
-.battery-timeline-labels { margin-top:9px; font-size:9px; }
-#battery-phase-windows { inset:0; width:100%; }
-.battery-phase { position:absolute; height:6px; top:0; }
-.battery-phase.charge { background:var(--blue); fill:var(--blue); }
-.battery-phase.discharge { background:#e7a052; fill:#e7a052; }
-.battery-phase.hold { background:#617064; fill:#617064; }
 .battery-panel { position:relative; }
 .battery-card-open { position:absolute; inset:0; width:100%; height:100%; padding:0; background:transparent; border:0; border-radius:inherit; cursor:pointer; }
 .battery-card-open:hover { background:transparent; }

@@ -40,5 +40,19 @@ int main() {
   assert(!p.add_forward(1792933200,1792934100,2,600,50,51.34,48,NAN,1));
   assert(!p.add_forward(1792933200,1792934100,2,600,50,51.34,48,NAN,-1));
   assert(!p.add_forward(1792933201,1792934100,0,0,50,51,51,NAN,0));
+  // Every HTTP refresh parses a v1 envelope before its nested v2 proposal.
+  // Exercise repeated promotion, including recovery from a cleared snapshot.
+  for (uint32_t refresh = 0; refresh < 5; refresh++) {
+    const uint32_t epoch = 1792931400 + refresh * 60;
+    if (refresh == 3) p.clear();
+    assert(p.set(1, "2026-10-25", epoch, true, "grid-top-up", 5, 1000, 100, 540, 1020, 809, refresh * 60000));
+    assert(p.version == 1 && p.interval_count == 0);
+    assert(p.valid(refresh * 60000, epoch, "2026-10-25"));
+    assert(p.begin_forward(epoch, epoch + 600, 5, 1000, 10, 20, true, true, false, refresh * 60000));
+    assert(p.add_forward(epoch, epoch + 900, 1, -1000, 15, 50, 54.5, 0.5, 0));
+    p.known = true;
+    p.controller_updated_at = epoch;
+    assert(p.version == 2 && p.valid(refresh * 60000 + 59999, epoch + 59, "2026-10-25"));
+  }
   std::cout << "PASS: display plan validation, stale/manual expiry, midnight, future data and timeline geometry\n";
 }

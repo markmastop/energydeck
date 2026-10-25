@@ -252,3 +252,15 @@ minutes still do not authorise estimated PV kWh.
 Shadow output is ready for comparison with measured battery behaviour. Enabling
 price-based actuation still requires the calibration and reviewed activation
 steps above; this deployment does not enable the execution guard.
+
+### Display refresh regression
+
+The first shadow firmware could hide the plan on the second HTTP refresh:
+`BatteryPlan::set` shadowed the `version` member with its argument. After a v2
+proposal, parsing the next v1 envelope cleared the intervals but left member
+version 2 selected, so freshness validation rejected the envelope. The setter now
+explicitly resets the member and controller timestamp before proposal promotion.
+A native regression covers five consecutive refreshes plus cleared-state recovery;
+the exact YAML parser was also replayed against a live 133-quarter Homey response.
+The web reader is stateless and unaffected; its seven plan-contract tests pass.
+Simulator and both target firmware builds pass.

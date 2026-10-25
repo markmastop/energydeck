@@ -24,10 +24,10 @@ async function publishDashboard(ok, value, mean, values, sourceName, interval, r
     const nextDay = new Date(midday + 86400000).toISOString().slice(0, 10);
     const tomorrow = data.tomorrow;
     const nextValues = tomorrow?.date === nextDay && Array.isArray(tomorrow.values)
-      && tomorrow.values.length === 96 && tomorrow.values.every(v => typeof v === 'number' && Number.isFinite(v))
+      && tomorrow.values.length === dayBounds(nextDay).count && tomorrow.values.every(v => typeof v === 'number' && Number.isFinite(v))
       ? tomorrow.values : null;
     const window = Number(p.hour) >= 12 && nextValues
-      ? values.slice(48).concat(nextValues.slice(0, 48)) : values;
+      ? values.slice(bounds.count - 48).concat(nextValues.slice(0, dayBounds(nextDay).count - 48)) : values;
     const minimum = Math.min(...window);
     // Firmware floors the all-in EUR/kWh span at 0.001; convert to raw units.
     const span = Math.max(0.001 / VAT_MULTIPLIER, Math.max(...window) - minimum);
@@ -43,6 +43,19 @@ async function publishDashboard(ok, value, mean, values, sourceName, interval, r
   await set('Energie - Dashboardadvies', !ok ? '⚠ Geen geldige prijzen' : category === 'C' ? 'Nu apparaten gebruiken' : category === 'E' ? 'Beperk energiegebruik' : 'Zijn de apparaten echt nodig?');
   await set('Energie - Dashboardprijs', label);
 }
+function dayBounds(date) {
+  const midnight = day => {
+    const utc = Date.parse(`${day}T00:00:00Z`);
+    const zone = new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Amsterdam', timeZoneName: 'shortOffset' })
+      .formatToParts(new Date(utc)).find(p => p.type === 'timeZoneName').value;
+    return utc - Number(zone.match(/GMT\+(\d+)/)?.[1] || 0) * 3600000;
+  };
+  const next = new Date(`${date}T12:00:00Z`);
+  next.setUTCDate(next.getUTCDate() + 1);
+  const start = midnight(date), end = midnight(next.toISOString().slice(0, 10));
+  return { start, end, count: (end - start) / 900000 };
+}
+
 const now = new Date();
 const fmt = new Intl.DateTimeFormat('en-GB', {timeZone: 'Europe/Amsterdam', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'});
 function parts(d) { return Object.fromEntries(fmt.formatToParts(d).map(p => [p.type, p.value])); }
@@ -50,15 +63,9 @@ const p = parts(now), day = p.year + '-' + p.month + '-' + p.day;
 let data = {}, problem = '';
 try { data = JSON.parse(byName['EnergyDeck Prices']?.value || '{}'); } catch (_) { problem = 'Opgeslagen prijzen onleesbaar'; }
 const prices = [data.today, data.tomorrow].find(d => d?.date === day)?.values;
-let valid = Array.isArray(prices) && prices.length === 96 && prices.every(v => typeof v === 'number' && Number.isFinite(v));
-// A 96-value array has no unambiguous mapping on daylight-saving transition days.
+const bounds = dayBounds(day);
+const valid = Array.isArray(prices) && prices.length === bounds.count && prices.every(v => typeof v === 'number' && Number.isFinite(v));
 const midday = Date.parse(day + 'T12:00:00Z');
-let hoursInDay = 0;
-for (let t = midday - 24*3600000; t <= midday + 24*3600000; t += 3600000) {
-  const q = parts(new Date(t));
-  if (q.year + '-' + q.month + '-' + q.day === day) hoursInDay++;
-}
-if (hoursInDay !== 24) { valid = false; problem = 'Zomer/wintertijd-dag: 96 kwartieren niet veilig bruikbaar'; }
 if (!valid && !problem) problem = 'Geen volledige geldige prijzen voor vandaag';
 const source = data.sources?.[day] || 'Onbekend';
 if (!valid) await set('Energie - Prijzen geldig', false);
@@ -76,19 +83,21 @@ if (!valid) {
   await set('Energie - Prijsupdate', JSON.stringify({day, valid: false}));
   return {ok: false, reason: problem};
 }
-const hour = Number(p.hour), quarter = hour * 4 + Math.floor(Number(p.minute) / 15);
-// Rank clock hours by the mean of their four quarters; break equal-price ties by time.
-const hourly = Array.from({length: 24}, (_, h) => ({h, price: prices.slice(h*4, h*4+4).reduce((a,b) => a+b, 0) / 4}));
+// Rank real elapsed hours so repeated clock hours remain independent.
+const quarter = Math.floor((now.getTime() - bounds.start) / 900000), hour = Math.floor(quarter / 4);
+// Break equal-price ties by chronological order.
+const hourly = Array.from({length: prices.length / 4}, (_, h) => ({h, price: prices.slice(h*4, h*4+4).reduce((a,b) => a+b, 0) / 4}));
 hourly.sort((a,b) => a.price - b.price || a.h - b.h);
 const top3 = hourly.slice(0,3).some(x => x.h === hour), top7 = hourly.slice(0,7).some(x => x.h === hour);
 await set('Energie - Marktprijs EUR per kWh', prices[quarter]);
-await set('Energie - Gemiddelde marktprijs EUR per kWh', prices.reduce((a,b) => a+b, 0) / 96);
+await set('Energie - Gemiddelde marktprijs EUR per kWh', prices.reduce((a,b) => a+b, 0) / prices.length);
 await set('Energie - Goedkoopste 3 uren', top3);
 await set('Energie - Goedkoopste 7 uren', top7);
 await set('Energie - Prijsstatus', 'Geldig | ' + source + (data.warnings?.some(w => w.includes(day + ': eerder opgeslagen')) ? ' | bewaarde dagprijzen' : ''));
 await set('Energie - Prijzen geldig', true);
-await set('Energie - Prijsinterval', day + ' ' + p.hour + ':' + String(Math.floor(Number(p.minute)/15)*15).padStart(2,'0'));
-await publishDashboard(true, prices[quarter], prices.reduce((a,b) => a+b, 0) / 96, prices, source, p.hour + ':' + String(Math.floor(Number(p.minute)/15)*15).padStart(2,'0'), '');
+const offset = bounds.count !== 96 ? ' ' + new Intl.DateTimeFormat('en-GB', {timeZone: 'Europe/Amsterdam', timeZoneName: 'shortOffset'}).formatToParts(now).find(p => p.type === 'timeZoneName').value : '';
+await set('Energie - Prijsinterval', day + ' ' + p.hour + ':' + String(Math.floor(Number(p.minute)/15)*15).padStart(2,'0') + offset);
+await publishDashboard(true, prices[quarter], prices.reduce((a,b) => a+b, 0) / prices.length, prices, source, p.hour + ':' + String(Math.floor(Number(p.minute)/15)*15).padStart(2,'0'), '');
 // Stable completion signal: also changes for corrected prices/rankings within a quarter.
 await set('Energie - Prijsupdate', JSON.stringify({day, quarter, valid: true, price: prices[quarter], cheapest3Hours: top3, cheapest7Hours: top7}));
 return {ok: true, day, quarter, source, marketPrice: prices[quarter], cheapest3Hours: top3, cheapest7Hours: top7};

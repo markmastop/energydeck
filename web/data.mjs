@@ -1,3 +1,5 @@
+import { priceDayBounds } from './public/charts.js';
+
 // All Homey polling is server-side, read-only, and restricted to configured IDs.
 export function configuration(env = process.env) {
   const number = (key, fallback) => {
@@ -70,8 +72,9 @@ function priceSource(day, bridge) {
 
 export function priceDay(bridge, date, config) {
   const day = [bridge?.today, bridge?.tomorrow].find(item => item?.date === date);
-  // Match the display contract: never stretch 92/100-quarter DST days into 96 values.
-  if (!Array.isArray(day?.values) || day.values.length !== 96 ||
+  const bounds = priceDayBounds(date);
+  // A full calendar day includes every real quarter, including the repeated hour.
+  if (!Array.isArray(day?.values) || day.values.length !== bounds.count ||
       !day.values.every(v => typeof v === 'number' && Number.isFinite(v))) return null;
   const values = day.values.map(v => (v * 100 + config.tax) * (1 + config.vat / 100) + config.fee);
   let cheapest = 0;
@@ -80,7 +83,7 @@ export function priceDay(bridge, date, config) {
         values.slice(cheapest, cheapest + 12).reduce((a, b) => a + b, 0)) cheapest = i;
   }
   return {
-    date, values, source: priceSource(day, bridge),
+    date, values, start: bounds.start, end: bounds.end, source: priceSource(day, bridge),
     cached: bridge.cachedDays?.includes(date) === true,
     fetchedAt: typeof bridge.fetchedAt?.[date] === 'string' ? bridge.fetchedAt[date] : null,
     minimum: Math.min(...values), maximum: Math.max(...values),
@@ -209,7 +212,7 @@ export function climateState(controller, rooms) {
 function demoData(config, now) {
   const device = values => ({ capabilitiesObj: Object.fromEntries(Object.entries(values).map(([key, value]) => [key, { value }])) });
   const day = offset => ({ date: localDay(now, offset), source: 'homey',
-    values: Array.from({ length: 96 }, (_, i) => .065 + .045 * Math.sin((i - 22) / 12) + .018 * Math.cos(i / 5)) });
+    values: Array.from({ length: priceDayBounds(localDay(now, offset)).count }, (_, i) => .065 + .045 * Math.sin((i - 22) / 12) + .018 * Math.cos(i / 5)) });
   const rooms = [['Living room', 20.8, 21], ['Kitchen', 20.2, 20], ['Bedroom', 18.4, 18], ['Office', 19.6, 20], ['Bathroom', 21, 21], ['Hall', 18.8, 18], ['Attic', 17.5, 17], ['Guest room', 18, 18], ['Dining room', 20.1, 20]].map(([name, temperature, target]) => ({ name,
     device: { ...device({ measure_temperature: temperature, target_temperature: target }), driverId: 'homey:app:com.honeywell:zone' } }));
   return { ...normalize({ grid: device({ measure_power: -940, measure_gas: .12 }),

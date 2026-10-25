@@ -2,11 +2,11 @@
 
 Each stored day includes `source`: `homey`, `epexprijzen`, or `unavailable`. Each day tab displays its own yellow warning for fallback, missing or unknown-source data, independently of the selected chart window. No warning remains beside the chart title. Active Today is green; active Tomorrow is blue; inactive tabs remain dark. The current-price headline also names the source explicitly, including EpexPrijzen.nl (fallback). It follows today even when tomorrow is selected. Firmware accepts per-day source fields and the older date-keyed sources map; unknown sources remain unknown. Update both the HomeyScript and firmware for source indicators.
 
-Install `homeyscript/energydeck-prices.js` in the existing HomeyScript. No firmware update is required. Homey remains primary. Missing or invalid days fall back to https://epexprijzen.nl/api/prices, fetched once per script run.
+Install `homeyscript/energydeck-prices.js` in the existing HomeyScript. For 92/100-quarter DST support, also update the firmware and web app; see [installation updates](PRICE-WINDOW.md#updating-an-existing-installation). Homey remains primary. Missing or invalid days fall back to https://epexprijzen.nl/api/prices, fetched once per script run.
 
 This internal website endpoint supplies raw NL spot prices in EUR/kWh. Unlike the provider-specific /api/v1 endpoint, it excludes taxes and charges. The deck and DataVista presentation apply those; stored prices remain raw. No division by 1000 is applied.
 
-Validation checks finite numbers, timestamp timezones, Amsterdam dates, 96 consecutive quarters and midnight boundaries. Missing tomorrow never blocks valid today. Failure of both sources reuses a complete matching cached day, preserving its successful-fetch timestamp. Without a matching cached day, an empty day is stored and validity is false; stale dates are never reused. DST days with 92/100 quarters remain unsupported and are rejected.
+Validation checks finite numbers, timestamp timezones, Amsterdam dates, the calendar day's 92, 96 or 100 consecutive real quarters and midnight boundaries. Missing tomorrow never blocks valid today. Failure of both sources reuses a complete matching cached day, preserving its successful-fetch timestamp. Without a matching cached day, an empty day is stored and validity is false; stale dates are never reused. The count must match the actual day length between Amsterdam midnights. A 96-value array on a 92/100-quarter day is rejected, including in the matching-date cache.
 
 The result reports source and warnings. Run `node scripts/test-price-bridge.cjs` for regression tests. The endpoint was live-tested with 96 quarters for 2026-09-08 and a first raw price of 0.206 EUR/kWh. Its internal schema and unit contract may change; do not silently accept a different structure.
 
@@ -36,10 +36,9 @@ It updates these Logic variables only when their values change:
 | Energie - Goedkoopste 7 uren | Boolean: current clock hour is in the cheapest seven |
 | Energie - Prijsstatus | Text: validity, source, cache-use status, or failure reason |
 
-Clock hours are ranked by the mean of their four quarters, ties by earlier hour.
+Real elapsed hours are ranked by the mean of their four quarters, ties by chronological order. The two autumn 02:00 hours are ranked independently; the spring day has no 02:00 hour.
 These flags are not a search for the cheapest contiguous three/seven-hour block.
-Both daylight-saving transition days are rejected by the current-price script
-because the 96-value format cannot safely represent 92/100 quarters. Invalid data
+The current-price script accepts the matching 92/96/100-quarter day and uses elapsed time since local midnight. On transition days the interval label includes its GMT offset, keeping the repeated hour distinct. Invalid data
 clears validity and both cheap-hour flags but retains the last numeric price;
 consumers must check validity before acting. Writes to separate Logic variables
 are not transactional. Do not trigger charging from a price change alone.

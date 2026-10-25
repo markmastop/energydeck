@@ -1,5 +1,5 @@
 import { initializeDetails } from './details.js';
-import { priceWindow } from './charts.js';
+import { priceWindow, priceQuarter, priceTime } from './charts.js';
 import { dayComparison } from './display.js';
 import { createLiveUpdates } from './live.js';
 
@@ -23,7 +23,6 @@ const text = (id, value) => { $(id).textContent = value; };
 const time = value => new Intl.DateTimeFormat(language === 'nl' ? 'nl-NL' : 'en-GB', {
   timeZone: 'Europe/Amsterdam', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
 }).format(new Date(value));
-const quarterTime = quarter => `${String(Math.floor(quarter / 4)).padStart(2, '0')}:${String(quarter % 4 * 15).padStart(2, '0')}`;
 function localDate(now) {
   const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Amsterdam', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(now);
   const part = key => parts.find(p => p.type === key).value;
@@ -107,12 +106,10 @@ function render() {
   text('notice', notice ? t(notice) : '');
   // Browser-side expiry also prevents yesterday's "current" price after midnight.
   const today = data.prices.today?.date === localDate(now) ? data.prices.today : null;
-  const parts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Amsterdam', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(now);
-  const hour = Number(parts.find(p => p.type === 'hour').value);
-  const minute = Number(parts.find(p => p.type === 'minute').value);
-  const quarter = hour * 4 + Math.floor(minute / 15);
+  const quarter = today ? priceQuarter(today, now) : 0;
   text('price-now', format(today?.values[quarter]));
-  text('price-period', today ? `${quarterTime(quarter)} – ${quarterTime(quarter + 1)} · ${t('currentQuarter')}` : t('unavailable'));
+  const periodTime = q => priceTime(today.start + q * 900000, today.values.length !== 96);
+  text('price-period', today ? `${periodTime(quarter)} – ${periodTime(quarter + 1)} · ${t('currentQuarter')}` : t('unavailable'));
   text('price-source', priceSource(today));
   text('electricity-day', format(data.grid.today));
   text('solar-day', format(data.solar.today));
@@ -173,13 +170,17 @@ function drawChart(today, quarter) {
   if (!day) return;
   const window = priceWindow(day, selected === 'today' ? tomorrow : null, quarter);
   text('price-min', format(window.minimum)); text('price-avg', format(window.average)); text('price-max', format(window.maximum));
-  const windowTime = q => window.offset && q >= 96 ? `${quarterTime(q % 96)} ${t('tomorrow')}` : quarterTime(q);
-  text('cheapest-period', `${windowTime(window.offset + window.cheapest)} – ${windowTime(window.offset + window.cheapest + 12)}`);
+  const withOffset = day.values.length !== 96 || window.offset && tomorrow.values.length !== 96;
+  const windowTime = q => {
+    const stamp = window.start + q * 900000;
+    return `${priceTime(stamp, withOffset)}${window.offset && stamp >= day.end ? ` ${t('tomorrow')}` : ''}`;
+  };
+  text('cheapest-period', `${windowTime(window.cheapest)} – ${windowTime(window.cheapest + 12)}`);
   if (window.offset) text('chart-date', `${t('today')} 12:00 → ${t('tomorrow')} 12:00`);
   if (window.offset && (tomorrow.cached || tomorrow.source !== 'homey')) { $('chart-warning').hidden = false; text('chart-warning', t('priceWarning')); }
   const low = Math.min(0, window.minimum), high = Math.max(1, window.maximum), range = high - low;
   const y = value => 154 - (value - low) / range * 140;
-  const left = 32, width = chartWidth - left - 4, step = width / 96;
+  const left = 32, width = chartWidth - left - 4, step = width / window.values.length;
   [high, (high + low) / 2, low].forEach(value => {
     chart.append(svgNode('line', { x1: left, y1: y(value), x2: chartWidth, y2: y(value), class: 'chart-grid' }),
       svgNode('text', { x: 0, y: y(value) + 3 }, format(value, 0)));
@@ -189,11 +190,11 @@ function drawChart(today, quarter) {
     const height = Math.max(1, Math.abs(y(value) - y(0)));
     const rect = svgNode('rect', { x: left + i * step, y: value >= 0 ? y(value) : y(0), width: Math.max(1, step - .8), height, rx: 1,
       class: `price-bar ${value <= window.minimum + (window.maximum - window.minimum) * .33 ? 'low-price' : value >= window.minimum + Math.max(.001, window.maximum - window.minimum) * .66 ? 'high-price' : 'mid-price'} ${i >= window.cheapest && i < window.cheapest + 12 ? 'cheap-bar' : ''} ${selected === 'today' && i + window.offset === quarter ? 'current-bar' : ''}` });
-    rect.append(svgNode('title', {}, `${windowTime(i + window.offset)} · ${format(value)} ct/kWh`)); chart.append(rect);
+    rect.append(svgNode('title', {}, `${windowTime(i)} · ${format(value)} ct/kWh`)); chart.append(rect);
   });
-  [0, 6, 12, 18, 24].forEach(hour => chart.append(svgNode('text', {
-    x: left + hour / 24 * width, y: 180, 'text-anchor': hour === 24 ? 'end' : hour === 0 ? 'start' : 'middle',
-  }, window.offset ? quarterTime((hour * 4 + window.offset) % 96) : `${String(hour).padStart(2, '0')}:00`)));
+  [0, .25, .5, .75, 1].forEach(fraction => chart.append(svgNode('text', {
+    x: left + fraction * width, y: 180, 'text-anchor': fraction === 1 ? 'end' : fraction === 0 ? 'start' : 'middle',
+  }, priceTime(window.start + Math.round(fraction * window.values.length) * 900000))));
 }
 $('language').addEventListener('click', () => {
   language = language === 'nl' ? 'en' : 'nl';

@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const source = fs.readFileSync(path.join(__dirname, '../homeyscript/energydeck-prices.js'), 'utf8');
 
-async function run(instant, failTomorrow = false, failToday = false, invalid = false, reserve = null, previous = null) {
+async function run(instant, failTomorrow = false, failToday = false, invalid = false, reserve = null, previous = null, homeyCount = null) {
   const RealDate = Date;
   class FixedDate extends RealDate {
     constructor(...args) { super(...(args.length ? args : [instant])); }
@@ -19,7 +19,8 @@ async function run(instant, failTomorrow = false, failToday = false, invalid = f
       if ((requested.length === 1 && failToday) || (requested.length === 2 && failTomorrow)) {
         throw new Error('NotFoundError');
       }
-      return { pricesPerInterval: Array.from({ length: 96 }, () => ({ value: invalid ? NaN : 0.12 })) };
+      const count = homeyCount ?? (date === '2026-03-29' ? 92 : date === '2026-10-25' ? 100 : 96);
+      return { pricesPerInterval: Array.from({ length: count }, () => ({ value: invalid ? NaN : 0.12 })) };
     } },
     logic: {
       async getVariables() { return { existing: { id: 'existing', name: 'EnergyDeck Prices', value: previous ? JSON.stringify(previous) : undefined } }; },
@@ -45,7 +46,7 @@ async function run(instant, failTomorrow = false, failToday = false, invalid = f
     assert.deepEqual(r.requested, [today, tomorrow]);
     assert.equal(r.writes.length, 1);
     assert.equal(r.writes[0].today.date, today);
-    assert.equal(r.writes[0].today.values.length, 96);
+    assert.equal(r.writes[0].today.values.length, today === '2026-03-29' ? 92 : today === '2026-10-25' ? 100 : 96);
     assert.equal(r.writes[0].tomorrow.values.length, 0);
     assert.equal(r.value.warnings.length, 2);
     assert.match(r.logs.join('\n'), new RegExp(tomorrow));
@@ -104,5 +105,23 @@ async function run(instant, failTomorrow = false, failToday = false, invalid = f
   const expired = await run('2026-09-07T10:00:00Z', true, true, false, null, previous);
   assert.equal(expired.value.ok, false);
   assert.equal(expired.writes[0].today.values.length, 0);
+  for (const [date, start, count] of [['2026-03-29','2026-03-28T23:00:00Z',92], ['2026-10-25','2026-10-24T22:00:00Z',100]]) {
+    const wrongHomeyCount = await run(date+'T12:00:00Z', true, false, false, null, null, 96);
+    assert.equal(wrongHomeyCount.value.ok, false);
+    const reserve = {today: Array.from({length:count}, (_,i) => ({date: new Date(Date.parse(start) + i*900000).toISOString(), price: i/1000}))};
+    const fallback = await run(date+'T12:00:00Z', true, true, false, reserve);
+    assert.equal(fallback.value.ok, true);
+    assert.equal(fallback.writes[0].today.values.length, count);
+    assert.equal(fallback.writes[0].today.values.at(-1), (count-1)/1000);
+    const incomplete = await run(date+'T12:00:00Z', true, true, false, {today:reserve.today.slice(0,-1)});
+    assert.equal(incomplete.value.ok, false);
+    const cached = await run(date+'T12:00:00Z', true, true, false, null,
+      {today:{date,values:Array(count).fill(-.02),source:'homey'}});
+    assert.equal(cached.value.ok, true);
+    assert.equal(cached.writes[0].cachedDays[0], date);
+    const badCache = await run(date+'T12:00:00Z', true, true, false, null,
+      {today:{date,values:Array(96).fill(-.02),source:'homey'}});
+    assert.equal(badCache.value.ok, false);
+  }
   console.log('PASS: missing tomorrow, both days, missing today, invalid values, Amsterdam midnight, DST and year rollover');
 })().catch(error => { console.error(error); process.exitCode = 1; });

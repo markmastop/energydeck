@@ -16,7 +16,7 @@ Both versions connect directly over your local network to Homey and Sonos. They 
 
 ## Features
 
-- **Dynamic Electricity Prices:** 96 quarter-hour price bars for today and tomorrow, daily minimum and maximum, and automatic identification of the cheapest consecutive 3-hour window. Calculates all-in household electricity prices (energy tax, VAT, and supplier fee).
+- **Dynamic Electricity Prices:** 92/96/100 quarter-hour price bars for today and tomorrow, including daylight-saving transitions, daily minimum and maximum, and automatic identification of the cheapest consecutive 3-hour window. Calculates all-in household electricity prices (energy tax, VAT, and supplier fee).
 - **Energy History:** Five-minute electricity power and gas-rate lines for today from Homey Insights, with missing-data gaps and independent refresh. See [setup and calculation](docs/ENERGY-HISTORY.md).
 - **Solar & Net Power:** Live solar generation, net grid import/export power with direction indicators, and daily solar peak and total yield.
 - **Home Battery (Sessy):** Live state of charge (SoC %), charge/discharge power, and operational status.

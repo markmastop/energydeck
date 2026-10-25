@@ -96,7 +96,23 @@ async function run(instant, payload, existing = {}) {
   for (const dst of ['2026-03-29','2026-10-25']) {
     const r = await run(dst+'T12:00:00Z', {today:{date:dst, values:Array(96).fill(0.1)}});
     assert.equal(r.result.ok,false);
-    assert.match(r.result.reason,/wintertijd/);
+    assert.match(r.result.reason,/volledige geldige prijzen/);
   }
+  for (const [date, start, count] of [['2026-03-29','2026-03-28T23:00:00Z',92], ['2026-10-25','2026-10-24T22:00:00Z',100]]) {
+    const values = Array.from({length:count},(_,i) => i/1000);
+    for (const quarter of [0,8,12,count-1]) {
+      const instant = new Date(Date.parse(start)+quarter*900000).toISOString();
+      const r = await run(instant, {today:{date,values}});
+      assert.equal(r.result.ok,true);
+      assert.equal(r.result.quarter,quarter);
+      assert.equal(r.value('Marktprijs EUR per kWh'),values[quarter]);
+      assert.equal(r.value('Goedkoopste 3 uren'),quarter<12);
+    }
+  }
+  const repeated = {today:{date:'2026-10-25',values:Array.from({length:100},(_,i)=>i)}};
+  const firstHour = await run('2026-10-25T00:00:00Z',repeated);
+  const secondHour = await run('2026-10-25T01:00:00Z',repeated,firstHour.vars);
+  assert.notEqual(firstHour.value('Prijsinterval'),secondHour.value('Prijsinterval'));
+  assert.notEqual(firstHour.value('Prijsupdate'),secondHour.value('Prijsupdate'));
   console.log('PASS: current quarters, negative/zero prices, ranking, unchanged flags, midnight, invalid cache and DST');
 })().catch(error => {console.error(error); process.exitCode = 1;});

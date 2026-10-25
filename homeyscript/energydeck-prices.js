@@ -16,6 +16,19 @@ function localDate(date = new Date()) {
   return `${part('year')}-${part('month')}-${part('day')}`;
 }
 
+function dayBounds(date) {
+  const midnight = day => {
+    const utc = Date.parse(`${day}T00:00:00Z`);
+    const zone = new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Amsterdam', timeZoneName: 'shortOffset' })
+      .formatToParts(new Date(utc)).find(p => p.type === 'timeZoneName').value;
+    return utc - Number(zone.match(/GMT\+(\d+)/)?.[1] || 0) * 3600000;
+  };
+  const next = new Date(`${date}T12:00:00Z`);
+  next.setUTCDate(next.getUTCDate() + 1);
+  const start = midnight(date), end = midnight(next.toISOString().slice(0, 10));
+  return { start, end, count: (end - start) / 900000 };
+}
+
 const date = localDate();
 // Advance a calendar date, not the host's local clock or a DST-length day.
 const nextDay = new Date(`${date}T12:00:00Z`);
@@ -30,8 +43,8 @@ const variables = await Homey.logic.getVariables();
 const existing = Object.values(variables).find(v => v.name === VARIABLE_NAME);
 let previous = {};
 try { previous = JSON.parse(existing?.value || '{}'); } catch (_) {}
-function validValues(values) {
-  return Array.isArray(values) && values.length === 96 &&
+function validValues(values, day) {
+  return Array.isArray(values) && values.length === dayBounds(day).count &&
     values.every(v => typeof v === 'number' && Number.isFinite(v));
 }
 
@@ -58,16 +71,15 @@ async function fetchReserve(day) {
     throw new Error('EpexPrijzen: invalid timestamp or price');
   }
   const selected = samples.filter(s => localDate(new Date(s.time * 1000)) === day);
-  // The current deck requires 96 actual quarter-hours; never expand hourly prices
-  // or silently flatten DST days (92/100 quarters) into an ordinary day.
-  if (selected.length !== 96 || selected.some((s, i) => i && s.time - selected[i - 1].time !== 900)) {
+  // Preserve all real quarter-hours; never expand hourly prices or flatten DST days.
+  if (selected.length !== dayBounds(day).count || selected.some((s, i) => i && s.time - selected[i - 1].time !== 900)) {
     throw new Error('EpexPrijzen: incomplete quarter-hour day');
   }
   const timeFormat = new Intl.DateTimeFormat('en-GB', {
     timeZone: 'Europe/Amsterdam', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
   });
   if (timeFormat.format(new Date(selected[0].time * 1000)) !== '00:00' ||
-      timeFormat.format(new Date(selected[95].time * 1000)) !== '23:45') {
+      timeFormat.format(new Date(selected.at(-1).time * 1000)) !== '23:45') {
     throw new Error('EpexPrijzen: wrong day boundaries');
   }
   return selected.map(s => s.value);
@@ -85,7 +97,7 @@ function compactPrices(result) {
 async function fetchDay(day) {
   try {
     const values = compactPrices(await Homey.energy.fetchDynamicElectricityPrices({ date: day }));
-    if (values.length !== 96) throw new Error('Expected 96 quarter-hour prices');
+    if (!validValues(values, day)) throw new Error(`Expected ${dayBounds(day).count} finite numeric quarter-hour prices`);
     sources[day] = 'Homey';
     homeyAvailable[day] = true;
     fetchedAt[day] = new Date().toISOString();
@@ -100,14 +112,14 @@ async function fetchDay(day) {
       const values = await fetchReserve(day);
       sources[day] = 'EpexPrijzen.nl (raw EUR/kWh)';
       fetchedAt[day] = new Date().toISOString();
-      log(`EnergyDeck prices ${day}: reserve source loaded 96 intervals`);
+      log(`EnergyDeck prices ${day}: reserve source loaded ${values.length} intervals`);
       return values;
     } catch (reserveError) {
       const failure = `EnergyDeck reserve ${day}: ${reserveError.message}`;
       warnings.push(failure);
       log(failure);
       // Retain only a complete matching calendar day, including yesterday's tomorrow.
-      const cached = [previous.today, previous.tomorrow].find(d => d?.date === day && validValues(d.values));
+      const cached = [previous.today, previous.tomorrow].find(d => d?.date === day && validValues(d.values, day));
       if (cached) {
         sources[day] = previous.sources?.[day] ||
           (cached.source === 'homey' ? 'Homey' : cached.source === 'epexprijzen' ? 'EpexPrijzen.nl (raw EUR/kWh)' : 'Onbekend');
@@ -170,7 +182,7 @@ if (existing) {
 }
 
 return {
-  ok: validValues(todayValues),
+  ok: validValues(todayValues, date),
   date,
   tomorrowDate,
   todayIntervals: todayValues.length,

@@ -228,3 +228,8 @@ music_queue_limited: "Maximaal 40 nummers; de badge telt de hele wachtrij."
 music_group_cancel: "Annuleren"
 music_up_next_label: "Hierna"
 music_queue_now: "Nu"
+
+# DST labels retain both offsets when local clock time repeats or skips.
+price_period_dst_format: "%02d:%02d-%02d:%02d UTC+%d"
+price_period_dst_cross_format: "%02d:%02d-%02d:%02d UTC+%d/+%d"
+cheapest_period_dst_format: "Goedkoopste 3 uur: %02d:%02d(+%d)-%02d:%02d(+%d)"

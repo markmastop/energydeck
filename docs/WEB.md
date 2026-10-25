@@ -8,7 +8,7 @@ The web app reproduces EnergyDeck's household functions in a responsive interfac
 | --- | --- |
 | Shared header | Current all-in electricity price, sunrise/sunset, smart net/gas/solar-battery meters and heating/car/battery status on every page. |
 | Overview | Grid/solar power and daily totals, day/year toggle, battery state and signed power, EV charging/connection/fault status, today/tomorrow prices with provenance, weather and Gas / Sonos / Climate cards. |
-| Price chart | 96 quarter-hour bars, negative prices, current-quarter marker, min/mean/max and cheapest consecutive three hours. From noon, Today rolls from today's noon to tomorrow's noon when tomorrow is valid. |
+| Price chart | 92/96/100 quarter-hour bars, negative prices, current-quarter marker, min/mean/max and cheapest consecutive three hours. From noon, Today rolls from today's noon to tomorrow's noon when tomorrow is valid. |
 | Energy | Today's five-minute signed grid-power and gas-rate graphs from Homey Insights, gaps for missing samples, separate import/export colors, and available daily/monthly/yearly summary totals and peaks. Missing capabilities remain dashes. |
 | Sonos | Local discovery, visible rooms, current group, track/artist/album and cover, Play/Pause, Previous/Next when supported, room volume ±2 and mute, paged Sonos favorites, and explicit group editing. TV sources hide old music metadata and disable transport while retaining volume. |
 | Climate | All nine configured Evohome zones, measured/target temperature, inferred demand and controller programme, plus weather/rain. HeatingOff overrides demand; missing data cannot imply confirmed idle. Climate is read-only, like the display. |
@@ -200,7 +200,7 @@ read-only polling as fallback, and shares the interpretation of values.
 
 Net grid power is negative for export. Sessy battery power is negative while charging and positive while discharging. Gas rate is already m³/hour. History power is converted from W to kW. Calendar boundaries use Europe/Amsterdam and include 23/25-hour DST days; five-minute gaps remain gaps and line colors split exactly at zero. Future samples and stale tails older than 15 minutes are rejected. Daily summary values are whatever the configured Homey summary devices provide.
 
-Prices come only from the configured HomeyScript bridge. Each price day must match the Amsterdam date and contain exactly 96 finite numeric values; 92/100-quarter arrays are not stretched. Per-day source and cached status are retained, including tomorrow used as today's matching date after midnight. The server invalidates cache at a date rollover and the browser expires old dates. The visible price window determines min/mean/max and the cheapest consecutive three hours, including elapsed hours.
+Prices come only from the configured HomeyScript bridge. Each price day must match the Amsterdam date and contain exactly the calendar day's 92, 96 or 100 finite numeric values. Arrays preserve actual UTC quarter order; none are stretched or truncated. The current-quarter marker and period use elapsed UTC time, and transition-day periods/tooltips include the GMT offset. Per-day source and cached status are retained, including tomorrow used as today's matching date after midnight. The server invalidates cache at a date rollover and the browser expires old dates. The visible price window determines min/mean/max and the cheapest consecutive three hours, including elapsed hours.
 
 ```text
 all_in_ct_per_kWh = (market_EUR_per_kWh × 100 + tax_ct) × (1 + VAT_percent / 100) + fee_ct

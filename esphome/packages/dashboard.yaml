@@ -1371,6 +1371,46 @@ lvgl:
                   value: 0
                   indicator:
                     bg_color: 0x45BD70
+              - bar:
+                  id: price_bar_96
+                  x: 426
+                  y: 58
+                  width: 3
+                  height: 120
+                  value: 0
+                  hidden: true
+                  indicator:
+                    bg_color: 0x45BD70
+              - bar:
+                  id: price_bar_97
+                  x: 426
+                  y: 58
+                  width: 3
+                  height: 120
+                  value: 0
+                  hidden: true
+                  indicator:
+                    bg_color: 0x45BD70
+              - bar:
+                  id: price_bar_98
+                  x: 426
+                  y: 58
+                  width: 3
+                  height: 120
+                  value: 0
+                  hidden: true
+                  indicator:
+                    bg_color: 0x45BD70
+              - bar:
+                  id: price_bar_99
+                  x: 426
+                  y: 58
+                  width: 3
+                  height: 120
+                  value: 0
+                  hidden: true
+                  indicator:
+                    bg_color: 0x45BD70
               - label:
                   x: 46
                   y: 184

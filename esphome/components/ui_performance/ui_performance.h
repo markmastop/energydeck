@@ -10,6 +10,7 @@
 #include "home_cards.h"
 #include "energy_gauges.h"
 #include "energy_history.h"
+#include "price_day.h"
 #include "energy_history_chart.h"
 #include "ui_priority.h"
 #ifdef USE_ESP32

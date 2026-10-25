@@ -173,6 +173,10 @@ ENERGYDECK_WIFI_PASSWORD=your-wifi-password
 
 6. **Sync dynamic energy prices:** In the Homey Web App, go to **HomeyScript**, create a new script named `EnergyDeck Prices`, and paste the contents of [`homeyscript/energydeck-prices.js`](homeyscript/energydeck-prices.js). Create a Flow that runs this script every hour or when electricity prices update.
 
+The optional Sessy controller/price proposal can be installed as **Sessy - Laadplan**,
+with a safe manual **Run** preview and the existing Flow as the only actuator path.
+See [named-script installation and testing](docs/SESSY-PRICE-PLAN.md#visible-and-testable-homeyscript).
+
 ### Step 4: Configure Sonos (Optional)
 
 EnergyDeck connects directly to your Sonos speakers via local HTTP/UPnP on port 1400. You only need to specify one speaker address (bootstrap seed); EnergyDeck automatically queries it to discover the entire household zone topology and all other rooms.

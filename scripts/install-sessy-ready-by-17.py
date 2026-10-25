@@ -24,6 +24,15 @@ PLAN = "sessy_ready_by_17_plan"
 SUNSHINE = "sessy_sunshine_forecast"
 ERROR_NODE = "21d27afb-a34c-45f4-baa6-1b3aa6eefce7"
 MARKER = "const DEVICE_ID = '__SESSY_DEVICE_ID__';"
+SCRIPT_NAME = "Sessy - Laadplan"
+
+
+def named_script_source(source, device_id):
+    if MARKER not in source:
+        raise ValueError("Missing device binding marker")
+    controller = source.replace(MARKER, "const DEVICE_ID = " + json.dumps(device_id) + ";")
+    return (ROOT / "homeyscript/sessy-plan-runner.js").read_text().replace(
+        "/* __SESSY_CONTROLLER_SOURCE__ */", controller)
 
 
 def price_plan_bundle(prices_id, charger_id, tariff):
@@ -42,21 +51,30 @@ def price_plan_bundle(prices_id, charger_id, tariff):
     return (charts + canonical + planner).replace("export function ", "function ") + adapter + "\n"
 
 
-def patch_flow(flow, source, device_id):
+def patch_flow(flow, source, device_id, script=None):
     """Replace only normal target calculation; retain actuator/guard branches."""
     original = copy.deepcopy(flow)
     candidates = [(key, card) for key, card in flow["cards"].items()
                   if card.get("args", {}).get("variable", {}).get("name") == "sessy_doel_vermogen"
                   and card.get("id") == "homey:manager:logic:variable_set_number_math"]
     installed = [(key, card) for key, card in flow["cards"].items()
-                 if card.get("id") == "homey:app:com.athom.homeyscript:runCode_v2"
-                 and "sessy_ready_by_17_enabled" in card.get("args", {}).get("code", "")]
+                 if (card.get("id") == "homey:app:com.athom.homeyscript:runCode_v2"
+                     and "sessy_ready_by_17_enabled" in card.get("args", {}).get("code", ""))
+                 or (card.get("id") == "homey:app:com.athom.homeyscript:runWithArg"
+                     and card.get("args", {}).get("script", {}).get("name") == SCRIPT_NAME
+                     and card.get("args", {}).get("argument") == "control")]
     if len(candidates) + len(installed) != 1:
         raise ValueError("Expected exactly one original/installed normal-control calculation")
     if MARKER not in source:
         raise ValueError("Missing device binding marker")
     code = source.replace(MARKER, "const DEVICE_ID = " + json.dumps(device_id) + ";")
     key, card = (candidates or installed)[0]
+    if script is None and card.get("id", "").endswith(":runWithArg"):
+        raise ValueError("Keep --named-script when updating the named controller")
+    owners = {c.get("ownerUri") for c in flow["cards"].values()
+              if c.get("id", "").endswith(":set_power_setpoint")}
+    if owners != {"homey:device:" + device_id}:
+        raise ValueError("Configured Sessy does not match the Flow actuators")
     success = card.get("outputSuccess", [])
     if len(success) != 1:
         raise ValueError("Unexpected normal-control continuation")
@@ -73,8 +91,9 @@ def patch_flow(flow, source, device_id):
             raise ValueError("Fallback card ID already in use")
     flow["cards"][key] = {
         "ownerUri": "homey:app:com.athom.homeyscript",
-        "id": "homey:app:com.athom.homeyscript:runCode_v2",
-        "args": {"code": code}, "type": "action", "x": card["x"], "y": card["y"],
+        "id": "homey:app:com.athom.homeyscript:" + ("runWithArg" if script else "runCode_v2"),
+        "args": {"script": {"id": script["id"], "name": SCRIPT_NAME}, "argument": "control"} if script else {"code": code},
+        "type": "action", "x": card["x"], "y": card["y"],
         "outputSuccess": success, "outputError": [ERROR_NODE],
     }
     if candidates:
@@ -98,6 +117,7 @@ def main():
     parser.add_argument("--configure-readers", action="store_true", help="Save only the plan variable ID in local .env")
     parser.add_argument("--with-sunshine", action="store_true", help="Update the existing local sunshine script and connect its forecast")
     parser.add_argument("--with-price-plan", action="store_true", help="Publish a forward price plan in shadow mode; current charging behavior is retained")
+    parser.add_argument("--named-script", action="store_true", help="Use Sessy - Laadplan; manual runs default to a preview without Logic writes")
     parser.add_argument("--restore", type=Path, help="Restore an exact Flow backup; requires --apply")
     args = parser.parse_args()
     load_env()
@@ -148,7 +168,19 @@ def main():
             ("fee", "ENERGYDECK_SUPPLIER_FEE_INCL_VAT_CT", "2")]}
         source = price_plan_bundle(os.environ.get("HOMEY_PRICES_VARIABLE_ID"),
             os.environ.get("HOMEY_CHARGER_DEVICE_ID"), tariff) + source
-    patched, key = patch_flow(copy.deepcopy(original), source, os.environ["HOMEY_SESSY_DEVICE_ID"])
+    named_script = None
+    named_source = None
+    if args.named_script:
+        matches = [s for s in values(client.get("/api/app/com.athom.homeyscript/script")) if s.get("name") == SCRIPT_NAME]
+        if len(matches) > 1:
+            raise ValueError("Ambiguous named Sessy script")
+        if matches:
+            named_script = client.get("/api/app/com.athom.homeyscript/script/" + matches[0]["id"])
+            if 'Installed as "Sessy - Laadplan"' not in named_script.get("code", ""):
+                raise ValueError("A different script already uses the requested name")
+        named_source = named_script_source(source, os.environ["HOMEY_SESSY_DEVICE_ID"])
+    patched, key = patch_flow(copy.deepcopy(original), source, os.environ["HOMEY_SESSY_DEVICE_ID"],
+                              (named_script or {"id": "preview-script-id"}) if args.named_script else None)
     flag = lookup(ENABLED, "boolean")
     state = lookup(STATE, "string")
     plan = lookup(PLAN, "string")
@@ -171,6 +203,8 @@ def main():
     print("Existing device commands/guards retained; script error -> zero target -> existing stop command")
     if args.with_price_plan:
         print("Forward price/EV/solar proposal included in the existing snapshot (SHADOW ONLY).")
+    if args.named_script:
+        print("Named HomeyScript: Sessy - Laadplan. Manual Run = preview; existing Flow passes control.")
     if not args.apply:
         print("Read-only preview. Use --apply to install and enable.")
         return
@@ -201,6 +235,40 @@ def main():
             raise RuntimeError("Sunshine script verification failed; original restored")
         print("Existing sunshine script updated; its original hourly schedule is retained.")
         print("Private sunshine script backup:", forecast_backup)
+    if args.named_script:
+        previous_script = copy.deepcopy(named_script)
+        if flow_body(client.get("/api/manager/flow/advancedflow/" + original["id"])) != flow_body(original):
+            raise RuntimeError("Flow changed before script installation; no script update applied")
+        if named_script:
+            if client.get("/api/app/com.athom.homeyscript/script/" + named_script["id"]).get("code") != named_script.get("code"):
+                raise RuntimeError("Named script changed during preparation")
+            script_backup = backup_dir / ("sessy-plan-script-before-" + stamp + ".json")
+            with open(script_backup, "x", opener=lambda path, flags: os.open(path, flags, 0o600)) as handle:
+                json.dump(named_script, handle, ensure_ascii=False, indent=2)
+            named_script = write("PUT", "/api/app/com.athom.homeyscript/script/" + named_script["id"],
+                                 {"name": SCRIPT_NAME, "code": named_source, "version": 2})
+        else:
+            named_script = write("POST", "/api/app/com.athom.homeyscript/script", {"name": SCRIPT_NAME, "code": named_source})
+        script_path = "/api/app/com.athom.homeyscript/script/" + named_script["id"]
+        try:
+            if client.get(script_path).get("code") != named_source:
+                raise RuntimeError("Named script source read-back failed; Flow was not changed")
+            # A manual/default run uses the preview facade: no target, latch or plan
+            # write, and no device/Flow command API. Never test the control argument.
+            preview = write("POST", script_path + "/run", {"args": []})
+            result = preview.get("returns", {})
+            if not preview.get("success") or result.get("preview") is not True or result.get("writesApplied") != 0:
+                raise RuntimeError("Named script preview failed; Flow was not changed")
+            if args.with_price_plan and not (result.get("proposal") or {}).get("quarters"):
+                raise RuntimeError("Preview has no forward proposal; Flow was not changed")
+        except Exception:
+            if previous_script:
+                write("PUT", script_path, {"name": previous_script["name"], "code": previous_script["code"], "version": previous_script["version"]})
+            else:
+                write("DELETE", script_path, {})
+            raise
+        print("Named script source verified; live read-only preview passed, no Logic writes.")
+        patched, key = patch_flow(copy.deepcopy(original), source, os.environ["HOMEY_SESSY_DEVICE_ID"], named_script)
     path = "/api/manager/flow/advancedflow/" + original["id"]
     # Abort if somebody edited the Flow since the initial read.
     if flow_body(client.get(path)) != flow_body(original):

@@ -176,10 +176,45 @@ The execution guard is unit-tested but is **not wired to device commands**.
 The existing installer can include a shadow proposal:
 
 ```sh
-python3 scripts/install-sessy-ready-by-17.py --with-price-plan --with-sunshine
+python3 scripts/install-sessy-ready-by-17.py --with-price-plan --with-sunshine --named-script
 # Installation only when rollout is requested:
-python3 scripts/install-sessy-ready-by-17.py --with-price-plan --with-sunshine --apply
+python3 scripts/install-sessy-ready-by-17.py --with-price-plan --with-sunshine --named-script --apply
 ```
+
+### Visible and testable HomeyScript
+
+`--named-script` installs **Sessy - Laadplan** in the HomeyScript list and changes
+only the existing normal-calculation card in **Sessy - Run** to run that script
+with argument `control`. Its success/error continuations, zero-target error
+fallback, manual branches, EV/SoC/price guards and device commands are preserved.
+The installer refuses to overwrite an unrelated script with the same name.
+Updates retain the named script's ID. Keep `--named-script` on subsequent updates.
+The named invocation uses HomeyScript's standard
+[`runWithArg` action](https://github.com/athombv/com.athom.homeyscript/blob/master/lib/flow/actions/RunWithArgAction.js).
+
+Open **Sessy - Laadplan** in HomeyScript and press **Run** without an argument to
+test. Default execution (or argument `preview`) reads current Homey inputs and
+returns the controller calculation plus grouped future charge/hold/discharge
+phases, prices in ct/kWh, signed power in W, expected SoC, EV flags and sunshine
+minutes when known. `preview: true` and `writesApplied: 0` confirm preview mode.
+No latch, target or published-plan timestamp is written. An API facade intercepts
+all Logic writes and exposes no device-command/Flow API to the bundled controller.
+Only the explicit `control` argument, used by the normal Flow, forwards the same
+Logic writes in their original order. Do not pass `control` for a manual test.
+
+The exact canonical controller and forward-planner code are embedded inside
+`homeyscript/sessy-plan-runner.js`; there is no separately maintained test algorithm.
+The installer verifies the saved source and runs only the default read-only
+preview before migrating the Flow. A failed preview restores the previous named
+script, or removes a newly created unused script. Private Flow/script backups are
+saved under ignored `build/homey-backups/`. Restoring an older Flow backup also
+restores its original inline calculation; the unreferenced named script remains
+safe to run in preview mode.
+
+Both ESP and web keep reading the same `sessy_ready_by_17_plan` variable, with the
+same v1 envelope/v2 shadow proposal. This packaging change needs no reader layout,
+firmware, Coolify variable or web deployment change. It does not by itself resolve
+the separately reported unavailable state on the 5-inch display.
 
 The bundle uses the actual web `priceDay`, `localDay` and `priceDayBounds` source
 for the canonical tariff and DST conversion. Configured Homey price/charger IDs
@@ -290,14 +325,26 @@ but a further on-device check still reported unavailable; do not treat this as
 the full resolution. The regular 60-second poll remains unchanged. The web app
 already requests its initial snapshot and has no ESP boot/SNTP hook to change.
 
-A temporary diagnostic image is currently on the 5-inch and shows a
-"Plancontrole" stage/code when the plan is unavailable. It sends only status,
-lengths and timestamps to the developer's LAN diagnostic receiver; it never
-sends credentials or plan bodies. Diagnostic sources are retained under ignored
-`build/qa/battery-plan-device-diagnostics/`, outside production source. The stage
-visible on the physical display is still needed to distinguish request, parsing
-and freshness failures. Replace this temporary image with normal firmware after
-diagnosis; normal source contains no diagnostic sender.
+A temporary diagnostic image was OTA-uploaded to the 5-inch to show a
+"Plancontrole" stage/code and report only status, lengths and timestamps to a
+local receiver. No diagnostic packets arrived and the user still reported the
+original unavailable text, so execution of that diagnostic code was not proven.
+Normal firmware was OTA-uploaded again after this attempt; the temporary sender
+is removed. Diagnostic sources are retained only under ignored
+`build/qa/battery-plan-device-diagnostics/`. The missing-plan cause remains open;
+do not infer physical rendering or firmware execution from OTA success alone.
+
+### Named-script migration: 25 October 2026
+
+Installed **Sessy - Laadplan** and verified its source by read-back. Its default
+live preview returned success, a forward proposal and `writesApplied: 0`. The
+normal Flow now calls this script with `control`; a read-back comparison against
+the private pre-migration backup confirmed exactly one changed card and identical
+success/error continuations, guards and actuator cards. The script's execution
+timestamp subsequently advanced through the natural Flow schedule, and a fresh
+v1 envelope contained a 129-quarter shadow proposal. No manual control-mode run
+or device/charging Flow test was performed. Both readers retain the same contract;
+the named-script, planner, controller, migration and 91 web tests pass.
 
 One tap anywhere on the home battery card opens its dedicated page on both clients.
 The existing shared header remains present, and the back action returns to overview.

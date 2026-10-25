@@ -62,6 +62,27 @@ class MigrationTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             installer.price_plan_bundle("", "charger", {"tax": 9, "vat": 21, "fee": 2})
 
+    def test_named_script_preview_and_flow_migration(self):
+        bundle = installer.price_plan_bundle("prices", "charger", {"tax": 9.161, "vat": 21, "fee": 2})
+        source = installer.named_script_source(bundle + self.source, "battery")
+        self.assertNotIn("__SESSY_", source)
+        subprocess.run(["node", str(installer.ROOT / "scripts/test-sessy-plan-runner.cjs")],
+                       input=source, text=True, check=True)
+        script = {"id": "named-script", "name": installer.SCRIPT_NAME}
+        inline, _ = installer.patch_flow(copy.deepcopy(self.flow), bundle + self.source, "battery")
+        named, key = installer.patch_flow(copy.deepcopy(inline), bundle + self.source, "battery", script)
+        self.assertEqual(key, "normal")
+        card = named["cards"][key]
+        self.assertEqual(card["id"], "homey:app:com.athom.homeyscript:runWithArg")
+        self.assertEqual(card["args"], {"script": script, "argument": "control"})
+        for other in inline["cards"]:
+            if other != key:
+                self.assertEqual(inline["cards"][other], named["cards"][other])
+        repeated, _ = installer.patch_flow(copy.deepcopy(named), bundle + self.source, "battery", script)
+        self.assertEqual(repeated, named)
+        with self.assertRaises(ValueError):
+            installer.patch_flow(copy.deepcopy(named), bundle + self.source, "battery")
+
 
 if __name__ == "__main__":
     unittest.main()

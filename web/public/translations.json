@@ -240,7 +240,7 @@
     "batteryMeasuredNow": "Gemeten nu",
     "batteryExpected": "verwacht",
     "batteryBehaviour": "Accuvermogen",
-    "batteryDetailLegend": "Blauw onder nul: laden · oranje boven nul: ontladen · groene lijn: verwachte accustand (0–100%) · geel: zonverwachting · wit punt: gemeten nu. Balken tonen het voorstel; er is hier geen gemeten historie.",
+    "batteryDetailLegend": "Blauw: laden · oranje: ontladen · groen: accustand (0–100%), lijn gemeten en stippel verwacht · geel: zon · wit punt: gemeten vermogen nu. Vermogensbalken zijn een verwachting.",
     "batteryOpen": "Open accuplan",
     "batteryControlfollowing": "Volgt het plan",
     "batteryControlsolar-surplus": "Zonneoverschot laden",
@@ -258,7 +258,12 @@
     "batteryControlsite-unconfirmed": "Aansluitlimiet niet bevestigd",
     "batteryControlplan-unavailable": "Geen geldig laadplan",
     "batteryControlPaused": "Regeling gepauzeerd",
-    "batteryRequested": "Gevraagd"
+    "batteryRequested": "Gevraagd",
+    "batterySelected": "Gekozen",
+    "batteryExpectedPower": "verwacht vermogen",
+    "batteryMeasured": "Gemeten",
+    "batteryHistoryMissing": "Geen meting op dit tijdstip",
+    "batteryPriceHistoryMissing": "Prijshistorie niet beschikbaar"
   },
   "en": {
     "logout": "Sign out",
@@ -501,7 +506,7 @@
     "batteryMeasuredNow": "Measured now",
     "batteryExpected": "predicted",
     "batteryBehaviour": "Battery power",
-    "batteryDetailLegend": "Blue below zero: charging · orange above zero: discharging · green line: predicted charge (0–100%) · yellow: sunshine forecast · white point: measured now. Bars show the proposal; historical measurements are not shown here.",
+    "batteryDetailLegend": "Blue: charging · orange: discharging · green: charge (0–100%), solid measured and dashed expected · yellow: sunshine · white point: measured power now. Power bars are forecasts.",
     "batteryOpen": "Open battery plan",
     "batteryControlfollowing": "Following plan",
     "batteryControlsolar-surplus": "Charging solar surplus",
@@ -519,6 +524,11 @@
     "batteryControlsite-unconfirmed": "Site limit unconfirmed",
     "batteryControlplan-unavailable": "No valid battery plan",
     "batteryControlPaused": "Control paused",
-    "batteryRequested": "Requested"
+    "batteryRequested": "Requested",
+    "batterySelected": "Selected",
+    "batteryExpectedPower": "expected power",
+    "batteryMeasured": "Measured",
+    "batteryHistoryMissing": "No measurement at this time",
+    "batteryPriceHistoryMissing": "Price history unavailable"
   }
 }

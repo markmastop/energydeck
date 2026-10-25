@@ -131,65 +131,95 @@ widgets:
     on_press:
     - script.execute: battery_detail_select_point
 - label:
-    id: battery_detail_price_start
+    id: battery_detail_price_tick_0
     x: 42
     y: 397
     text: --:--
     text_font: montserrat_10
     text_color: 11122862
-    width: 125
-    long_mode: DOT
+    width: 80
     text_align: LEFT
 - label:
-    id: battery_detail_price_middle
-    x: 175
+    id: battery_detail_price_tick_1
+    x: 103
     y: 397
     text: --:--
     text_font: montserrat_10
     text_color: 11122862
-    width: 138
-    long_mode: DOT
+    width: 80
     text_align: CENTER
 - label:
-    id: battery_detail_price_end
-    x: 321
+    id: battery_detail_price_tick_2
+    x: 204
     y: 397
     text: --:--
     text_font: montserrat_10
     text_color: 11122862
-    width: 125
-    long_mode: DOT
-    text_align: RIGHT
+    width: 80
+    text_align: CENTER
 - label:
-    id: battery_detail_power_start
+    id: battery_detail_price_tick_3
+    x: 305
+    y: 397
+    text: --:--
+    text_font: montserrat_10
+    text_color: 11122862
+    width: 80
+    text_align: CENTER
+- label:
+    id: battery_detail_price_tick_4
+    x: 406
+    y: 397
+    text: --:--
+    text_font: montserrat_10
+    text_color: 11122862
+    width: 80
+    text_align: CENTER
+- label:
+    id: battery_detail_power_tick_0
     x: 42
     y: 621
     text: --:--
     text_font: montserrat_10
     text_color: 11122862
-    width: 125
-    long_mode: DOT
+    width: 80
     text_align: LEFT
 - label:
-    id: battery_detail_power_middle
-    x: 175
+    id: battery_detail_power_tick_1
+    x: 103
     y: 621
     text: --:--
     text_font: montserrat_10
     text_color: 11122862
-    width: 138
-    long_mode: DOT
+    width: 80
     text_align: CENTER
 - label:
-    id: battery_detail_power_end
-    x: 321
+    id: battery_detail_power_tick_2
+    x: 204
     y: 621
     text: --:--
     text_font: montserrat_10
     text_color: 11122862
-    width: 125
-    long_mode: DOT
-    text_align: RIGHT
+    width: 80
+    text_align: CENTER
+- label:
+    id: battery_detail_power_tick_3
+    x: 305
+    y: 621
+    text: --:--
+    text_font: montserrat_10
+    text_color: 11122862
+    width: 80
+    text_align: CENTER
+- label:
+    id: battery_detail_power_tick_4
+    x: 406
+    y: 621
+    text: --:--
+    text_font: montserrat_10
+    text_color: 11122862
+    width: 80
+    text_align: CENTER
 - label:
     id: battery_detail_power_title
     x: 42
@@ -297,10 +327,14 @@ widgets:
     max_value: 144
     value: 0
     on_release:
-    - lambda: "auto &p = id(battery_plan);\nif (p.version == 2 && p.interval_count)\
-        \ {\n  const int index = std::max(0, std::min(static_cast<int>(p.interval_count)\
-        \ - 1, int(lv_slider_get_value(id(battery_detail_slider)))));\n  id(battery_detail_selected)\
-        \ = p.intervals[index].from;\n}"
+    - lambda: |-
+        auto &p = id(battery_plan);
+        if (p.version != 2 || !p.interval_count) return;
+        const auto clock=id(energydeck_time).now();
+        const auto &h=id(battery_soc_history);
+        const bool known=h.available(clock.year*10000+clock.month*100+clock.day_of_month,clock.timestamp);
+        const energydeck::BatteryDetailGeometry g(p,known ? h.day_start : 0,&id(battery_detail_prices));
+        id(battery_detail_selected)=g.selection(g.from+lv_slider_get_value(id(battery_detail_slider))*60,clock.timestamp);
     - script.execute: render_battery_detail
 - label:
     id: battery_detail_chosen

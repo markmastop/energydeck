@@ -40,5 +40,14 @@ int main() {
   assert(measured==2 && forecast==2);
   const energydeck::BatteryDetailGeometry historical(p,epoch-3600);
   assert(historical.x(epoch-3600,404)==0 && historical.x(epoch,404)>0);
+  energydeck::PriceDay prices; prices.start=epoch-3600; prices.end=epoch+3600; prices.count=8;
+  prices.values.fill(80);
+  const energydeck::BatteryDetailGeometry full(p,0,&prices);
+  assert(full.from==epoch-3600 && full.high==80);
+  assert(full.selection(0,epoch)==epoch && full.selection(epoch-900,epoch)==epoch-900);
+  assert(full.selection(epoch+2000,epoch)==epoch+959);
+  assert(full.price_at(epoch-900,&prices)==80);
+  assert(std::abs(full.measured_soc(&history,epoch-1650)-59)<.001);
+  assert(!std::isfinite(full.measured_soc(&history,epoch-900))); // Missing interval is not bridged.
   std::cout << "PASS: aligned UTC axes, partial quarters, negative prices, signed power and time selection\n";
 }

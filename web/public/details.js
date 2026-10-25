@@ -115,7 +115,7 @@ export function initializeDetails({ api, t, format, time, svgNode, onUnauthorize
   function render() {
     document.querySelector('.page-heading h1').textContent = page === 'overview' ? t('yourEnergy') : page === 'sonos' ? 'Sonos' : t(page === 'battery' ? 'batteryDetails' : page === 'energy' ? 'energy' : 'climate');
     updateHomeCard();
-    if (page === 'battery') batteryDetail.render(dashboard.battery);
+    if (page === 'battery') batteryDetail.render(dashboard.battery,new Date(),dashboard.prices);
     renderHeader(); renderCards(); renderTotals(); renderClimate(); renderWeather(); renderHistory(); renderSonos(); renderCharge();
   }
   function renderHeader() {

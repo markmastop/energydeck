@@ -1,6 +1,7 @@
 #pragma once
 #include "battery_plan.h"
 #include "energy_history.h"
+#include "price_day.h"
 #include <algorithm>
 
 namespace energydeck {
@@ -46,13 +47,48 @@ template<class Draw> void battery_soc_segments(const LineHistory *history, const
 struct BatteryDetailGeometry {
   const BatteryPlan &plan;
   uint32_t from{0}, until{0};
-  float low{0}, high{1};
+  float low{0}, high{1}, color_low{INFINITY}, color_high{-INFINITY};
   static constexpr float POWER_MAX = 2500;
-  explicit BatteryDetailGeometry(const BatteryPlan &p, uint32_t start = 0) : plan(p) {
+  explicit BatteryDetailGeometry(const BatteryPlan &p, uint32_t start = 0, const PriceDay *past = nullptr) : plan(p) {
     from=start ? start : p.intervals[0].from; until=p.intervals[p.interval_count-1].until;
+    if(past && past->count && past->start<from) from=past->start;
     for (size_t i = 0; i < p.interval_count; i++) {
-      low = std::min(low, p.intervals[i].price); high = std::max(high, p.intervals[i].price);
+      const float price=p.intervals[i].price;
+      low=std::min(low,price); high=std::max(high,price);
+      color_low=std::min(color_low,price); color_high=std::max(color_high,price);
     }
+    for (int i=0; past && i<past->count; ++i) {
+      const auto at=past->start+i*900;
+      if (at+900>from && at<p.intervals[0].from) {
+        const float price=past->values[i];
+        low=std::min(low,price); high=std::max(high,price);
+        color_low=std::min(color_low,price); color_high=std::max(color_high,price);
+      }
+    }
+  }
+  // Slider and cursor share elapsed UTC time, including history and DST hours.
+  uint32_t selection(uint32_t epoch, uint32_t now) const {
+    return std::max(from, std::min(until - 1, epoch ? epoch : now));
+  }
+  static float measured_soc(const LineHistory *history, uint32_t at) {
+    if (!history) return NAN;
+    for (unsigned i=0; i<history->count; ++i) {
+      const auto &s=history->samples[i];
+      if (s.timestamp == at) return s.value;
+      if (i && s.timestamp > at) {
+        const auto &a=history->samples[i-1];
+        if (a.timestamp<=at && s.timestamp-a.timestamp<=900)
+          return a.value+(s.value-a.value)*double(at-a.timestamp)/(s.timestamp-a.timestamp);
+      }
+    }
+    return NAN;
+  }
+  float price_at(uint32_t at, const PriceDay *past) const {
+    const int i=plan.current(at);
+    if(i>=0) return plan.intervals[i].price;
+    if (past && at>=past->start && at<past->end && past->quarter(at)<past->count)
+      return past->values[past->quarter(at)];
+    return NAN;
   }
   int x(uint32_t epoch, int width) const { return until>from ? int(std::round(double(int64_t(epoch)-from)/(until-from)*width)) : 0; }
   int price_y(float price, int height) const {

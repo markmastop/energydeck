@@ -47,7 +47,8 @@ script:
           const float fraction = std::max(0.0f, std::min(1.0f, float(point.x - area.x1) / lv_obj_get_width(id(battery_detail_price_plot))));
           const auto clock=id(energydeck_time).now(); const auto &history=id(battery_soc_history);
           const bool fresh=history.available(clock.year*10000+clock.month*100+clock.day_of_month,clock.timestamp);
-          const uint32_t from=fresh ? history.day_start : p.intervals[0].from, until=p.intervals[p.interval_count-1].until;
+          const energydeck::BatteryDetailGeometry g(p,fresh ? history.day_start : 0,&id(battery_detail_prices));
+          const uint32_t from=g.from, until=g.until;
           id(battery_detail_selected) = std::min(until - 1, from + uint32_t(fraction * (until - from)));
       - script.execute: render_battery_detail
 
@@ -67,8 +68,8 @@ script:
           const auto &history=id(battery_soc_history);
           const bool history_known=clock.is_valid() && history.available(clock.year*10000+clock.month*100+clock.day_of_month,clock.timestamp);
           chart.draw(valid ? &p : nullptr, clock.timestamp, id(battery_detail_selected), actual, history_known ? &history : nullptr,
-                     state.battery.valid(millis()) ? state.battery.value : NAN);
-          if (state.battery.valid(millis()) && std::isfinite(actual)) set_text_fmt(id(battery_detail_live), "${battery_detail_measured}", state.battery.value, actual);
+                     state.battery.valid(millis()) ? state.battery.value : NAN, &id(battery_detail_prices), id(battery_detail_price_revision));
+          if (state.battery.valid(millis()) && std::isfinite(actual)) set_text_fmt(id(battery_detail_live), "${battery_detail_measured}", actual>20 ? "${battery_action_discharge}" : actual < -20 ? "${battery_action_charge}" : "${battery_action_hold}", std::abs(actual), state.battery.value);
           else set_text(id(battery_detail_live), "${battery_unavailable}");
           if (!valid) {
             set_text(id(battery_detail_status), "${battery_plan_unavailable}");
@@ -78,27 +79,55 @@ script:
             return;
           }
           lv_obj_remove_state(id(battery_detail_slider), LV_STATE_DISABLED);
-          const energydeck::BatteryDetailGeometry g(p,history_known ? history.day_start : 0);
-          const int index = g.selected(id(battery_detail_selected), clock.timestamp);
-          const auto &q = p.intervals[index];
+          const energydeck::BatteryDetailGeometry g(p,history_known ? history.day_start : 0,&id(battery_detail_prices));
+          set_text(id(battery_detail_price_title),g.from<p.intervals[0].from && !id(battery_detail_prices).count ? "${battery_detail_prices_missing}" : "${battery_detail_prices}");
+          const uint32_t selected=g.selection(id(battery_detail_selected),clock.timestamp);
+          const int index=p.current(selected);
           auto stamp = [&](uint32_t epoch) {
             const auto at = ESPTime::from_epoch_local(epoch); char text[24];
             if (at.day_of_month == clock.day_of_month && at.month == clock.month) snprintf(text, sizeof(text), "%02d:%02d", at.hour, at.minute);
             else snprintf(text, sizeof(text), "%02d/%02d %02d:%02d", at.day_of_month, at.month, at.hour, at.minute);
             return std::string(text);
           };
-          const char *action = q.action == 1 ? "${battery_action_charge}" : q.action == 2 ? "${battery_action_discharge}" : "${battery_action_hold}";
-          set_text_fmt(id(battery_detail_chosen), "${battery_detail_chosen}", stamp(q.from).c_str(), q.price, action);
-          set_text_fmt(id(battery_detail_predicted), "${battery_detail_predicted}", q.watts / 1000, q.soc_to);
+          const float price=g.price_at(selected,&id(battery_detail_prices));
+          if(std::isfinite(price)) set_text_fmt(id(battery_detail_chosen), "${battery_detail_chosen}", stamp(selected).c_str(), price);
+          else set_text_fmt(id(battery_detail_chosen), "${battery_detail_unknown_price}", stamp(selected).c_str());
+          if(index>=0 && selected>=clock.timestamp) {
+            const auto &q=p.intervals[index];
+            const char *action=q.action==1 ? "${battery_action_charge}" : q.action==2 ? "${battery_action_discharge}" : "${battery_action_hold}";
+            set_text_fmt(id(battery_detail_predicted), "${battery_detail_predicted}", action, std::abs(q.watts)/1000, energydeck::BatteryStrategyWindow::soc(q,selected));
+          } else {
+            const float soc=energydeck::BatteryDetailGeometry::measured_soc(history_known ? &history : nullptr,selected);
+            if(std::isfinite(soc)) set_text_fmt(id(battery_detail_predicted), "${battery_detail_historical}", soc);
+            else set_text(id(battery_detail_predicted), "${battery_detail_history_missing}");
+          }
           set_text(id(battery_detail_status), p.shadow ? "${battery_detail_assumptions}" : "${battery_forward_active}");
-          if (q.ev != 0) set_text(id(battery_detail_status), "${battery_forward_ev}");
+          if (index>=0 && p.intervals[index].ev != 0) set_text(id(battery_detail_status), "${battery_forward_ev}");
           if (p.at_risk) set_text(id(battery_detail_status), "${battery_forward_risk}");
           if (p.execution_known) set_text(id(battery_detail_status), id(battery_control_message).c_str());
-          lv_slider_set_range(id(battery_detail_slider), 0, p.interval_count - 1);
-          if (!lv_obj_has_state(id(battery_detail_slider), LV_STATE_PRESSED)) lv_slider_set_value(id(battery_detail_slider), index, LV_ANIM_OFF);
-          const auto from = g.from, until = g.until;
-          for (auto *label : {id(battery_detail_price_start), id(battery_detail_power_start)}) set_text(label, stamp(from).c_str());
-          for (auto *label : {id(battery_detail_price_middle), id(battery_detail_power_middle)}) set_text(label, stamp(from + (until - from) / 2).c_str());
-          for (auto *label : {id(battery_detail_price_end), id(battery_detail_power_end)}) set_text(label, stamp(until).c_str());
+          lv_slider_set_range(id(battery_detail_slider),0,(g.until-g.from)/60);
+          if (!lv_obj_has_state(id(battery_detail_slider), LV_STATE_PRESSED)) lv_slider_set_value(id(battery_detail_slider),(selected-g.from)/60,LV_ANIM_OFF);
+          // Local six/twelve-hour ticks remain on civil hours across DST changes.
+          lv_obj_t *ticks[2][5] = {
+            {id(battery_detail_price_tick_0),id(battery_detail_price_tick_1),id(battery_detail_price_tick_2),id(battery_detail_price_tick_3),id(battery_detail_price_tick_4)},
+            {id(battery_detail_power_tick_0),id(battery_detail_power_tick_1),id(battery_detail_power_tick_2),id(battery_detail_power_tick_3),id(battery_detail_power_tick_4)}};
+          for(auto &row:ticks) for(auto *label:row) lv_obj_add_flag(label,LV_OBJ_FLAG_HIDDEN);
+          const int step=g.until-g.from>30*3600 ? 12 : 6;
+          int tick=0;
+          for(uint32_t at=(g.from/3600)*3600; at<=g.until && tick<5; at+=3600) {
+            const auto t=ESPTime::from_epoch_local(at);
+            if(at<g.from || t.hour%step || t.minute) continue;
+            char text[20];
+            if(t.hour==0) snprintf(text,sizeof(text),"%02d/%02d",t.day_of_month,t.month);
+            else snprintf(text,sizeof(text),"%02d:00",t.hour);
+            const int x=g.x(at,404);
+            for(auto &row:ticks) {
+              auto *label=row[tick]; set_text(label,text);
+              lv_obj_set_x(label,42+std::max(0,std::min(324,x-40)));
+              lv_obj_set_style_text_align(label,x<40 ? LV_TEXT_ALIGN_LEFT : x>364 ? LV_TEXT_ALIGN_RIGHT : LV_TEXT_ALIGN_CENTER,0);
+              lv_obj_clear_flag(label,LV_OBJ_FLAG_HIDDEN);
+            }
+            tick++;
+          }
           set_text_fmt(id(battery_detail_price_high), "%.0f", g.high);
           set_text_fmt(id(battery_detail_price_low), "%.0f", g.low);

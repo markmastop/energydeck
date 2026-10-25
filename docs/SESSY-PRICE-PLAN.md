@@ -473,9 +473,23 @@ represents the current proposal after now and starts at the latest live SoC when
 available. Replacing a proposal no longer removes the measured past. This does
 not archive earlier proposals or turn proposed actions into execution history.
 The existing charge/discharge/hold and sunshine strips remain forecast data.
-Historical power and historical price bars are not invented for battery detail;
-its shared UTC axis extends to today's local midnight when fresh SoC history is
-available. Price/power proposal bars still start at the proposal's own time.
+The detail page fills historical electricity-price bars from the existing full
+current-day published price feed (all-in ct/kWh), independently of the overview's
+rolling noon window. The ESP retains at most 100 quarter prices; the web consumes
+`dashboard.prices`. The same 92/96/100-quarter validation and day expiry apply.
+Future prices and power come from the current proposal; past power is not invented.
+Its shared UTC axis extends to today's local midnight when published prices or
+measured SoC history are available. Missing price history is explicitly labelled.
+
+The time slider and chart cursor both select elapsed minutes across the complete
+viewport, including history, rather than indexing the future proposal. Selecting
+history shows its published price and measured/interpolated SoC only where samples
+are at most 15 minutes apart. Gaps remain unavailable. Future readouts say expected
+power and SoC; these are not fixed discharge commands. The live row remains separate.
+Six-hour civil-time ticks, or twelve-hour ticks for windows longer than 30 hours,
+label midnight with its date and stay aligned across DST changes. The two plots
+retain one common time axis. Prices use green/yellow/red bands; signed kW use a
+neutral left axis and the combined full-height SoC line uses a green right axis.
 
 Measurements must be finite percentages from 0 through 100 and lie within the
 current Amsterdam calendar day. At most 310 five-minute points cover a 25-hour

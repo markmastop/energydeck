@@ -58,6 +58,11 @@ homey_realtime:
           if (deferred) id(homey_events).defer(entity_id);
 
 globals:
+  - id: battery_detail_prices
+    type: energydeck::PriceDay
+  - id: battery_detail_price_revision
+    type: uint32_t
+    initial_value: "0"
   - id: prices_calendar_day
     type: int
     restore_value: false
@@ -160,6 +165,8 @@ script:
     then:
       - lambda: |-
           id(prices_calendar_day) = 0;
+          id(battery_detail_prices).count = 0;
+          id(battery_detail_price_revision)++;
           id(battery_price_from) = 0;
           id(battery_price_until) = 0;
           lv_obj_clear_flag(id(price_source_warning), LV_OBJ_FLAG_HIDDEN);
@@ -421,6 +428,10 @@ script:
                     const float vat_multiplier = 1.0f + (${vat_percent}f / 100.0f);
                     const float supplier_fee = ${supplier_fee_incl_vat_ct}f / 100.0f;
                     auto all_in = [&](float market) { return (market + energy_tax) * vat_multiplier + supplier_fee; };
+                    id(battery_detail_prices) = today_prices;
+                    for (int i = 0; i < today_prices.count; ++i)
+                      id(battery_detail_prices).values[i] = all_in(today_prices.values[i]) * 100.0f;
+                    id(battery_detail_price_revision)++;
                     float minimum = INFINITY, maximum = -INFINITY;
                     for (int i = 0; i < count; ++i) {
                       prices[i] = all_in(prices[i]);

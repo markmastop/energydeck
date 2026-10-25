@@ -35,6 +35,8 @@ class BatteryStrategyChart {
 };
 class BatteryDetailChart {
   std::array<lv_obj_t *, 145> prices_{}, power_{}, sun_{};
+  std::array<lv_obj_t *, 100> historical_prices_{};
+  uint32_t price_revision_{0};
   lv_obj_t *price_parent_{nullptr}, *power_parent_{nullptr}, *sun_parent_{nullptr};
   lv_obj_t *price_now_{nullptr}, *power_now_{nullptr}, *price_selected_{nullptr}, *power_selected_{nullptr};
   lv_obj_t *measured_{nullptr}, *price_zero_{nullptr}, *power_zero_{nullptr};
@@ -60,19 +62,33 @@ class BatteryDetailChart {
     measured_ = rectangle(power); lv_obj_set_style_radius(measured_, LV_RADIUS_CIRCLE, LV_PART_MAIN);
 
   }
-  void draw(const BatteryPlan *p, uint32_t now, uint32_t selection, float actual, const LineHistory *history = nullptr, float live = NAN) {
+  void draw(const BatteryPlan *p, uint32_t now, uint32_t selection, float actual, const LineHistory *history = nullptr, float live = NAN, const PriceDay *past = nullptr, uint32_t revision = 0) {
     if (!price_parent_) return;
-    const auto start = history ? history->day_start : p ? p->intervals[0].from : 0;
+    auto start = history ? history->day_start : p ? p->intervals[0].from : 0;
+    if(past && past->count && past->start<start) start=past->start;
     soc_.update(power_parent_,history,p,start,p ? p->intervals[p->interval_count-1].until : history ? history->day_end : 0,now,live,0,lv_obj_get_height(power_parent_));
     if (!p) {
       for (const auto *items : {&prices_, &power_, &sun_}) for (auto *o : *items) if (o) lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
       for (auto *o : {price_zero_, power_zero_, price_now_, power_now_, price_selected_, power_selected_, measured_}) lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
+      for (auto *o : historical_prices_) if(o) lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
       drawn_at_ = 0; return;
     }
-    const BatteryDetailGeometry g(*p,start);
+    const BatteryDetailGeometry g(*p,start,past);
     const int w = lv_obj_get_width(price_parent_), h = lv_obj_get_height(price_parent_);
-    const int index = g.selected(selection, now);
-    if (drawn_at_ != p->updated_at || drawn_from_ != start) {
+    const uint32_t selected = g.selection(selection, now);
+    if (drawn_at_ != p->updated_at || drawn_from_ != start || price_revision_ != revision) {
+      auto color = [&](float price) { const float f=(price-g.color_low)/std::max(.001f,g.color_high-g.color_low); return f<=.33f ? 0x48BD70 : f>=.66f ? 0xEA665F : 0xE8B94C; };
+      for(size_t i=0;i<historical_prices_.size();++i) {
+        auto *&o=historical_prices_[i];
+        if(o) lv_obj_add_flag(o,LV_OBJ_FLAG_HIDDEN);
+        if(!past || int(i)>=past->count) continue;
+        const int64_t a=std::max(int64_t(g.from),past->start+int64_t(i)*900);
+        const int64_t b=std::min(int64_t(p->intervals[0].from),past->start+int64_t(i+1)*900);
+        if(b<=a) continue;
+        if(!o) o=rectangle(price_parent_);
+        const int y=g.price_y(past->values[i],h),z=g.price_y(0,h);
+        place(o,g.x(a,w),std::min(y,z),g.x(b,w)-g.x(a,w)-1,std::abs(y-z),color(past->values[i]));
+      }
       for (size_t i = 0; i < prices_.size(); i++) {
         if (i >= p->interval_count) {
           for (auto *o : {prices_[i], power_[i], sun_[i]}) if (o) lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
@@ -82,7 +98,7 @@ class BatteryDetailChart {
         const int left = g.x(q.from, w), width = std::max(1, g.x(q.until, w) - left - 1);
         if (!prices_[i]) { prices_[i] = rectangle(price_parent_); power_[i] = rectangle(power_parent_); }
         const int py = g.price_y(q.price, h), zero = g.price_y(0, h), wy = g.power_y(q.watts, h), wz = g.power_y(0, h);
-        place(prices_[i], left, std::min(py, zero), width, std::max(1, std::abs(py - zero)), 0xA9B8AE);
+        place(prices_[i], left, std::min(py, zero), width, std::max(1, std::abs(py - zero)), color(q.price));
         place(power_[i], left, std::min(wy, wz), width, std::max(1, std::abs(wy - wz)), q.action == 1 ? 0x3AA7D8 : q.action == 2 ? 0xE7A052 : 0x617064);
         if (sun_[i]) lv_obj_add_flag(sun_[i], LV_OBJ_FLAG_HIDDEN);
         if (std::isfinite(q.sun)) {
@@ -90,12 +106,12 @@ class BatteryDetailChart {
           place(sun_[i], left, q.sun > 0 ? 0 : 3, q.sun > 0 ? std::max(1, int(width * q.sun)) : width, q.sun > 0 ? 5 : 2, q.sun > 0 ? 0xFFD35A : 0x617064);
         }
       }
-      drawn_at_ = p->updated_at; drawn_from_=start;
+      drawn_at_ = p->updated_at; drawn_from_=start; price_revision_=revision;
     }
     place(price_zero_, 0, g.price_y(0, h), w, 1, 0x617064);
     place(power_zero_, 0, g.power_y(0, h), w, 1, 0x617064);
     for (auto *o : {price_now_, power_now_}) { place(o, g.x(now, w), 0, 1, h, 0x617064); lv_obj_move_foreground(o); }
-    if (index >= 0) for (auto *o : {price_selected_, power_selected_}) { place(o, g.x(p->intervals[index].from, w), 0, 1, h, 0xEEF6F0); lv_obj_move_foreground(o); }
+    for (auto *o : {price_selected_, power_selected_}) { place(o, g.x(selected, w), 0, 1, h, 0xEEF6F0); lv_obj_move_foreground(o); }
     if (std::isfinite(actual)) { place(measured_, g.x(now, w) - 2, g.power_y(actual, h) - 2, 5, 5, 0xEEF6F0); lv_obj_move_foreground(measured_); }
     else lv_obj_add_flag(measured_, LV_OBJ_FLAG_HIDDEN);
   }

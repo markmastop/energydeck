@@ -503,7 +503,7 @@ h2 {
 @media (max-width:600px) {
   #battery-comparison text { font-size:28px; }
 }
-#battery-detail-selection { display:block; width:100%; min-height:44px; accent-color:var(--blue); }
+#battery-detail-selection { display:block; width:80.278%; margin-left:8.611%; min-height:44px; accent-color:var(--blue); }
 .battery-detail-panel label { font-size:12px; color:var(--muted); }
 .battery-detail-selected { font-size:14px; line-height:1.6; }
 

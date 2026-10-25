@@ -425,4 +425,15 @@ Validation: native clipping/interpolation geometry checks, 92 passing web tests,
 simulator build and an LVGL preview using fixture data. Both 5-inch and 7-inch
 firmware builds pass; each setup() frame is 2736 B against a 4096 B guard budget.
 Firmware build and visual preview alone do not verify the physical display or
-touch behavior. This change has not yet been pushed or deployed.
+touch behavior.
+
+The user-authorized rollout of `d4a11ec` on 2026-10-25 pushed the change to
+`origin/main` and uploaded the normal production images to both displays.
+Both OTA uploads reported success. Hostname/MAC checks identified the 5-inch
+`energydeck.local` at 192.168.1.100 ([device MAC redacted]) and the 7-inch
+`energydeck-7.local` at 192.168.1.100 ([device MAC redacted]). Both devices
+recovered their OTA ports after restart. The public web deployment returned
+HTTP 200 and byte-identical `app.js`, `battery-plan.js`, `details.css`, `sw.js`
+and `translations.json`; the overview also contains the new strategy markup.
+These checks establish upload, network recovery and deployed web assets, not
+a physical visual/touch check. No charging Flow was triggered for this rollout.

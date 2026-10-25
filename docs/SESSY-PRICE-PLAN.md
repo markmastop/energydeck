@@ -213,8 +213,9 @@ safe to run in preview mode.
 
 Both ESP and web keep reading the same `sessy_ready_by_17_plan` variable, with the
 same v1 envelope/v2 shadow proposal. This packaging change needs no reader layout,
-firmware, Coolify variable or web deployment change. It does not by itself resolve
-the separately reported unavailable state on the 5-inch display.
+firmware, Coolify variable or web deployment change. It does not change display
+transport/startup; the separate startup stack fix resolves the device-side boot
+problem described below.
 
 The bundle uses the actual web `priceDay`, `localDay` and `priceDayBounds` source
 for the canonical tariff and DST conversion. Configured Homey price/charger IDs
@@ -303,36 +304,50 @@ Simulator and both target firmware builds pass.
 
 ## Battery detail page
 
-Implemented in `ce25245`. Rolled out to the 5-inch display on 25 October 2026;
-the detail page has not yet been rolled out to the 7-inch or public web app.
+Implemented in `ce25245`. Normal firmware containing this page was OTA-uploaded
+to both displays on 25 October 2026 after the startup stack fix below. The public
+web app has not yet received the detail-page code; its plan card remains compatible.
 
-### 5-inch follow-up
+### Display startup stack fix: 25 October 2026
 
-After another report of a missing home plan, read-only diagnostics confirmed a
-fresh Homey envelope containing 131 forward intervals. Replaying the exact YAML
-parser accepted it on five consecutive refreshes. The 5-inch target build and
-native plan/detail tests passed; OTA to `energydeck.local` succeeded. This updates
-the display to the current detail-page firmware and retains the refresh fix.
-It does not establish the cause of the reported missing plan: the physical screen
-and touch behavior still need confirmation. No charging Flow was triggered and
-the planner remains in shadow mode.
+The web app could read the proposal, but the 5-inch kept showing unavailable
+and did not display a newly uploaded diagnostic marker. An exact parser replay
+accepted live Homey data, so neither a successful build nor an OTA transfer alone
+established that the new application was running.
 
-The user subsequently confirmed that the 5-inch still shows "Laadplan niet
-beschikbaar" while its clock continues to update. The target's boot list replaces
-the package hook, so the target now explicitly requests the plan after waiting
-for time and on SNTP synchronization. This fixes the missing initial request,
-but a further on-device check still reported unavailable; do not treat this as
-the full resolution. The regular 60-second poll remains unchanged. The web app
-already requests its initial snapshot and has no ESP boot/SNTP hook to change.
+The generated `setup()` frame occupied 7,872 bytes of the ESP's 8,192-byte loop
+stack, leaving almost no room for callers/callees. The explicit
+`initial_value: 'energydeck::BatteryPlan{}'` selected the by-value
+`GlobalsComponent(T)` constructor and placed a large temporary on that stack.
+Omitting this redundant initializer selects in-place default construction, with
+identical default member values and no large setup temporary. The normal 5-inch
+and 7-inch builds now use 2,720-byte setup frames. The correction is shared by
+both hardware configurations and the simulator; web data/layout is unchanged.
 
-A temporary diagnostic image was OTA-uploaded to the 5-inch to show a
-"Plancontrole" stage/code and report only status, lengths and timestamps to a
-local receiver. No diagnostic packets arrived and the user still reported the
-original unavailable text, so execution of that diagnostic code was not proven.
-Normal firmware was OTA-uploaded again after this attempt; the temporary sender
-is removed. Diagnostic sources are retained only under ignored
-`build/qa/battery-plan-device-diagnostics/`. The missing-plan cause remains open;
-do not infer physical rendering or firmware execution from OTA success alone.
+`scripts/check-display-stack.py` reads the actual Xtensa `setup()` machine code
+and configured loop stack. It rejects frames exceeding half that stack, leaving
+space for nested calls. The saved pre-fix object failed at 7,872 bytes; both fixed
+targets passed at 2,720. This is a startup-frame check, not a bound on all runtime
+stack use.
+
+A temporary encrypted, read-only native log connection directly confirmed the
+5-inch MAC, current build time and firmware version after the fix. It then reported
+HTTP 200 with a 24,044-byte response, successful v2 parsing of 125 quarters, current
+live SoC and `Render known 1`. Subsequent HTTP refreshes also accepted the plan.
+The client did not send device commands, service calls or clock updates. Safe
+metadata logs are retained under ignored `build/qa/`; no payloads or credentials
+were logged. The temporary API configuration/key and earlier UDP diagnostics are
+removed from normal firmware. Normal firmware was then OTA-uploaded to both
+previously requested display sizes. Both remained reachable after more than a
+minute, and the temporary API port was closed. The user then confirmed that the
+plan is visible on the 5-inch. Physical rendering on the 7-inch and touch behavior
+were not directly verified. Simulator, both target builds, the native plan/parser
+checks and nine web plan/detail checks pass.
+
+The target also explicitly requests its first snapshot after clock synchronization,
+because its boot list replaces package hooks. Regular polling remains 60 seconds.
+Homey scripts, charging behavior and the shared reader contract are unchanged by
+this firmware fix. The price proposal remains shadow-only.
 
 ### Named-script migration: 25 October 2026
 

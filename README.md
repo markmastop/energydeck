@@ -249,6 +249,18 @@ Run the flash script matching your display size:
 
 The script reads `.env`, builds the firmware with ESPHome, uploads it via `esptool`, and displays the live boot logs.
 
+For standalone target builds, also inspect the generated Xtensa startup stack
+before upload:
+
+```sh
+.venv/bin/python scripts/check-display-stack.py esphome/.esphome/build/energydeck
+.venv/bin/python scripts/check-display-stack.py esphome/.esphome/build/energydeck-7
+```
+
+The check reserves at least half the configured loop stack for callers/callees.
+An OTA transfer succeeding does not prove that the new firmware boots; a large
+by-value global initializer can compile successfully and exhaust the startup stack.
+
 ---
 
 ## Over-The-Air (OTA) Updates

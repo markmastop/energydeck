@@ -2,7 +2,9 @@
 globals:
   - id: battery_plan
     type: energydeck::BatteryPlan
-    initial_value: 'energydeck::BatteryPlan{}'
+    # Let GlobalsComponent construct the default directly in permanent storage.
+    # Passing this large value by value creates a ~6 kB setup() stack temporary
+    # and can exhaust the ESP's 8 kB loop stack before a new OTA image can boot.
 
 esphome:
   on_boot:
@@ -39,8 +41,9 @@ script:
                   then:
                     - lambda: |-
                         id(battery_plan).clear();
+                        ESP_LOGD("battery_plan", "Snapshot HTTP %d, %u bytes", response->status_code, static_cast<unsigned>(body.size()));
                         if (response->status_code != 200) return;
-                        json::parse_json(body, [](JsonObject variable) -> bool {
+                        const bool decoded = json::parse_json(body, [](JsonObject variable) -> bool {
                           if (!variable["value"].is<std::string>()) return false;
                           return json::parse_json(variable["value"].as<std::string>(), [](JsonObject p) -> bool {
                             if (!p["enabled"].is<bool>() || !p["updatedAt"].is<uint32_t>() ||
@@ -99,10 +102,18 @@ script:
                             return valid;
                           });
                         });
+                        // Metadata only: never log authenticated URLs or plan bodies.
+                        const auto clock = id(energydeck_time).now();
+                        ESP_LOGD("battery_plan", "Decoded %d, known %d, version %d, quarters %u, clock %u, snapshot %u",
+                          decoded, id(battery_plan).known, id(battery_plan).version,
+                          static_cast<unsigned>(id(battery_plan).interval_count),
+                          static_cast<unsigned>(clock.timestamp), static_cast<unsigned>(id(battery_plan).updated_at));
                     - script.execute: render_battery_plan
                 on_error:
                   then:
-                    - lambda: id(battery_plan).clear();
+                    - lambda: |-
+                        id(battery_plan).clear();
+                        ESP_LOGW("battery_plan", "Snapshot transport failed");
                     - script.execute: render_battery_plan
 
   - id: render_battery_plan
@@ -116,6 +127,11 @@ script:
           snprintf(date, sizeof(date), "%04d-%02d-%02d", time.year, time.month, time.day_of_month);
           const bool known = time.is_valid() && p.valid(millis(), time.timestamp, date);
           const bool live = s.battery.valid(millis());
+          static int previous_known = -1;
+          if (previous_known != static_cast<int>(known)) {
+            previous_known = known;
+            ESP_LOGD("battery_plan", "Render known %d, version %d, live SoC %d", known, p.version, live);
+          }
           if (!live) {
             set_text(id(battery_percentage_label), "--%");
             set_bar_value(id(battery_level_bar), 0, LV_ANIM_OFF);

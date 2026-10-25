@@ -24,6 +24,11 @@ struct LineHistory {
     samples[count++] = {timestamp, value};
   }
   int64_t latest() const { return count ? samples[count - 1].timestamp : 0; }
+  // Past measurements remain true when collection is delayed. Freshness only
+  // controls live joins; the calendar boundary controls historical visibility.
+  bool available(int today, int64_t epoch) const {
+    return loaded && count && date == today && epoch >= day_start && epoch < day_end && epoch >= latest();
+  }
   bool fresh(int today, uint32_t now, int64_t epoch) const {
     return loaded && count && date == today && uint32_t(now - fetched_at) <= 900000 &&
       epoch >= latest() && epoch - latest() <= 900;

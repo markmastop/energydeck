@@ -440,3 +440,16 @@ test('battery history reads only Sessy Insights, bounds percentages and caches i
   assert.deepEqual(h.points.map(p=>p.value),[70,69]);assert.equal(h.stale,false);
   await service.batteryHistory();assert.equal(calls,1);
 });
+
+
+test('battery history retains measured past through a fetch failure but clears on the next day',async()=>{
+  let clock=new Date(now),calls=0;
+  const service=createExtrasService(config({HOMEY_SESSY_DEVICE_ID:'battery-test'}),async()=>{
+    if(calls++) throw new Error('offline');
+    return new Response(JSON.stringify({values:[{t:'2026-10-21T09:50:00Z',v:70},{t:'2026-10-21T09:55:00Z',v:69}]}));
+  },()=>clock);
+  const original=await service.batteryHistory();
+  clock=new Date(now.getTime()+3600000);
+  const delayed=await service.batteryHistory();assert.equal(delayed.stale,true);assert.deepEqual(delayed.points,original.points);
+  clock=new Date('2026-10-22T10:00:00Z');assert.equal((await service.batteryHistory()).points.length,0);
+});

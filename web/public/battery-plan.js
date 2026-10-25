@@ -122,9 +122,8 @@ export function batteryStrategyView(raw, from, until, now = new Date()) {
 export function batterySocView(history, raw, from, until, live, now = new Date()) {
   if(!Number.isFinite(from) || !Number.isFinite(until) || until<=from) return {measured:[],predicted:[]};
   const epoch=now.getTime()/1000, measured=[], predicted=[];
-  const validHistory=history && history.stale===false && Array.isArray(history.points) && history.points.length<=310 &&
-    history.start<=now.getTime() && history.end>now.getTime() &&
-    epoch-(history.points.at(-1)?.time/1000)<=900;
+  const validHistory=history && Array.isArray(history.points) && history.points.length<=310 &&
+    history.start<=now.getTime() && history.end>now.getTime();
   let previous=null;
   if(validHistory) for(const p of history.points) {
     const at=p.time/1000;

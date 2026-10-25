@@ -130,8 +130,10 @@ test('measured SoC survives replans, connects to live now and leaves outages bla
   assert.equal(view.predicted[0].at,epoch);assert.equal(view.predicted[0].soc,51);
   assert.equal(view.predicted.at(-1).soc,52);
   assert.deepEqual(batterySocView(history,null,epoch-3600,epoch+1800,51,now).measured,view.measured);
-  assert.equal(batterySocView({...history,stale:true},forward,epoch-3600,epoch+1800,51,now).measured.length,0);
+  assert.deepEqual(batterySocView({...history,stale:true},forward,epoch-3600,epoch+1800,51,now).measured,view.measured,'Age does not erase measured history');
   const clipped=batterySocView(history,null,epoch-1650,epoch-1550,null,now);
   assert.deepEqual(clipped.measured,[[{at:epoch-1650,soc:59},{at:epoch-1550,soc:58+1/3}]]);
-  assert.equal(batterySocView(history,forward,epoch-3600,epoch+1800,51,new Date((epoch+901)*1000)).measured.length,0);
+  const delayed=batterySocView(history,forward,epoch-3600,epoch+1800,51,new Date((epoch+901)*1000));
+  assert.equal(delayed.measured.length,1);assert.ok(delayed.measured.every(([,b])=>b.at<epoch),'Never bridge an old sample to now');
+  assert.equal(batterySocView({...history,end:(epoch-1)*1000},forward,epoch-3600,epoch+1800,51,now).measured.length,0);
 });

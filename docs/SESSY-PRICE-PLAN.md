@@ -468,7 +468,8 @@ inspection was unavailable in this session; physical displays were not flashed.
 ### Measured SoC history and dashed forecast
 
 The overview and battery detail now read today's actual `measure_battery` history
-from Homey Insights. ESP fetches on boot and every five minutes; the web uses the
+from Homey Insights. ESP fetches explicitly from the device boot list and after time sync, refreshes
+after four minutes and retries missing history every thirty seconds; the web uses the
 session-protected, read-only `/api/battery/history` endpoint with a four-minute
 cache. Both use the existing Sessy device ID and server/device-only Homey token;
 no new Coolify settings are needed and no token enters browser storage.
@@ -484,7 +485,9 @@ available. Price/power proposal bars still start at the proposal's own time.
 
 Measurements must be finite percentages from 0 through 100 and lie within the
 current Amsterdam calendar day. At most 310 five-minute points cover a 25-hour
-DST day. Future, duplicate, stale and invalid data are rejected. Historical
+DST day. Future, duplicate and invalid data are rejected. Delayed measurements
+from today remain visible; only a join to the live reading requires a recent
+last sample. Historical
 segments skip gaps over fifteen minutes; a fresh last sample may connect to the
 live reading at now. Missing history leaves a gap while a valid forecast remains
 visible. A stale proposal can disappear without deleting independently fresh
@@ -522,3 +525,26 @@ the locally configured web access code returned HTTP 401. No credentials were
 changed or retried. The histories service's real Homey read was already verified
 during implementation; this rollout does not establish an authenticated browser
 visual check or physical touch validation. No charging Flow was invoked.
+
+
+### Startup and combined-plot correction
+
+The first physical rollout exposed a startup omission: the production device's
+explicit boot list replaces package boot hooks, so the new history package's
+12-second hook was not invoked. Both production boot and time-sync paths now
+explicitly fetch battery history. A thirty-second scheduler retries when history
+is missing and refreshes loaded data after four minutes. Successful responses
+are parsed into a permanent staging buffer before replacing measured history;
+HTTP or parse errors retain the valid measurements already known for today.
+The web follows the same rule and retains same-day history across fetch failures.
+Yesterday's data is hidden after local midnight. Old samples are never joined
+to now across a gap longer than fifteen minutes.
+
+The overview uses one full-height graph for both concepts: faint blue/orange/grey
+background bands indicate proposed charge/discharge/hold, while the solid measured
+and dashed forecast SoC lines share its full 0–100% height. Sunshine stays yellow.
+A startup regression test checks the production boot list and both time-sync
+paths. The exact response lambda, linked against the simulator's actual ESPHome
+clock/timezone objects, accepted 239 real Homey points on the 25-hour DST day.
+The native history tests and 95 web tests pass. An LVGL fixture preview confirms
+the overlapping bands and percentage line; no charging Flow is exercised.

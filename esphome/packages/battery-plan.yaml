@@ -135,7 +135,7 @@ script:
           const bool live = s.battery.valid(millis());
           // Persistent buffers: LVGL retains the line points after draw returns.
           const auto &history = id(battery_soc_history);
-          const bool history_known = time.is_valid() && history.fresh(time.year*10000+time.month*100+time.day_of_month,millis(),time.timestamp);
+          const bool history_known = time.is_valid() && history.available(time.year*10000+time.month*100+time.day_of_month,time.timestamp);
           const bool strategy_known = known && p.version == 2 && id(battery_price_until) > id(battery_price_from) &&
                                       p.intervals[0].from < id(battery_price_until) && p.intervals[p.interval_count - 1].until > id(battery_price_from);
           set_text(id(price_strategy_caption), strategy_known ? (p.shadow ? "${battery_strategy} | ${battery_forward_shadow} | ${battery_soc_key}" : "${battery_strategy} | ${battery_forward_active} | ${battery_soc_key}") : "${battery_plan_unavailable}");

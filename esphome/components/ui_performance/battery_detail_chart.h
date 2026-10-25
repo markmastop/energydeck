@@ -10,14 +10,14 @@ class BatteryStrategyChart {
   lv_obj_t *now_{nullptr};
  public:
   void draw(lv_obj_t *parent, const BatteryPlan *p, int64_t from, int64_t until, uint32_t now, const LineHistory *history = nullptr, float live = NAN) {
-    soc_.update(parent,history,p,from,until,now,live,3,32);
+    soc_.update(parent,history,p,from,until,now,live,3,41);
     for (const auto *items : {&phases_, &sun_}) for (auto *o : *items) if (o) lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
     if(now_) lv_obj_add_flag(now_, LV_OBJ_FLAG_HIDDEN);
     if ((!p && !history) || from <= 0 || until <= from) return;
-    auto rect = [&](lv_obj_t *&o, int x, int y, int w, int h, uint32_t color) {
+    auto rect = [&](lv_obj_t *&o, int x, int y, int w, int h, uint32_t color, lv_opa_t opacity = LV_OPA_COVER) {
       if (!o) { o = lv_obj_create(parent); lv_obj_remove_style_all(o); lv_obj_remove_flag(o, LV_OBJ_FLAG_CLICKABLE); lv_obj_remove_flag(o, LV_OBJ_FLAG_SCROLLABLE); }
       lv_obj_set_pos(o, x, y); lv_obj_set_size(o, std::max(1, w), h);
-      lv_obj_set_style_bg_color(o, lv_color_hex(color), 0); lv_obj_set_style_bg_opa(o, LV_OPA_COVER, 0);
+      lv_obj_set_style_bg_color(o, lv_color_hex(color), 0); lv_obj_set_style_bg_opa(o, opacity, 0);
       lv_obj_clear_flag(o, LV_OBJ_FLAG_HIDDEN);
     };
     const BatteryStrategyWindow window{from, until};
@@ -27,7 +27,7 @@ class BatteryStrategyChart {
       const auto &q = p->intervals[i]; int64_t a, b;
       if (!window.clip(q, a, b)) continue;
       const int x = window.x(a, w), width = window.x(b, w) - x;
-      rect(phases_[i], x, 40, width, 4, q.action == 1 ? 0x3AA7D8 : q.action == 2 ? 0xE7A052 : 0x617064);
+      rect(phases_[i], x, 0, width, 44, q.action == 1 ? 0x3AA7D8 : q.action == 2 ? 0xE7A052 : 0x617064, LV_OPA_20);
       if (std::isfinite(q.sun)) rect(sun_[i], x, 0, q.sun > 0 ? std::max(1, int(width * q.sun)) : width, 2, q.sun > 0 ? 0xFFD35A : 0x34443A);
     }
     if (now >= from && now < until) { rect(now_, window.x(now, w), 0, 1, 44, 0xEEF6F0); lv_obj_move_foreground(now_); }

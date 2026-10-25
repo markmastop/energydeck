@@ -46,7 +46,7 @@ script:
           lv_area_t area; lv_obj_get_coords(id(battery_detail_price_plot), &area);
           const float fraction = std::max(0.0f, std::min(1.0f, float(point.x - area.x1) / lv_obj_get_width(id(battery_detail_price_plot))));
           const auto clock=id(energydeck_time).now(); const auto &history=id(battery_soc_history);
-          const bool fresh=history.fresh(clock.year*10000+clock.month*100+clock.day_of_month,millis(),clock.timestamp);
+          const bool fresh=history.available(clock.year*10000+clock.month*100+clock.day_of_month,clock.timestamp);
           const uint32_t from=fresh ? history.day_start : p.intervals[0].from, until=p.intervals[p.interval_count-1].until;
           id(battery_detail_selected) = std::min(until - 1, from + uint32_t(fraction * (until - from)));
       - script.execute: render_battery_detail
@@ -65,7 +65,7 @@ script:
           const auto &state = id(energy_state);
           const float actual = state.battery_power.valid(millis()) ? state.battery_power.value : NAN;
           const auto &history=id(battery_soc_history);
-          const bool history_known=clock.is_valid() && history.fresh(clock.year*10000+clock.month*100+clock.day_of_month,millis(),clock.timestamp);
+          const bool history_known=clock.is_valid() && history.available(clock.year*10000+clock.month*100+clock.day_of_month,clock.timestamp);
           chart.draw(valid ? &p : nullptr, clock.timestamp, id(battery_detail_selected), actual, history_known ? &history : nullptr,
                      state.battery.valid(millis()) ? state.battery.value : NAN);
           if (state.battery.valid(millis()) && std::isfinite(actual)) set_text_fmt(id(battery_detail_live), "${battery_detail_measured}", state.battery.value, actual);

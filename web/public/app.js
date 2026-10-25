@@ -49,7 +49,7 @@ async function loadBatteryHistory() {
     if(!response.ok) throw new Error('history');
     const history=await response.json();
     if(generation===authGeneration) { batteryHistory=history; batteryHistoryAt=Date.now(); if(data) render(); }
-  } catch { if(generation===authGeneration) { batteryHistory=null; batteryHistoryAt=Date.now(); } }
+  } catch { if(generation===authGeneration) { batteryHistoryAt=Date.now(); } }
   finally { batteryHistoryBusy=false; }
 }
 function showLogin() {
@@ -233,12 +233,12 @@ function drawChart(today, quarter) {
   if (strategy?.points.length || soc.measured.length) {
     $('price-strategy-legend').hidden = false;
     const x = at => left + (Math.max(from,Math.min(until,at)) - from) / (until - from) * width;
-    const sy = soc => 261 - soc / 100 * 60;
+    const sy = soc => 275 - soc / 100 * 76;
     for (const soc of [0, 100]) chart.append(svgNode('text', {x:0, y:sy(soc)+3, class:'strategy-percent'}, `${soc}%`));
     for (const q of strategy?.segments || []) {
       const w = Math.max(.5, x(q.until) - x(q.from));
       const color = q.action === 'charge' ? '#3aa7d8' : q.action === 'discharge' ? '#e7a052' : '#617064';
-      const phase = svgNode('rect', {x:x(q.from), y:270, width:w, height:5, fill:color});
+      const phase = svgNode('rect', {x:x(q.from), y:199, width:w, height:76, fill:color, opacity:.18});
       phase.append(svgNode('title', {}, `${priceTime(q.from*1000)} · ${t(`batteryAction${q.action}`)} · ${format(q.socFrom)}–${format(q.socTo)}%`));
       chart.append(phase);
       if (q.sun !== null) chart.append(svgNode('rect', {x:x(q.from), y:195, width:q.sun > 0 ? Math.max(.5,w*q.sun) : w, height:2, fill:q.sun > 0 ? '#ffd35a' : '#34443a'}));

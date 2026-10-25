@@ -15,7 +15,7 @@ export function dayBounds(now) {
   return { start: midnight(localDay(now)), end: midnight(localDay(now, 1)) };
 }
 
-export function historySeries(raw, now, signed = false) {
+export function historySeries(raw, now, signed = false, retainPast = false) {
   const { start, end } = dayBounds(now);
   const points = [];
   if (Array.isArray(raw?.values) && raw.values.length <= 310) {
@@ -27,7 +27,7 @@ export function historySeries(raw, now, signed = false) {
     }
   }
   const stale = !points.length || now.getTime() - points.at(-1).time > 900000;
-  return { start, end, points: stale ? [] : points, stale };
+  return { start, end, points: stale && !retainPast ? [] : points, stale };
 }
 
 export function rainSeries(raw, now) {
@@ -88,6 +88,7 @@ export function createExtrasService(config, fetcher = fetch, clock = () => new D
     return { power, gas, updatedAt: now.toISOString(), demo: config.demo };
   }, 240000, () => clock().getTime(), () => localDay(clock()));
 
+  let previousBatteryHistory=null;
   const batteryHistory = singleFlight(async () => {
     const now = clock();
     let raw = null;
@@ -102,7 +103,10 @@ export function createExtrasService(config, fetcher = fetch, clock = () => new D
     } catch { /* A failed historical read never removes live SoC or a valid forecast. */ }
     if (Array.isArray(raw?.values) && raw.values.length<=310) raw.values=raw.values.filter(p=>finite(p.v)!==null && p.v>=0 && p.v<=100);
     else raw=null;
-    return historySeries(raw,now);
+    const result=historySeries(raw,now,false,true);
+    if(result.points.length) previousBatteryHistory=result;
+    else if(previousBatteryHistory?.start===result.start) return {...previousBatteryHistory,stale:true};
+    return result;
   },240000,()=>clock().getTime(),()=>localDay(clock()));
 
   const weather = singleFlight(async () => {

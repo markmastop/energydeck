@@ -31,7 +31,7 @@ export function initializeBatteryDetail({t,format}) {
     $('battery-detail-selected').textContent=`${clock(q.from)} · ${format(q.price)} ct/kWh · ${action} ${format(Math.abs(q.powerW)/1000)} kW · ${t('batteryExpected')} ${format(q.socTo,0)}%`;
     $('battery-detail-note').textContent=[m.plan.inputQuality==='provisional'?t('batteryAssumptions'):t('batteryCalibrated'),m.plan.atRisk?t('batteryTargetRisk'):'',q.ev!==false?t('batteryEvProtected'):''].filter(Boolean).join(' · ');
     const history=battery?.history;
-    const fresh=history?.stale===false && history.start<=now.getTime() && history.end>now.getTime() && now.getTime()-(history.points?.at(-1)?.time??0)<=900000;
+    const fresh=history?.points?.length>0 && history.start<=now.getTime() && history.end>now.getTime();
     const from=fresh?Math.min(m.from,history.start/1000):m.from;
     viewportFrom=from;
     const x=epoch=>62+(epoch-from)/(m.until-from)*578;

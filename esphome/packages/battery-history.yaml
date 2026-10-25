@@ -2,6 +2,8 @@
 globals:
   - id: battery_soc_history
     type: energydeck::LineHistory
+  - id: battery_soc_history_pending
+    type: energydeck::LineHistory
 esphome:
   on_boot:
     priority: -100
@@ -9,7 +11,7 @@ esphome:
       - delay: 12s
       - script.execute: refresh_battery_history
 interval:
-  - interval: 5min
+  - interval: 30s
     then:
       - script.execute: refresh_battery_history
 script:
@@ -18,7 +20,11 @@ script:
     then:
       - if:
           condition:
-            lambda: return id(energydeck_time).now().is_valid() && std::string("${homey_sessy_device_id}") != "none";
+            lambda: |-
+              const auto clock=id(energydeck_time).now();
+              if(!clock.is_valid() || std::string("${homey_sessy_device_id}") == "none") return false;
+              const auto &h=id(battery_soc_history);
+              return !h.available(clock.year*10000+clock.month*100+clock.day_of_month,clock.timestamp) || millis()-h.fetched_at>=240000;
           then:
             - background_http.get:
                 # Local Homey requires ownerUri AND the full returned log ID.
@@ -30,15 +36,18 @@ script:
                 max_response_buffer_size: 32768
                 on_error:
                   then:
-                    - lambda: id(battery_soc_history).clear();
+                    - lambda: ESP_LOGW("battery_history", "Insights request failed; keeping measured history");
                 on_response:
                   then:
                     - lambda: |-
                         auto &destination = id(battery_soc_history);
-                        destination.clear();
+                        auto &next = id(battery_soc_history_pending);
+                        next.clear();
                         const auto now = id(energydeck_time).now();
-                        if (response->status_code != 200 || !now.is_valid()) return;
-                        auto &next = destination;
+                        if (response->status_code != 200 || !now.is_valid()) {
+                          ESP_LOGW("battery_history", "Insights HTTP %d, valid clock %d", response->status_code, now.is_valid());
+                          return;
+                        }
                         next.date = now.year * 10000 + now.month * 100 + now.day_of_month;
                         auto midnight = now;
                         midnight.hour = 0; midnight.minute = 0; midnight.second = 0;
@@ -54,6 +63,8 @@ script:
                           if (values.isNull() || values.size() > next.samples.size()) return false;
                           for (JsonObject point : values) {
                             const char *stamp = point["t"] | "";
+                            const size_t length=strlen(stamp);
+                            if(!length || stamp[length-1] != 'Z') continue;
                             int year, month, day, hour, minute, second;
                             if (!point["v"].is<float>() ||
                                 sscanf(stamp, "%d-%d-%dT%d:%d:%d", &year, &month, &day, &hour, &minute, &second) != 6 ||
@@ -68,8 +79,9 @@ script:
                             if (point["v"].as<float>() > 100) continue;
                             next.add(utc.timestamp, point["v"].as<float>(), false);
                           }
-                          return next.count > 0 && now.timestamp - next.latest() <= 900;
+                          return next.count > 0;
                         });
-                        if (!parsed) { next.clear(); return; }
+                        if (!parsed) { ESP_LOGW("battery_history", "No valid measured points; keeping previous history"); return; }
                         next.loaded = true; next.fetched_at = millis();
+                        destination = next;
                         ESP_LOGI("battery_history", "SoC: loaded %u five-minute samples", next.count);

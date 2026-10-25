@@ -299,11 +299,14 @@ dialog p { font-size: 14px; line-height: 1.6; color: var(--muted); }
   .energy-actions { grid-column:span 2; grid-template-columns:1fr; grid-template-rows:auto 1fr; }
   #page-overview .energy-actions .charger-panel { align-self:stretch; }
   #page-overview .energy-actions .charger-panel .card-foot { margin-top:auto; }
-  #page-overview .climate-panel { grid-column:span 4; }
-  #page-overview .weather-panel { grid-column:span 2; }
+  /* Pair the vertical day totals with weather; home controls get their own row.
+     Explicit desktop placement keeps the existing phone reading order intact. */
+  #page-overview .totals { grid-column:1 / span 2; grid-row:2; grid-template-columns:1fr; }
+  #page-overview .weather-panel { grid-column:3 / -1; grid-row:2; align-self:stretch; }
+  #page-overview .climate-panel { grid-column:1 / -1; grid-row:3; }
   #page-overview #price-chart { height:235px; }
   #page-overview .chart-summary > div { gap:4px; }
-  #page-overview .rooms { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  #page-overview .rooms { grid-template-columns:repeat(4,minmax(0,1fr)); }
 
 }
 @media (max-width:900px) {

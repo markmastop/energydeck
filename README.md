@@ -38,7 +38,7 @@ Both versions connect directly over your local network to Homey and Sonos. They 
 
 Use Overview, Energy, Sonos and Climate on your phone, tablet or computer. The web app follows the display's Montserrat typography, dark palette, smart net/gas/solar-battery meters, signed power arcs, price comparison and nine-zone Evohome view. Sonos favorites, room grouping and charging controls are included. Climate remains read-only, with thermostat control through Homey.
 
-The desktop overview uses consistent two-thirds/one-third columns for prices and charging, then home controls and weather. On phones, prices, battery, EV, totals, home controls and weather follow the document order. The climate overview shows up to four rooms with heat demand first; the dedicated climate page retains every configured room. Rain and sunshine share one compact forecast heading.
+The desktop overview places prices and charging in two-thirds/one-third columns. Below them, stacked daily totals occupy one third beside a two-thirds weather panel, followed by full-width home controls. On phones, prices, battery, EV, totals, home controls and weather follow the document order. The climate overview shows up to four rooms with heat demand first; the dedicated climate page retains every configured room. Rain and sunshine share one compact forecast heading.
 
 ### Screenshots
 

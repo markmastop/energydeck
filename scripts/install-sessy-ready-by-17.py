@@ -8,6 +8,7 @@ import argparse
 import copy
 import json
 import os
+import math
 from pathlib import Path
 import sys
 import urllib.request
@@ -20,6 +21,7 @@ ROOT = Path(__file__).resolve().parents[1]
 ENABLED = "sessy_ready_by_17_enabled"
 STATE = "sessy_ready_by_17_state"
 PLAN = "sessy_ready_by_17_plan"
+SUNSHINE = "sessy_sunshine_forecast"
 ERROR_NODE = "21d27afb-a34c-45f4-baa6-1b3aa6eefce7"
 MARKER = "const DEVICE_ID = '__SESSY_DEVICE_ID__';"
 
@@ -78,6 +80,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--apply", action="store_true", help="Install and enable (changes real charging behavior)")
     parser.add_argument("--configure-readers", action="store_true", help="Save only the plan variable ID in local .env")
+    parser.add_argument("--with-sunshine", action="store_true", help="Update the existing local sunshine script and connect its forecast")
     parser.add_argument("--restore", type=Path, help="Restore an exact Flow backup; requires --apply")
     args = parser.parse_args()
     load_env()
@@ -125,6 +128,20 @@ def main():
     flag = lookup(ENABLED, "boolean")
     state = lookup(STATE, "string")
     plan = lookup(PLAN, "string")
+    forecast = lookup(SUNSHINE, "string")
+    forecast_script = None
+    if args.with_sunshine:
+        latitude = float(os.environ.get("ENERGYDECK_LATITUDE", "nan"))
+        longitude = float(os.environ.get("ENERGYDECK_LONGITUDE", "nan"))
+        if not math.isfinite(latitude) or not math.isfinite(longitude) or abs(latitude) > 90 or abs(longitude) > 180:
+            raise ValueError("Valid existing weather coordinates are required")
+        scripts = [s for s in values(client.get("/api/app/com.athom.homeyscript/script"))
+                   if s.get("name") == "fetchExpectedSunshineComingHours"]
+        if len(scripts) != 1:
+            raise ValueError("Expected one existing local sunshine script")
+        forecast_script = client.get("/api/app/com.athom.homeyscript/script/" + scripts[0]["id"])
+        forecast_source = (ROOT / "homeyscript/sessy-sunshine-forecast.js").read_text().replace(
+            "__LATITUDE__", str(latitude)).replace("__LONGITUDE__", str(longitude))
     print("Flow:", original["name"], "| normal calculation:", key)
     print("5 kWh, 1000 W grid top-up / up to 2200 W solar, 09:00–17:00 reserve, 45 min finish margin (Amsterdam)")
     print("Existing device commands/guards retained; script error -> zero target -> existing stop command")
@@ -145,6 +162,19 @@ def main():
         state = write("POST", "/api/manager/logic/variable", {"name": STATE, "type": "string", "value": "{}"})
     if plan is None:
         plan = write("POST", "/api/manager/logic/variable", {"name": PLAN, "type": "string", "value": "{}"})
+    if args.with_sunshine:
+        if forecast is None:
+            forecast = write("POST", "/api/manager/logic/variable", {"name": SUNSHINE, "type": "string", "value": "{}"})
+        forecast_backup = backup_dir / ("sunshine-script-before-" + stamp + ".json")
+        with open(forecast_backup, "x", opener=lambda path, flags: os.open(path, flags, 0o600)) as handle:
+            json.dump(forecast_script, handle, ensure_ascii=False, indent=2)
+        forecast_path = "/api/app/com.athom.homeyscript/script/" + forecast_script["id"]
+        write("PUT", forecast_path, {"name": forecast_script["name"], "code": forecast_source, "version": 2})
+        if client.get(forecast_path).get("code") != forecast_source:
+            write("PUT", forecast_path, {"name": forecast_script["name"], "code": forecast_script["code"], "version": forecast_script["version"]})
+            raise RuntimeError("Sunshine script verification failed; original restored")
+        print("Existing sunshine script updated; its original hourly schedule is retained.")
+        print("Private sunshine script backup:", forecast_backup)
     path = "/api/manager/flow/advancedflow/" + original["id"]
     # Abort if somebody edited the Flow since the initial read.
     if flow_body(client.get(path)) != flow_body(original):

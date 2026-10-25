@@ -15,7 +15,10 @@ export function batteryPlan(raw, now = new Date()) {
       value.targetPercent !== 100 || !finite(value.reserveMinute, 0, 1439) ||
       !finite(value.deadlineMinute, value.reserveMinute + 1, 1439) ||
       (value.startMinute !== null && !finite(value.startMinute, value.reserveMinute, value.deadlineMinute))) return null;
+  const sunValid = finite(value.sunMinutes, 0, 180) && finite(value.sunWindowMinutes, 15, 180) && value.sunMinutes <= value.sunWindowMinutes;
   return {version: 1, day, updatedAt: value.updatedAt, enabled: value.enabled, phase: value.phase,
+    sunMinutes: sunValid ? value.sunMinutes : null, sunWindowMinutes: sunValid ? value.sunWindowMinutes : null,
+    sunAdvanceMinutes: sunValid && finite(value.sunAdvanceMinutes, 0, 60) ? value.sunAdvanceMinutes : 0,
     capacityKwh: value.capacityKwh, topUpW: value.topUpW, targetPercent: value.targetPercent,
     reserveMinute: value.reserveMinute, deadlineMinute: value.deadlineMinute, startMinute: value.startMinute};
 }

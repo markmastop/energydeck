@@ -204,7 +204,8 @@
     "batteryPlanSolar": "Eerst zon · bijladen vanaf",
     "batteryPlanStart": "Start",
     "batteryPlanRate": "max.",
-    "batteryPlanTimeline": "Laadplan: zon vanaf {reserve}, bijladen vanaf {start}, doel vol om {deadline}"
+    "batteryPlanTimeline": "Laadplan: zon vanaf {reserve}, bijladen vanaf {start}, doel vol om {deadline}",
+    "batterySunForecast": "zon {minutes}m/{hours}u"
   },
   "en": {
     "logout": "Sign out",
@@ -411,6 +412,7 @@
     "batteryPlanSolar": "Solar first · top-up from",
     "batteryPlanStart": "Start",
     "batteryPlanRate": "max.",
-    "batteryPlanTimeline": "Charge plan: solar from {reserve}, top-up from {start}, target full by {deadline}"
+    "batteryPlanTimeline": "Charge plan: solar from {reserve}, top-up from {start}, target full by {deadline}",
+    "batterySunForecast": "sun {minutes}m/{hours}h"
   }
 }

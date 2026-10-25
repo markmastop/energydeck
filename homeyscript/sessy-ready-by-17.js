@@ -12,6 +12,7 @@ const CHARGE_EFFICIENCY = 0.90; // Conservative planning allowance, not a measur
 const RESERVE_FROM_MINUTE = 9 * 60;
 const DEADLINE_MINUTE = 17 * 60;
 const FINISH_MARGIN_MINUTES = 45; // Allow for tapering near full and short control interruptions.
+const CLOUD_ADVANCE_MINUTES = 60; // Cloudy forecasts may start earlier, never later than the no-sun plan.
 
 const variables = Object.values(await Homey.logic.getVariables());
 function variable(name, type) {
@@ -46,6 +47,33 @@ let soc = null;
 let latestStartMinute = null;
 let chargeLimitW = MAX_CHARGE_W;
 let startedMinute = previous?.day === day && Number.isFinite(previous?.startedMinute) ? previous.startedMinute : null;
+let sunMinutes = null, sunWindowMinutes = null, sunAdvanceMinutes = 0;
+
+function sunshineUntil(deadline) {
+  const candidates = variables.filter(v => v.name === 'sessy_sunshine_forecast' && v.type === 'string');
+  if (candidates.length !== 1) return null;
+  let f;
+  try { f = JSON.parse(candidates[0].value); } catch (_) { return null; }
+  const epoch = now.getTime() / 1000;
+  if (f?.version !== 1 || f.valid !== true || f.source !== 'open-meteo' ||
+      !Number.isFinite(f.updatedAt) || epoch - f.updatedAt > 4500 || f.updatedAt - epoch > 30 ||
+      !Array.isArray(f.periods) || !f.periods.length || f.periods.length > 16) return null;
+  let cursor = epoch, total = 0;
+  const end = Math.min(epoch + 10800, epoch + (deadline - minute) * 60, f.periods.at(-1)?.end);
+  if (!Number.isFinite(end) || end - epoch < 900) return null;
+  for (let i = 0; i < f.periods.length; i++) {
+    const p = f.periods[i];
+    if (!Number.isInteger(p.start) || !Number.isInteger(p.end) || p.end - p.start !== 900 ||
+        (i && p.start !== f.periods[i - 1].end) || typeof p.sunMinutes !== 'number' ||
+        !Number.isFinite(p.sunMinutes) || p.sunMinutes < 0 || p.sunMinutes > 15) return null;
+    if (p.end <= cursor || p.start >= end) continue;
+    if (p.start > cursor) return null;
+    const until = Math.min(p.end, end);
+    total += p.sunMinutes * (until - cursor) / 900;
+    cursor = until;
+  }
+  return cursor >= end ? {minutes: total, window: (end - epoch) / 60} : null;
+}
 
 if (enabled.value === true && minute >= RESERVE_FROM_MINUTE && minute < DEADLINE_MINUTE) {
   const device = await Homey.devices.getDevice({id: DEVICE_ID});
@@ -61,8 +89,18 @@ if (enabled.value === true && minute >= RESERVE_FROM_MINUTE && minute < DEADLINE
   }
   if (Number.isFinite(configuredLimit)) chargeLimitW = Math.min(MAX_CHARGE_W, configuredLimit);
   const inputKwh = CAPACITY_KWH * (100 - soc) / 100 / CHARGE_EFFICIENCY;
-  latestStartMinute = DEADLINE_MINUTE - FINISH_MARGIN_MINUTES - inputKwh / (TOP_UP_W / 1000) * 60;
-  toppingUp = soc < 100 && (latchedToday || minute >= latestStartMinute);
+  const noSunStart = DEADLINE_MINUTE - FINISH_MARGIN_MINUTES - inputKwh / (TOP_UP_W / 1000) * 60;
+  const sunshine = sunshineUntil(DEADLINE_MINUTE);
+  if (sunshine) {
+    sunMinutes = Math.round(sunshine.minutes);
+    sunWindowMinutes = Math.round(sunshine.window);
+    // Sunshine minutes are not PV kWh. Only use cloudiness as extra lead time;
+    // even a completely wrong sunny forecast cannot delay the safe latest start.
+    sunAdvanceMinutes = Math.round(CLOUD_ADVANCE_MINUTES * Math.max(0, 1 - sunshine.minutes / sunshine.window / 0.5));
+  }
+  latestStartMinute = Math.max(RESERVE_FROM_MINUTE, noSunStart - sunAdvanceMinutes);
+  const pauseForSun = latchedToday && sunshine && sunshine.minutes / sunshine.window >= 0.5 && minute < noSunStart - 15;
+  toppingUp = soc < 100 && ((latchedToday && !pauseForSun) || minute >= latestStartMinute);
   if (toppingUp) {
     if (!latchedToday || startedMinute === null) startedMinute = minute;
     // Negative target watts mean charging. The latch avoids cycling whenever
@@ -89,6 +127,7 @@ await Homey.logic.updateVariable({id: target.id, variable: {value: watts}});
 // normal control (for example a manual override) through snapshot expiry.
 const plan = JSON.stringify({version: 1, day, updatedAt: Math.floor(now.getTime() / 60000) * 60,
   enabled: enabled.value === true, phase: reason, capacityKwh: CAPACITY_KWH,
+  sunMinutes, sunWindowMinutes, sunAdvanceMinutes,
   topUpW: TOP_UP_W, targetPercent: 100, reserveMinute: RESERVE_FROM_MINUTE,
   deadlineMinute: DEADLINE_MINUTE,
   startMinute: toppingUp || reason === 'full-reserve' || reason === 'normal' ?

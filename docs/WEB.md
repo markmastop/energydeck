@@ -202,9 +202,9 @@ Net grid power is negative for export. Sessy battery power is negative while cha
 
 The battery card can also read `HOMEY_BATTERY_PLAN_VARIABLE_ID`. It visualizes
 the controller's current start/target times and top-up limit, matching the ESP
-card. The former separate EV card is a compact footer in the wider battery
-card; the existing charge/stop button, readiness checks and status messages
-remain available. Stored kWh is an estimate from SoC and configured capacity. Missing/stale
+card. Valid local sunshine forecasts add expected sunshine minutes and the
+remaining forecast window to the plan status. The EV card stays beside it with the existing charge/stop button,
+readiness checks and status messages available. Stored kWh is an estimate from SoC and configured capacity. Missing/stale
 plans never replace live battery measurements. See [the snapshot contract and
 installation](SESSY-READY-BY-17.md).
 

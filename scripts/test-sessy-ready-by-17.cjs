@@ -13,6 +13,7 @@ async function run(local, options = {}) {
   });
   if ('enabled' in options) vars.enabled.value = options.enabled;
   if ('demand' in options) vars.demand.value = options.demand;
+  if ('sun' in options) vars.sun = {id:'sun', name:'sessy_sunshine_forecast', type:'string', value:JSON.stringify(options.sun)};
   const writes = [];
   const Homey = {
     logic: {
@@ -32,6 +33,25 @@ async function run(local, options = {}) {
 (async () => {
   const date = '2026-10-25';
   const at = time => `${date}T${time}:00+01:00`;
+  const sunshine = (instant, fraction=0) => {
+    const epoch=Date.parse(instant)/1000, start=Math.floor(epoch/900)*900;
+    return {version:1, valid:true, source:'open-meteo', updatedAt:epoch,
+      periods:Array.from({length:13},(_,i)=>({start:start+i*900,end:start+(i+1)*900,sunMinutes:15*fraction}))};
+  };
+  const cloudy = await run(at('12:30'), {sun:sunshine(at('12:30'))});
+  assert.equal(cloudy.result.targetW, -1000, 'A dark forecast starts top-up one hour earlier');
+  assert.equal(JSON.parse(cloudy.vars.plan.value).sunAdvanceMinutes,60);
+  const sunny = await run(at('12:30'), {sun:sunshine(at('12:30'),1)});
+  assert.equal(sunny.result.targetW,0, 'Sunny forecast leaves room for actual solar until the safe latest start');
+  const paused = await run(at('12:31'), {soc:55,vars:cloudy.vars,sun:sunshine(at('12:31'),1)});
+  assert.equal(paused.result.targetW,0, 'A newly sunny forecast may pause an early top-up with deadline headroom');
+  assert.equal((await run(at('13:29'),{sun:sunshine(at('13:29'),1)})).result.targetW,-1000,
+    'An optimistic forecast never postpones the no-sun safety start');
+  const stale=sunshine(at('12:30'));stale.updatedAt-=4501;
+  assert.equal((await run(at('12:30'),{sun:stale})).result.targetW,0,'Stale forecast cannot advance charging');
+  assert.equal((await run(at('12:30'),{sun:{...stale,updatedAt:Date.parse(at('12:30'))/1000,valid:false}})).result.targetW,0);
+  const late=JSON.parse((await run(at('16:30'),{soc:99,sun:sunshine(at('16:30'),1)})).vars.plan.value);
+  assert.equal(late.sunWindowMinutes,30,'Sunshine after 17:00 is excluded');
   assert.equal((await run(at('08:59'))).result.targetW, 600, 'Night/morning control is retained');
   assert.equal((await run(at('09:00'))).result.targetW, 0, 'Reserve starts at 09:00');
   assert.equal((await run(at('12:00'), {demand: -1800})).result.targetW, -200, 'Solar still charges');
@@ -92,6 +112,17 @@ async function run(local, options = {}) {
     assert.equal(soc, 100, `${initial}% starting SoC must reach full without sunlight`);
     if (initial < 100) assert.ok(firstCharge >= 10 * 60 + 42, 'Start in time for a 1 kW winter top-up');
     else assert.equal(firstCharge, null, 'A full battery must not be grid-charged');
+  }
+  // An entirely wrong sunny forecast must still meet the original no-sun goal.
+  for(const fraction of [0,1]) {
+    let soc=0, vars;
+    for(let m=540;m<1020;m++) {
+      const instant=at(`${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`);
+      const r=await run(instant,{soc:Math.floor(soc+1e-8),vars,sun:sunshine(instant,fraction)});vars=r.vars;
+      const input=Math.min(Math.max(0,-r.result.targetW),soc>=95?500:1000);
+      soc=Math.min(100,soc+input/1000/60*.9/5*100);
+    }
+    assert.equal(soc,100,`No-sun completion despite a ${fraction?'wrong sunny':'dark'} forecast`);
   }
   console.log('PASS: Sessy solar priority, reserve, deadline, latch, full stop, disable, errors, DST, and five no-sun/taper day simulations');
 })().catch(error => { console.error(error); process.exitCode = 1; });

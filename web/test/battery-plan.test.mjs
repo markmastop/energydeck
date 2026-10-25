@@ -30,6 +30,16 @@ test('stopped/manual controller, midnight, invalid and future plans are never sh
   }
 });
 
+test('sunshine is optional and invalid forecast detail does not hide a valid safe plan', () => {
+  const sunny = batteryPlan({...plan, sunMinutes:11, sunWindowMinutes:180, sunAdvanceMinutes:53}, now);
+  assert.equal(sunny.sunMinutes,11);
+  assert.equal(sunny.sunAdvanceMinutes,53);
+  assert.equal(batteryPlan(plan,now).sunMinutes,null,'Older controller snapshots remain readable');
+  const bad = batteryPlan({...plan, sunMinutes:190, sunWindowMinutes:180},now);
+  assert.equal(bad.startMinute,809);
+  assert.equal(bad.sunMinutes,null);
+});
+
 test('plan fetch is restricted, private, and independent from live battery availability', async () => {
   const config = configuration({ENERGYDECK_WEB_ACCESS_CODE:'012345', HOMEY_ADDRESS:'http://homey.test',
     HOMEY_TOKEN:'secret-test-token', HOMEY_SESSY_DEVICE_ID:'battery', HOMEY_BATTERY_PLAN_VARIABLE_ID:'plan'});

@@ -11,6 +11,10 @@ int main() {
   assert(!p.valid(200, 1792931369, "2026-10-25"));
   assert(p.position(540, 268) == 0 && p.position(1020, 268) == 268);
   assert(p.position(809, 268) == 150);
+  p.set_sunshine(11,180);
+  assert(p.sun_minutes == 11 && p.sun_window == 180);
+  p.set_sunshine(190,180);
+  assert(std::isnan(p.sun_minutes) && p.known);
   assert(!p.set(1, "2026-10-25", 1792931400, true, "made-up", 5, 1000, 100, 540, 1020, 809, 100));
   assert(!p.known);
   assert(!p.set(1, "2026-10-25", 1792931400, true, "grid-top-up", 5, 1000, 100, 540, 1020, 1100, 100));

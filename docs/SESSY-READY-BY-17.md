@@ -18,8 +18,8 @@ a second independently scheduled controller.
   retains its existing power setting.
 - Planning assumes 5 kWh usable capacity and a conservative **90% charging
   efficiency**. This is a planning allowance, not measured battery efficiency.
-- Once started, top-up stays latched until 100% or 17:00. Integer SoC changes
-  must not repeatedly stop/restart charging.
+- Once started, top-up stays latched until 100% or 17:00, except for the
+  forecast-based solar pause below. Integer SoC changes do not restart charging.
 - At 100%, the target becomes zero and the reserve is held until 17:00.
 - At 17:00, existing normal control resumes immediately; the forced negative
   target is removed from the smoothing history. A new calendar day clears the
@@ -37,6 +37,28 @@ power, or stronger-than-assumed tapering can prevent it. The script refuses to
 charge when the reported device is unavailable/faulted, SoC is invalid, or its
 configured charging limit is below the planning limit.
 
+## Local sunshine forecast
+
+The existing hourly `fetchExpectedSunshineComingHours` HomeyScript now publishes
+local Open-Meteo sunshine intervals to `sessy_sunshine_forecast`. It explicitly
+converts seconds to minutes and uses Unix quarter-hour timestamps across midnight
+and daylight-saving transitions. The legacy `ExpectedSunshineMinutes` variable
+remains available. No extra schedule is added.
+
+The controller considers the remaining next three hours, clipped to 17:00 and
+the available forecast. A forecast must be valid, no more than 75 minutes old,
+and cover at least 15 minutes. Little sunshine advances grid top-up by up to
+60 minutes; sunshine for at least half the window keeps the original no-sun
+latest start. Intermediate forecasts interpolate that advance. A sunny forecast
+can pause an early top-up while more than 15 minutes remain before the no-sun
+latest start. The actual SoC keeps determining that safe start: predicted sunshine
+never postpones it. Missing, failed or expired forecasts retain the original
+no-sun policy.
+
+Sunshine minutes are not predicted PV kWh. The separate NED-derived day value is
+not used for battery control. This policy adds a conservative weather signal
+without assuming that sunlight will cover household demand or charge the battery.
+
 ## Existing Flow integration
 
 The installer replaces only the normal `sessy_doel_vermogen` smoothing action
@@ -53,13 +75,14 @@ charging below 3%; the normal loop reevaluates every ten seconds. Existing
 price restrictions on evening discharge also remain, so full at 17:00 does
 not imply forced discharge starting exactly at 17:00.
 
-Three Logic variables control/publish the feature:
+Four Logic variables control/publish the feature:
 
 | Variable | Type | Purpose |
 | --- | --- | --- |
 | `sessy_ready_by_17_enabled` | Boolean | Set false to restore normal target calculation |
 | `sessy_ready_by_17_state` | String | Date and top-up latch; managed by the script |
 | `sessy_ready_by_17_plan` | String | Read-only controller snapshot for the display and web card |
+| `sessy_sunshine_forecast` | String | Optional validated local sunshine intervals |
 
 Disabling the feature clears the latch on the next normal loop and removes
 the forced charging target. The controller does not change price scripts,
@@ -75,12 +98,19 @@ Advanced Flows. The installer does not expand permissions or change the key.
 python3 scripts/install-sessy-ready-by-17.py          # read-only preview
 python3 scripts/install-sessy-ready-by-17.py --apply  # install and enable
 python3 scripts/install-sessy-ready-by-17.py --apply --configure-readers
+python3 scripts/install-sessy-ready-by-17.py --apply --with-sunshine
 ```
 
-The last command also saves `HOMEY_BATTERY_PLAN_VARIABLE_ID` in the local `.env`
+The `--configure-readers` command also saves `HOMEY_BATTERY_PLAN_VARIABLE_ID` in the local `.env`
 without changing credentials. Restart the web server to load it. Rebuild the
 display firmware with that configuration; a simulator build does not update
 physical displays.
+
+The `--with-sunshine` option updates the existing forecast script in place using
+weather coordinates from the local `.env`, verifies its saved source, and stores
+a private source backup under `build/homey-backups/`. Its hourly schedule remains.
+Restoring the Flow below does not restore the forecast script; its original source
+can be recovered separately from that private backup in HomeyScript.
 
 Installation verifies the existing target calculation and battery identity,
 creates missing variables (initially disabled), stores a private exact Flow
@@ -101,13 +131,15 @@ read-back. Keep the private backup local; do not commit it.
 
 ```sh
 node scripts/test-sessy-ready-by-17.cjs
+node scripts/test-sessy-sunshine.cjs
 python3 scripts/test-sessy-ready-by-17-install.py
 ```
 
 Tests exercise the production HomeyScript with isolated fake devices and Logic
 variables, including full-day no-sun simulations at five starting charge levels
 with 500 W tapering during the final 5%, DST, latching, full stop, disable,
-rollover, errors, and preservation of existing Flow guards/manual commands.
+rollover, errors, cloudy/sunny/expired forecasts, incorrectly optimistic full-day
+forecasts, sunshine units and partial quarters, and preservation of existing Flow guards/manual commands.
 Simulation results do not establish real battery completion at 17:00.
 
 The ESP and web app show the same read-only charge-plan card: measured SoC and
@@ -117,13 +149,16 @@ target time, solar-first/active-top-up/full-reserve/normal/off status, and a
 top-up window, and a white marker the current Amsterdam clock time. These are
 planning windows, not measured energy-source histories or a guarantee of full
 charge. The start stays fixed once top-up begins rather than sliding forward
-as SoC rises. The battery card spans the combined former battery/EV area. EV status,
-charging details and the existing charge/stop button remain available in its
-compact bottom strip; the lower cards and shared header stay in place.
+as SoC rises. Valid forecasts add compact sunshine minutes/window information.
+The battery uses the original large-percentage card with the EV card to its
+right. Vehicle status, charging details and the existing charge/stop button
+remain available; the lower cards and shared header stay in place.
 
 The controller publishes version 1 JSON with `day`, epoch-seconds `updatedAt`,
 `enabled`, `phase`, `capacityKwh`, `topUpW`, `targetPercent`, `reserveMinute`,
-`deadlineMinute` and nullable `startMinute`. Consumers validate the schema, the
+`deadlineMinute` and nullable `startMinute`. Optional `sunMinutes`,
+`sunWindowMinutes` and `sunAdvanceMinutes` describe the forecast used. Invalid
+optional forecast data does not invalidate an otherwise valid plan. Consumers validate the schema, the
 Amsterdam date and a maximum age of three minutes (up to 30 seconds clock skew).
 The ESP polls the configured variable every minute. The web server reads it
 through its existing bounded, authenticated Homey worker pool and subscribes
@@ -164,3 +199,18 @@ a native LVGL capture. The web card was inspected in a mobile browser with demo
 data. All 80 web tests passed, alongside the HomeyScript simulations, offline
 Flow migration tests, native plan validation/expiry/geometry checks and all
 nine compact-card navigation combinations. Physical displays were not flashed.
+
+### Forecast and original card verified on 2026-10-25
+
+The updated forecast script and controller were installed and read back from
+Homey. One forecast refresh succeeded; the regular battery loop subsequently
+published a plan with 8 sunshine minutes over 180 minutes and a 55-minute advance.
+This is a changing live snapshot, not a fixed daily start time. No charging Flow
+was manually triggered for UI verification.
+
+The original large-percentage battery card and separate EV card on its right
+were restored on both clients. The native production widgets/render lambda were
+visually inspected, the display simulator built successfully, and all 81 web
+tests passed. Forecast/controller simulations, installer tests, native validation
+and nine navigation combinations passed. Physical displays were not flashed;
+real completion at 17:00 remains to be observed.

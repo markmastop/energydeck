@@ -449,8 +449,8 @@ h2 {
   color:var(--muted);
   font-size:10px;
 }
-.battery-panel {
-  grid-column:span 6;
+.battery-panel,.charger-panel {
+  grid-column:span 3;
 }
 .battery-heading {
   display:flex;
@@ -697,7 +697,10 @@ footer {
     padding-bottom:4px;
   }
   .battery-panel {
-    grid-column:span 4;
+    grid-column:span 2;
+  }
+  .charger-panel {
+    grid-column:span 2;
   }
   .climate-panel {
     grid-column:span 4;
@@ -814,7 +817,7 @@ footer {
   .stat small {
     font-size:10px;
   }
-  .battery-panel {
+  .battery-panel,.charger-panel {
     grid-column:span 6;
   }
   .battery-heading {
@@ -862,13 +865,3 @@ footer {
     }
   }
 }
-
-/* The battery uses the former EV card space; charging remains in its footer. */
-.battery-ev-strip { border-top:1px solid var(--border); margin-top:16px; padding-top:16px; display:flex; align-items:center; justify-content:space-between; gap:16px; }
-.battery-ev-copy { min-width:0; }
-.battery-ev-copy h3 { margin:0 0 6px; font-size:10px; color:var(--muted); font-weight:500; }
-.battery-ev-copy strong { font-size:13px; font-weight:500; }
-.battery-ev-copy p { margin:6px 0 0; font-size:10px; }
-.battery-ev-action { display:flex; flex-direction:column; align-items:flex-end; gap:8px; flex-shrink:0; }
-.battery-ev-action #charge-message { font-size:9px; max-width:150px; text-align:right; }
-@media(max-width:380px) { .battery-ev-strip { gap:10px; } .battery-ev-action .action-button { padding:10px 12px; } }

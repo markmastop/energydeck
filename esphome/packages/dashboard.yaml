@@ -1485,7 +1485,7 @@ lvgl:
             id: battery_card
             x: 14
             y: 440
-            width: 452
+            width: 294
             height: 126
             radius: 8
             bg_color: 0x0F1712
@@ -1497,54 +1497,52 @@ lvgl:
             - label:
                 id: battery_card_title
                 x: 12
-                y: 10
+                y: 8
                 text: ${battery_title}
-                text_font: montserrat_12
+                text_font: montserrat_14
                 text_color: 0xEEF6F0
-                width: 98
-                long_mode: DOT
             - label:
                 id: battery_status_label
-                x: 290
-                y: 12
+                x: 120
+                y: 10
                 text: ${battery_status}
                 text_font: montserrat_10
                 text_color: 0x3AA7D8
-                width: 150
+                width: 160
                 long_mode: DOT
                 text_align: RIGHT
             - label:
                 id: battery_percentage_label
-                x: 117
-                y: 5
+                x: 12
+                y: 29
                 text: --%
-                text_font: montserrat_24
+                text_font: montserrat_28
                 text_color: 0xEEF6F0
             - label:
                 id: battery_energy_label
-                x: 186
-                y: 12
+                x: 107
+                y: 31
                 text: -- / -- kWh
-                text_font: montserrat_10
+                text_font: montserrat_12
                 text_color: 0xA9B8AE
-                width: 110
+                width: 174
                 long_mode: DOT
-                text_align: LEFT
+                text_align: RIGHT
             - label:
                 id: battery_goal_label
-                x: 12
+                x: 107
                 y: 48
                 text: --
                 text_font: montserrat_10
                 text_color: 0x48BD70
-                width: 130
+                width: 174
                 long_mode: DOT
-                text_align: LEFT
+                text_align: RIGHT
             - bar:
                 id: battery_level_bar
                 x: 12
-                y: 34
-                width: 428
+                y: 65
+                width: 268
                 height: 6
                 value: 0
                 radius: 3
@@ -1552,20 +1550,19 @@ lvgl:
                   bg_color: 0x48BD70
             - label:
                 id: battery_plan_label
-                x: 144
-                y: 48
+                x: 12
+                y: 77
                 text: ${battery_plan_unavailable}
                 text_font: montserrat_10
                 text_color: 0xA9B8AE
-                width: 296
+                width: 268
                 long_mode: DOT
-                text_align: RIGHT
             - obj:
                 id: battery_plan_track
                 hidden: true
                 x: 12
-                y: 80
-                width: 428
+                y: 96
+                width: 268
                 height: 5
                 bg_color: 0x26362D
                 border_width: 0
@@ -1576,8 +1573,8 @@ lvgl:
                 id: battery_plan_solar
                 hidden: true
                 x: 12
-                y: 80
-                width: 214
+                y: 96
+                width: 134
                 height: 5
                 bg_color: 0x48BD70
                 border_width: 0
@@ -1587,9 +1584,9 @@ lvgl:
             - obj:
                 id: battery_plan_topup
                 hidden: true
-                x: 226
-                y: 80
-                width: 214
+                x: 146
+                y: 96
+                width: 134
                 height: 5
                 bg_color: 0x3AA7D8
                 border_width: 0
@@ -1600,7 +1597,7 @@ lvgl:
                 id: battery_plan_now
                 hidden: true
                 x: 12
-                y: 77
+                y: 93
                 width: 2
                 height: 11
                 bg_color: 0xEEF6F0
@@ -1612,7 +1609,7 @@ lvgl:
                 id: battery_plan_reserve_label
                 hidden: true
                 x: 12
-                y: 64
+                y: 106
                 text: --:--
                 text_font: montserrat_10
                 text_color: 0xA9B8AE
@@ -1621,8 +1618,8 @@ lvgl:
             - label:
                 id: battery_plan_start_label
                 hidden: true
-                x: 171
-                y: 64
+                x: 85
+                y: 106
                 text: --:--
                 text_font: montserrat_10
                 text_color: 0xA9B8AE
@@ -1632,49 +1629,51 @@ lvgl:
             - label:
                 id: battery_plan_deadline_label
                 hidden: true
-                x: 385
-                y: 64
+                x: 225
+                y: 106
                 text: --:--
                 text_font: montserrat_10
                 text_color: 0xA9B8AE
                 width: 55
                 long_mode: DOT
                 text_align: RIGHT
-            - obj:
-                id: battery_ev_divider
-                x: 12
-                y: 90
-                width: 294
-                height: 1
-                bg_color: 0x26362D
-                border_width: 0
-                pad_all: 0
-                scrollable: false
+        - obj:
+            x: 318
+            y: 440
+            width: 148
+            height: 126
+            radius: 8
+            bg_color: 0x0F1712
+            border_color: 0x343A37
+            border_width: 1
+            pad_all: 0
+            scrollable: false
+            widgets:
             - label:
                 id: ev_status_label
                 x: 12
-                y: 103
+                y: 10
                 text: ${car_checking}
                 text_color: 0xF0F5FF
-                width: 145
-                height: 14
-                text_font: montserrat_10
-                long_mode: DOT
+                width: 124
+                height: 30
+                text_font: montserrat_12
+                long_mode: WRAP
             - label:
                 id: ev_detail_label
-                x: 164
-                y: 103
+                x: 12
+                y: 43
                 text: ${car_try_again}
                 text_color: 0xB7C7DD
-                width: 142
-                height: 14
-                text_font: montserrat_10
-                long_mode: DOT
+                width: 124
+                height: 30
+                text_font: montserrat_12
+                long_mode: WRAP
             - button:
                 id: force_charge_button
                 pad_all: 0
-                x: 316
-                y: 90
+                x: 12
+                y: 81
                 width: 124
                 height: 34
                 radius: 6
@@ -1698,7 +1697,6 @@ lvgl:
                       disabled: true
                 - delay: 100ms
                 - script.execute: trigger_charge_advanced_flow
-                text_font: montserrat_12
 
         - obj:
             id: gas_card

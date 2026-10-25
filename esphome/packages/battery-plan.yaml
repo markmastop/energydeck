@@ -48,11 +48,14 @@ script:
                             for (const char *name : {"capacityKwh", "topUpW", "targetPercent", "reserveMinute", "deadlineMinute"})
                               if (!p[name].is<float>()) return false;
                             if (!p["startMinute"].isNull() && !p["startMinute"].is<float>()) return false;
-                            return id(battery_plan).set(p["version"] | 0, p["day"].as<std::string>(),
+                            const bool valid = id(battery_plan).set(p["version"] | 0, p["day"].as<std::string>(),
                               p["updatedAt"].as<uint32_t>(), p["enabled"].as<bool>(), p["phase"].as<std::string>(),
                               p["capacityKwh"].as<float>(), p["topUpW"].as<float>(), p["targetPercent"].as<float>(),
                               p["reserveMinute"].as<float>(), p["deadlineMinute"].as<float>(),
                               p["startMinute"].isNull() ? NAN : p["startMinute"].as<float>(), millis());
+                            if (valid && p["sunMinutes"].is<float>() && p["sunWindowMinutes"].is<float>())
+                              id(battery_plan).set_sunshine(p["sunMinutes"].as<float>(), p["sunWindowMinutes"].as<float>());
+                            return valid;
                           });
                         });
                     - script.execute: render_battery_plan
@@ -93,18 +96,24 @@ script:
           else if (p.phase == "full-reserve") set_text_fmt(id(battery_plan_label), "${battery_plan_reserve}", deadline);
           else if (p.phase == "normal") set_text(id(battery_plan_label), "${battery_plan_normal}");
           else set_text_fmt(id(battery_plan_label), "${battery_plan_solar}", std::isfinite(p.start) ? start : "--:--");
+          if (known && p.enabled && std::isfinite(p.sun_minutes)) {
+            std::string label = lv_label_get_text(id(battery_plan_label));
+            char sunshine[48];
+            snprintf(sunshine, sizeof(sunshine), "${battery_sun_forecast_format}", p.sun_minutes, p.sun_window / 60);
+            label += sunshine;
+            set_text(id(battery_plan_label), label.c_str());
+          }
           for (auto *o : {id(battery_plan_track), id(battery_plan_solar), id(battery_plan_topup), id(battery_plan_now),
               id(battery_plan_reserve_label), id(battery_plan_start_label), id(battery_plan_deadline_label)}) {
             if (known && p.enabled) lv_obj_clear_flag(o, LV_OBJ_FLAG_HIDDEN);
             else lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
           }
           if (!known || !p.enabled) return;
-          const int width = lv_obj_get_width(id(battery_plan_track));
-          const int x = std::isfinite(p.start) ? p.position(p.start, width) : width;
+          const int x = std::isfinite(p.start) ? p.position(p.start, 268) : 268;
           lv_obj_set_width(id(battery_plan_solar), x);
           lv_obj_set_x(id(battery_plan_topup), 12 + x);
-          lv_obj_set_width(id(battery_plan_topup), width - x);
-          lv_obj_set_x(id(battery_plan_now), 12 + p.position(time.hour * 60 + time.minute, width));
+          lv_obj_set_width(id(battery_plan_topup), 268 - x);
+          lv_obj_set_x(id(battery_plan_now), 12 + p.position(time.hour * 60 + time.minute, 268));
           set_text(id(battery_plan_reserve_label), reserve);
           set_text(id(battery_plan_start_label), std::isfinite(p.start) ? start : "");
           set_text(id(battery_plan_deadline_label), deadline);

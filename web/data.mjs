@@ -229,6 +229,6 @@ function demoData(config, now) {
     gas: device({ meter_m3_this_day: .83, meter_m3_last_day: 1.2, meter_m3_this_month: 24.8, meter_m3_this_year: 382.6 }),
     controller: { ...device({ honeywell_thermostat_mode: 'Auto' }), driverId: 'homey:app:com.honeywell:thermostat' } }, rooms, { today: day(0), tomorrow: day(1) }, config, now, {version: 1, day: localDay(now), updatedAt: Math.floor(now.getTime()/1000),
       enabled: true, phase: 'solar-and-reserve', capacityKwh: 5, topUpW: 1000, targetPercent: 100,
-      reserveMinute: 540, deadlineMinute: 1020, startMinute: 888}),
+      reserveMinute: 540, deadlineMinute: 1020, startMinute: 828, sunMinutes: 0, sunWindowMinutes: 180, sunAdvanceMinutes: 60}),
     demo: true, status: 'demo', errors: [], updatedAt: now.toISOString(), day: localDay(now) };
 }

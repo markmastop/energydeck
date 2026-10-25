@@ -123,6 +123,10 @@ function render() {
   text('battery-energy', plan && data.battery.percentage !== null ? `${format(plan.capacityKwh * data.battery.percentage / 100)} / ${format(plan.capacityKwh)} kWh` : '—');
   text('battery-goal', plan?.enabled ? `${t('batteryGoal')} ${planClock(plan.deadlineMinute)}` : '—');
   text('battery-plan-status', `${t(view.label).replace('{time}', planClock(plan?.deadlineMinute ?? null))}${view.label === 'batteryPlanSolar' && plan?.startMinute !== null ? ` ${planClock(plan.startMinute)}` : ''}`);
+  if (plan?.enabled && plan.sunMinutes !== null) {
+    const sunshine = t('batterySunForecast').replace('{minutes}', format(plan.sunMinutes, 0)).replace('{hours}', format(plan.sunWindowMinutes / 60));
+    text('battery-plan-status', `${$('battery-plan-status').textContent} · ${sunshine}`);
+  }
   text('battery-plan-rate', plan?.enabled ? `${t('batteryPlanRate')} ${format(plan.topUpW / 1000)} kW` : '');
   $('battery-timeline').hidden = !plan?.enabled;
   if (plan?.enabled) {

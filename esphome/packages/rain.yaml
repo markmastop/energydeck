@@ -47,11 +47,8 @@ script:
           char outlook[100];
           // ASCII separator: the bundled Montserrat font lacks the middle dot.
           snprintf(outlook, sizeof(outlook), "%s | %s", id(rain_outlook).c_str(), sunshine);
-          // Prefer the larger type, but keep long Dutch/English forecasts on one line.
-          lv_point_t size;
-          lv_text_get_size(&size, outlook, &lv_font_montserrat_12, 0, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
-          lv_obj_set_style_text_font(id(weather_rain_label),
-            size.x <= 232 ? &lv_font_montserrat_12 : &lv_font_montserrat_10, LV_PART_MAIN);
+          // Keep the summary secondary to the chart, even for short dry messages.
+          lv_obj_set_style_text_font(id(weather_rain_label), &lv_font_montserrat_10, LV_PART_MAIN);
           esphome::ui_performance::set_text(id(weather_rain_label), outlook);
           esphome::ui_performance::set_style_text_color(id(weather_rain_label),
             lv_color_hex(id(rain_has_rain) ? 0x3AA7D8 : sun > 0 ? 0xFFD35A : 0xA9B8AE), LV_PART_MAIN);

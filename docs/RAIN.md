@@ -39,6 +39,13 @@ intensity captions with subtle fixed-band guides and uses smaller source text.
 This display layout is intentionally ahead of the web layout at the user's
 request; the web redesign is deferred. Both still interpret the same forecasts.
 
+The display outlook uses a fixed 10 px font so short dry messages do not dominate
+the chart. A physical visual review can use a temporary firmware fixture marked
+`DEMO`, including fictional rain and sunshine. Such a fixture must expire after
+ten minutes, restore the real source caption and refresh the real rain feed. It
+must not change Homey variables, battery planning or real forecast caches. Normal
+production firmware does not start a weather demo.
+
 The current-weather icon follows Homey's current condition independently of the
 forecast. Cloud, rain, snow and fog hide the decorative sun; clear and explicitly
 partly cloudy conditions may show it. This prevents a cloudy reading from always

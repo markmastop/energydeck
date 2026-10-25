@@ -2696,7 +2696,7 @@ lvgl:
                   width: 232
                   text_align: LEFT
                   text: "${weather_rain_unknown}"
-                  text_font: montserrat_12
+                  text_font: montserrat_10
                   text_color: 0x3AA7D8
               - obj:
                   id: rain_chart

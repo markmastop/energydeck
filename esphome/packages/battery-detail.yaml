@@ -13,6 +13,16 @@ esphome:
     priority: -100
     then:
       - lambda: |-
+          // The LVGL focus/pressed theme can draw a frame despite border_width: 0.
+          // Keep the 44px touch target while making every arrow state flat.
+          for (auto state : {LV_STATE_DEFAULT, LV_STATE_PRESSED, LV_STATE_FOCUSED, LV_STATE_FOCUS_KEY,
+              static_cast<lv_state_t>(LV_STATE_FOCUSED | LV_STATE_PRESSED),
+              static_cast<lv_state_t>(LV_STATE_FOCUSED | LV_STATE_FOCUS_KEY)}) {
+            lv_obj_set_style_border_width(id(battery_detail_back), 0, state);
+            lv_obj_set_style_outline_width(id(battery_detail_back), 0, state);
+            lv_obj_set_style_shadow_width(id(battery_detail_back), 0, state);
+            lv_obj_set_style_bg_opa(id(battery_detail_back), LV_OPA_TRANSP, state);
+          }
           // The battery card has no embedded controls. Let all child labels,
           // bars and forecast marks pass taps through to its single action.
           auto passthrough = [](auto &&self, lv_obj_t *parent) -> void {

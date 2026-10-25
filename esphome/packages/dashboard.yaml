@@ -8,7 +8,7 @@ interval:
           // Initialize after LVGL setup; alignment persists across text updates.
           static bool aligned = false;
           if (aligned) return;
-          lv_obj_t *buttons[] = {id(force_charge_button), id(music_back), id(energy_back), id(climate_back),
+          lv_obj_t *buttons[] = {id(force_charge_button), id(battery_detail_back), id(music_back), id(energy_back), id(climate_back),
             id(small_music_room_select), id(small_music_minus),
             id(small_music_plus), id(small_music_play),
             id(music_previous), id(music_next), id(music_mute),

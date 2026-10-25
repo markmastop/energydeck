@@ -102,7 +102,21 @@ main {
   align-items:center;
   justify-content:space-between;
   gap:15px;
-  margin-bottom:24px;
+  margin-bottom:16px;
+}
+.dashboard-date {
+  line-height:1.5;
+}
+.visually-hidden {
+  position:absolute;
+  width:1px;
+  height:1px;
+  padding:0;
+  margin:-1px;
+  overflow:hidden;
+  clip-path:inset(50%);
+  white-space:nowrap;
+  border:0;
 }
 .eyebrow {
   text-transform:uppercase;
@@ -733,15 +747,16 @@ footer {
     padding:26px 16px 12px;
   }
   .page-heading {
-    align-items:flex-start;
-    margin-bottom:20px;
+    align-items:center;
+    gap:10px;
+    margin-bottom:14px;
   }
   h1 {
     font-size:27px;
   }
   .page-heading .status {
     font-size:10px;
-    padding-top:6px;
+    padding-top:0;
     max-width:100px;
     text-align:right;
   }

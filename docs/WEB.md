@@ -4,6 +4,10 @@ The web app reproduces EnergyDeck's household functions in a responsive interfac
 
 ## Pages and display parity
 
+The web masthead shows the EnergyDeck brand once. A compact row below it holds
+the clock, date and Homey connection state on all pages; the dashboard's accessible
+level-one heading is visually hidden to avoid a second visible brand title.
+
 | View | Features |
 | --- | --- |
 | Shared header | Current all-in electricity price, sunrise/sunset, smart net/gas/solar-battery meters and heating/car/battery status on every page. |

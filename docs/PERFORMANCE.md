@@ -215,3 +215,43 @@ literal pools next to their code. This flag is limited to the shared ESP32-S3
 configuration; the native simulator and web app need no equivalent change.
 The assembler spelling is intentional: this ESPHome native ESP-IDF generator
 forwards `-Wa` options but filters general `-m` build flags.
+
+
+## Worker startup memory regression (2026-10-25)
+
+The 5-inch could keep its clock and touch controls running while showing no
+Homey measurements. USB boot logs showed `background_http` marked FAILED: its
+16 KiB internal task stack could not be allocated after LVGL setup. A completed
+polling cycle incorrectly made the Homey badge green even when every read failed.
+
+Reserve all three network-worker stacks before LVGL widget creation (setup
+priority PROCESSOR + 10). Background HTTP and Sonos workers sleep until a job is
+submitted; realtime retains its existing startup delay. Keep the original stack
+sizes: 16 KiB HTTP and 8 KiB each for Sonos and Homey realtime. Log allocation
+failures explicitly. Moving only the HTTP worker earlier displaced the other
+workers; moving all three without freeing internal data storage prevented Wi-Fi
+initialization. Startup order alone was therefore insufficient.
+
+Move the four history sample arrays and the compact RGB565 music thumbnail from
+inline static storage to persistent heap buffers, which use the target's existing
+PSRAM malloc policy. This reduces reported static internal RAM from 208,878 to
+172,198 bytes (36,680 bytes freed), without changing history capacity, geometry or
+image dimensions. The Homey badge now requires a valid grid, solar or battery
+measurement at the end of a fast polling cycle.
+
+The web app needs no corresponding memory change: these are ESP task stacks,
+static data and hardware-specific status publication. Shared data interpretation,
+charging behavior and web layouts remain unchanged.
+
+Verification: simulator, 5-inch and 7-inch firmware builds pass; both generated
+setup frames remain 2,672 bytes against a 4,096-byte budget. History geometry,
+independent buffer copying, battery detail geometry, startup/time-sync paths,
+actual compiled LVGL/HTTP priority checks, the local Homey protocol test and all
+95 web tests pass. A strict-warning battery-detail test build encountered its
+existing unused lambda parameter; that test passes with its normal compiler flags.
+
+The final firmware was installed on the USB-connected 5-inch with flash hash
+verification. Passive serial logs confirmed repeated current energy/Sessy reads,
+18 realtime subscriptions, successful Sonos reads, a v2 proposal with 115 quarters,
+244 measured SoC samples and a successful boot marker after one minute. The
+7-inch was compiled but not uploaded for this repair. No charging Flow was run.

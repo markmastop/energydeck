@@ -155,7 +155,8 @@ image:
               // Keep a separate native-size thumbnail: no shared transformed
               // RGB565 buffer/cache between the large and compact widgets.
               constexpr int thumbnail_side = ${music_compact_cover_size};
-              static uint8_t thumbnail[thumbnail_side * thumbnail_side * 2];
+              // General heap allocations use PSRAM on the physical displays.
+              static std::vector<uint8_t> thumbnail(thumbnail_side * thumbnail_side * 2);
               static lv_image_dsc_t mini;
               lv_image_cache_drop(&mini);
               const auto *source = id(music_cover).get_lv_image_dsc();
@@ -172,8 +173,8 @@ image:
               mini = *source;
               mini.header.w = mini.header.h = thumbnail_side;
               mini.header.stride = thumbnail_side * 2;
-              mini.data_size = sizeof(thumbnail);
-              mini.data = thumbnail;
+              mini.data_size = thumbnail.size();
+              mini.data = thumbnail.data();
               lv_image_set_pivot(id(small_music_cover_widget), 0, 0);
               lv_image_set_scale(id(small_music_cover_widget), 256);
               lv_image_set_src(id(small_music_cover_widget), &mini);

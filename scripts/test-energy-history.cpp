@@ -4,11 +4,19 @@
 #include <iostream>
 using energydeck::LineHistory;
 int main() {
+  // Global model objects stay small; their fixed-capacity samples use PSRAM.
+  static_assert(sizeof(LineHistory) < 128);
   LineHistory power;
   power.day_start = 1000; power.day_end = 1000 + 86400;
   power.date = 20261021; power.loaded = true; power.fetched_at = 100;
   power.add(1000, 2, true); power.add(1300, -1, true);
   assert(power.count == 2 && power.scale(.5f) == 2);
+  LineHistory published = power;
+  published.clear();
+  published = power;
+  power.samples[0].value = 3;
+  assert(published.samples[0].value == 2 && published.count == 2);
+  power.samples[0].value = 2;
   int segments = 0;
   power.segments(true, 2, [&](float x1, float y1, float x2, float y2, bool negative) {
     assert(x1 <= x2 && x1 >= 0 && x2 <= 1);

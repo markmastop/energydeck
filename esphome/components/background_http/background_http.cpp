@@ -2,6 +2,9 @@
 #include "esphome/core/hal.h"
 #include "esphome/core/log.h"
 #include "esphome/components/ui_performance/ui_priority.h"
+#ifdef USE_ESP32
+#include "esp_heap_caps.h"
+#endif
 
 namespace esphome::background_http {
 void BackgroundHttp::setup() {
@@ -9,7 +12,16 @@ void BackgroundHttp::setup() {
   // Keep TLS/decoding on core 0; the display loop runs on core 1. Both workers
   // stay below the foreground loop's task priority and sleep between jobs.
   if (xTaskCreatePinnedToCore([](void *arg) { static_cast<BackgroundHttp *>(arg)->work_(); }, "background_http",
-                              16384, this, 1, &worker_, 0) != pdPASS) mark_failed();
+                              16384, this, 1, &worker_, 0) != pdPASS) {
+    ESP_LOGE("background_http", "Cannot allocate 16384 B worker stack: internal free %u/largest %u B",
+      static_cast<unsigned>(heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)),
+      static_cast<unsigned>(heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)));
+    mark_failed();
+    return;
+  }
+  ESP_LOGI("background_http", "Worker started: 16384 B stack, internal free %u/largest %u B",
+    static_cast<unsigned>(heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)),
+    static_cast<unsigned>(heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)));
 #else
   worker_ = std::thread([this]() { work_(); });
 #endif

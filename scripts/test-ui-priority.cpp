@@ -1,6 +1,8 @@
 // Link the simulator's actual components/LVGL and exercise only synthetic jobs
 // and a loopback HTTP server. No Homey/Sonos/charging commands are used.
 #include "esphome/components/background_http/background_http.h"
+#include "esphome/components/sonos_http/sonos_http.h"
+#include "esphome/components/homey_realtime/homey_realtime.h"
 #include "esphome/components/online_image/online_image.h"
 #include "esphome/components/online_image/station_artwork.h"
 #include "esphome/components/ui_performance/ui_priority.h"
@@ -72,6 +74,10 @@ int main(int argc, char **argv) {
   lv_indev_set_type(input, LV_INDEV_TYPE_POINTER); lv_indev_set_mode(input, LV_INDEV_MODE_EVENT);
   lv_indev_set_read_cb(input, [](lv_indev_t *, lv_indev_data_t *data) { data->point = touch_point; data->state = touch_state; });
   BackgroundHttp http;
+  // Late setup can lose the contiguous 16 KiB stack to UI heap fragmentation.
+  assert(http.get_setup_priority() > setup_priority::PROCESSOR);
+  assert(sonos_http::SonosHttp{}.get_setup_priority() > setup_priority::PROCESSOR);
+  assert(homey_realtime::HomeyRealtime{}.get_setup_priority() > setup_priority::PROCESSOR);
   http.setup();
   pump(http, 200);
   assert(ui_performance::background_allowed());

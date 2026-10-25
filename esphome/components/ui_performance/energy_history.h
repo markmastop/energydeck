@@ -1,6 +1,6 @@
 #pragma once
 #include <algorithm>
-#include <array>
+#include <vector>
 #include <cmath>
 #include <cstdint>
 
@@ -8,7 +8,9 @@ namespace energydeck {
 struct HistorySample { int64_t timestamp{0}; float value{0}; };
 struct LineHistory {
   // A 25-hour DST day has at most 301 five-minute samples including midnight.
-  std::array<HistorySample, 310> samples{};
+  // Heap storage follows the target PSRAM malloc policy; inline static arrays
+  // consume scarce internal RAM needed by Wi-Fi and task stacks.
+  std::vector<HistorySample> samples = std::vector<HistorySample>(310);
   unsigned count{0};
   int date{0};
   int64_t day_start{0}, day_end{0};

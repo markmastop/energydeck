@@ -19,7 +19,9 @@ class BackgroundHttp : public Component {
   void setup() override;
   void loop() override;
   void dump_config() override;
-  float get_setup_priority() const override { return setup_priority::LATE; }
+  // Reserve the contiguous 16 KiB internal task stack before LVGL allocates
+  // hundreds of small widgets. The worker sleeps until a request is submitted.
+  float get_setup_priority() const override { return setup_priority::PROCESSOR + 10; }
   void set_timeout(uint32_t timeout) { timeout_ms_ = timeout; }
   // Priority orders unsent jobs only: controls, data, then artwork. A sent
   // request is never retried or interrupted, especially a possibly applied write.

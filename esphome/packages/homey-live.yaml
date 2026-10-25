@@ -95,8 +95,11 @@ esphome:
       - script.execute: refresh_homey_charger
       - script.wait: refresh_homey_charger
       - lambda: |-
-          esphome::ui_performance::set_text(id(homey_status_label), "${homey_status}");
-          esphome::ui_performance::set_style_text_color(id(homey_status_label), lv_color_hex(0x62D98A), LV_PART_MAIN);
+          const auto &state = id(energy_state);
+          const bool measured = state.grid.valid(millis()) || state.solar.valid(millis()) || state.battery.valid(millis());
+          // Completing a failed request cycle is not proof of a live connection.
+          esphome::ui_performance::set_text(id(homey_status_label), measured ? "${homey_status}" : "${homey_offline}");
+          esphome::ui_performance::set_style_text_color(id(homey_status_label), lv_color_hex(measured ? 0x62D98A : 0xEA665F), LV_PART_MAIN);
       - delay: 500ms
       - script.execute: refresh_homey_electricity_now
       - script.wait: refresh_homey_electricity_now
@@ -321,8 +324,11 @@ script:
       - script.execute: refresh_homey_charger
       - script.wait: refresh_homey_charger
       - lambda: |-
-          esphome::ui_performance::set_text(id(homey_status_label), "${homey_status}");
-          esphome::ui_performance::set_style_text_color(id(homey_status_label), lv_color_hex(0x62D98A), LV_PART_MAIN);
+          const auto &state = id(energy_state);
+          const bool measured = state.grid.valid(millis()) || state.solar.valid(millis()) || state.battery.valid(millis());
+          // Completing a failed request cycle is not proof of a live connection.
+          esphome::ui_performance::set_text(id(homey_status_label), measured ? "${homey_status}" : "${homey_offline}");
+          esphome::ui_performance::set_style_text_color(id(homey_status_label), lv_color_hex(measured ? 0x62D98A : 0xEA665F), LV_PART_MAIN);
 
   - id: refresh_homey_prices
     # SNTP and boot can request prices together. Keep one pending refresh,

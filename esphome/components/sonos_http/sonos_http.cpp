@@ -19,7 +19,12 @@ void SonosHttp::setup() {
   // ESP-IDF uses bytes for task stack sizes. The worker has no LVGL, model,
   // scheduler or shared Homey HTTP state; it sleeps between single requests.
   if (xTaskCreatePinnedToCore([](void *arg) { static_cast<SonosHttp *>(arg)->work_(); }, "sonos_http", 8192,
-                  this, 1, &this->worker_, 0) != pdPASS) this->mark_failed();
+                  this, 1, &this->worker_, 0) != pdPASS) {
+    ESP_LOGE(TAG, "Cannot allocate 8192 B worker stack");
+    this->mark_failed();
+  } else {
+    ESP_LOGI(TAG, "Worker started: 8192 B stack");
+  }
 #else
   this->worker_ = std::thread([this]() { this->work_(); });
 #endif

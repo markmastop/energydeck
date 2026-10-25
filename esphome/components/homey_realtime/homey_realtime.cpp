@@ -31,7 +31,12 @@ void HomeyRealtime::setup() {
   // Socket authentication and receives never run on the touch/LVGL core. The
   // bounded bitmask is the only notification crossing from worker to UI.
   if (xTaskCreatePinnedToCore([](void *arg) { static_cast<HomeyRealtime *>(arg)->work_(); vTaskDelete(nullptr); },
-      "homey_realtime", 8192, this, 1, &worker_, 0) != pdPASS) mark_failed();
+      "homey_realtime", 8192, this, 1, &worker_, 0) != pdPASS) {
+    ESP_LOGE("homey_realtime", "Cannot allocate 8192 B worker stack");
+    mark_failed();
+  } else {
+    ESP_LOGI("homey_realtime", "Worker started: 8192 B stack");
+  }
 #else
   worker_ = std::thread([this]() {
     // OpenSSL may write after the peer closes; block SIGPIPE only on this worker.

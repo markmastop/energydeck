@@ -16,7 +16,8 @@ class SonosHttp : public Component {
  public:
   void setup() override;
   void dump_config() override;
-  float get_setup_priority() const override { return setup_priority::LATE; }
+  // Reserve the internal worker stack before LVGL fragments the heap.
+  float get_setup_priority() const override { return setup_priority::PROCESSOR + 10; }
   bool busy() const { return this->exchange_.busy(); }
   bool ready() const { return this->exchange_.ready(); }
   void submit(const energydeck_sonos::Request &request, uint32_t timeout_ms = 8000);

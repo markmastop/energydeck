@@ -25,7 +25,8 @@ class HomeyRealtime : public Component {
   void loop() override;
   void dump_config() override;
   void on_shutdown() override { stopping_.store(true, std::memory_order_release); }
-  float get_setup_priority() const override { return setup_priority::LATE; }
+  // Reserve the internal worker stack before LVGL fragments the heap.
+  float get_setup_priority() const override { return setup_priority::PROCESSOR + 10; }
 #ifndef USE_ESP32
   ~HomeyRealtime();
 #endif

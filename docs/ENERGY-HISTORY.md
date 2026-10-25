@@ -56,8 +56,10 @@ while Energy is visible. Opening only the main dashboard does not fetch history.
 Existing HTTP worker/timeout limits remain unchanged. No charging, thermostat or
 playback commands are issued.
 
-Samples live in persistent storage and are parsed in place, avoiding large stack
-buffers. Two LVGL draw callbacks render the lines without allocating hundreds of
+Sample vectors retain 310 entries in heap storage and are parsed in place,
+avoiding large stack buffers. The ESP targets direct normal heap allocations to
+PSRAM, keeping global model objects small and preserving internal SRAM for
+Wi-Fi, DMA and worker stacks. Copies retain independent sample data. Two LVGL draw callbacks render the lines without allocating hundreds of
 widgets. Redraws occur on new responses or cache expiry.
 
 ## Verification

@@ -2,7 +2,7 @@ import { initializeDetails } from './details.js';
 import { priceWindow, priceQuarter, priceTime } from './charts.js';
 import { dayComparison } from './display.js';
 import { createLiveUpdates } from './live.js';
-import { batteryPlanView, planClock } from './battery-plan.js';
+import { batteryPlanView, batteryStrategyView, planClock } from './battery-plan.js';
 import { renderForwardBattery } from './battery-forward.js';
 
 const $ = id => document.getElementById(id);
@@ -187,7 +187,7 @@ function svgNode(tag, attributes, label) {
 function drawChart(today, quarter) {
   const chart = $('price-chart'); chart.replaceChildren();
   const chartWidth = Math.max(280, chart.clientWidth || 720);
-  chart.setAttribute('viewBox', `0 0 ${chartWidth} 190`);
+  chart.setAttribute('viewBox', `0 0 ${chartWidth} 255`);
   $('today').setAttribute('aria-pressed', String(selected === 'today'));
   $('tomorrow').setAttribute('aria-pressed', String(selected === 'tomorrow'));
   const tomorrowDate = new Date(`${localDate(new Date())}T12:00:00Z`);
@@ -206,6 +206,7 @@ function drawChart(today, quarter) {
   const warning = day && (day.cached || day.source !== 'homey');
   $('chart-warning').hidden = !warning;
   text('chart-warning', warning ? `${day.cached ? t('cachedPrices') : day.source === 'epexprijzen' ? t('reservePrices') : t('unknownSource')} · ${t('priceWarning')}` : '');
+  text('price-strategy-caption', '');
   if (!day) return;
   const window = priceWindow(day, selected === 'today' ? tomorrow : null, quarter);
   text('price-min', format(window.minimum)); text('price-avg', format(window.average)); text('price-max', format(window.maximum));
@@ -234,6 +235,25 @@ function drawChart(today, quarter) {
   [0, .25, .5, .75, 1].forEach(fraction => chart.append(svgNode('text', {
     x: left + fraction * width, y: 180, 'text-anchor': fraction === 1 ? 'end' : fraction === 0 ? 'start' : 'middle',
   }, priceTime(window.start + Math.round(fraction * window.values.length) * 900000))));
+  const from = window.start / 1000, until = from + window.values.length * 900;
+  const strategy = batteryStrategyView(data.battery.plan, from, until);
+  text('price-strategy-caption', `${t('batteryStrategy')} · ${strategy?.points.length ? t(strategy.plan.mode === 'shadow' ? 'batteryShadow' : 'batteryActivePlan') : t('batteryPlanUnavailable')}`);
+  if (strategy?.points.length) {
+    const x = at => left + (at - from) / (until - from) * width;
+    const sy = soc => 236 - soc / 100 * 35;
+    for (const soc of [0, 100]) chart.append(svgNode('text', {x:0, y:sy(soc)+3, class:'strategy-percent'}, `${soc}%`));
+    for (const q of strategy.segments) {
+      const w = Math.max(.5, x(q.until) - x(q.from));
+      const color = q.action === 'charge' ? '#3aa7d8' : q.action === 'discharge' ? '#e7a052' : '#617064';
+      const phase = svgNode('rect', {x:x(q.from), y:245, width:w, height:5, fill:color});
+      phase.append(svgNode('title', {}, `${priceTime(q.from*1000)} · ${t(`batteryAction${q.action}`)} · ${format(q.socFrom)}–${format(q.socTo)}%`));
+      chart.append(phase);
+      if (q.sun !== null) chart.append(svgNode('rect', {x:x(q.from), y:195, width:q.sun > 0 ? Math.max(.5,w*q.sun) : w, height:2, fill:q.sun > 0 ? '#ffd35a' : '#34443a'}));
+    }
+    chart.append(svgNode('polyline', {points:strategy.points.map(p=>`${x(p.at)},${sy(p.soc)}`).join(' '), fill:'none', stroke:'#48bd70', 'stroke-width':2}));
+    const epoch=Date.now()/1000;
+    if (epoch>=from && epoch<until) chart.append(svgNode('line', {x1:x(epoch),x2:x(epoch),y1:195,y2:250,stroke:'#eef6f0','stroke-width':1}));
+  }
 }
 $('language').addEventListener('click', () => {
   language = language === 'nl' ? 'en' : 'nl';

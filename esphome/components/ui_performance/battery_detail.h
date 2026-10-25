@@ -3,6 +3,20 @@
 #include <algorithm>
 
 namespace energydeck {
+// Price and strategy plots must use the same UTC viewport, including DST days.
+struct BatteryStrategyWindow {
+  int64_t from, until;
+  bool clip(const BatteryPlan::ForwardInterval &q, int64_t &left, int64_t &right) const {
+    left = std::max(from, int64_t(q.from)); right = std::min(until, int64_t(q.until));
+    return until > from && right > left;
+  }
+  int x(int64_t epoch, int width) const {
+    return static_cast<int>(std::round(double(epoch - from) / (until - from) * width));
+  }
+  static float soc(const BatteryPlan::ForwardInterval &q, int64_t epoch) {
+    return q.soc_from + (q.soc_to - q.soc_from) * double(epoch - q.from) / (q.until - q.from);
+  }
+};
 // Shared UTC axis for prices and signed watts. Forecast values are never
 // interpreted as historical measurements. Negative Sessy power means charging.
 struct BatteryDetailGeometry {

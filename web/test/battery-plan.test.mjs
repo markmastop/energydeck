@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {batteryPlan, batteryPlanView, planClock} from '../public/battery-plan.js';
+import {batteryPlan, batteryPlanView, batteryStrategyView, planClock} from '../public/battery-plan.js';
 import {configuration, createDataService} from '../data.mjs';
 import {forwardBatteryPlan, forwardClock} from '../public/battery-plan.js';
 
@@ -100,4 +100,21 @@ test('sunshine quarters share the charge-plan axis and reject malformed optional
     assert.deepEqual(parsed.sunPeriods,[]);
     assert.equal(parsed.startMinute,809,'Invalid sunshine must retain the charging plan');
   }
+});
+
+
+test('price strategy clips UTC windows without fabricating history or stretching forecast',()=>{
+  const view=batteryStrategyView(forward,epoch+450,epoch+1350,now);
+  assert.deepEqual(view.points,[{at:epoch+450,soc:52.25},{at:epoch+900,soc:54.5},{at:epoch+1350,soc:53.25}]);
+  assert.equal(view.segments[0].from,epoch+450);
+  assert.equal(view.segments[0].socFrom,52.25);
+  assert.equal(view.segments[1].until,epoch+1350);
+  for(const hours of [23,24,25]) {
+    const day=batteryStrategyView(forward,epoch-3600,epoch-3600+hours*3600,now);
+    assert.equal(day.points[0].at,epoch);
+    assert.equal(day.points.at(-1).at,epoch+1800);
+  }
+  assert.equal(batteryStrategyView(forward,epoch+1800,epoch+3600,now).points.length,0);
+  assert.equal(batteryStrategyView(forward,epoch,epoch,now),null);
+  assert.equal(batteryStrategyView(forward,epoch,epoch+3600,new Date((epoch+601)*1000)),null);
 });

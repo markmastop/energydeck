@@ -1,5 +1,11 @@
 # Read-only controller snapshot. Missing/stale plan data never hides live SoC.
 globals:
+  - id: battery_price_from
+    type: int64_t
+    initial_value: "0"
+  - id: battery_price_until
+    type: int64_t
+    initial_value: "0"
   - id: battery_plan
     type: energydeck::BatteryPlan
     # Let GlobalsComponent construct the default directly in permanent storage.
@@ -127,6 +133,17 @@ script:
           snprintf(date, sizeof(date), "%04d-%02d-%02d", time.year, time.month, time.day_of_month);
           const bool known = time.is_valid() && p.valid(millis(), time.timestamp, date);
           const bool live = s.battery.valid(millis());
+          // Persistent buffers: LVGL retains the line points after draw returns.
+          const bool strategy_known = known && p.version == 2 && id(battery_price_until) > id(battery_price_from) &&
+                                      p.intervals[0].from < id(battery_price_until) && p.intervals[p.interval_count - 1].until > id(battery_price_from);
+          set_text(id(price_strategy_caption), strategy_known ? (p.shadow ? "${battery_strategy} | ${battery_forward_shadow}" : "${battery_strategy} | ${battery_forward_active}") : "${battery_plan_unavailable}");
+          for (auto *o : {id(price_strategy_min), id(price_strategy_max)}) {
+            if (strategy_known) lv_obj_clear_flag(o, LV_OBJ_FLAG_HIDDEN);
+            else lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
+          }
+          static energydeck::BatteryStrategyChart strategy;
+          strategy.draw(id(price_battery_strategy_plot), known && p.version == 2 ? &p : nullptr,
+                        id(battery_price_from), id(battery_price_until), time.timestamp);
           static int previous_known = -1;
           if (previous_known != static_cast<int>(known)) {
             previous_known = known;

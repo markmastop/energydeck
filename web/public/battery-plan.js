@@ -100,3 +100,20 @@ export function forwardClock(epoch, now = new Date(), locale='nl') {
   return new Intl.DateTimeFormat(locale,{timeZone:'Europe/Amsterdam',hour:'2-digit',minute:'2-digit',hourCycle:'h23',
     ...(day(stamp)!==day(now)?{day:'2-digit',month:'2-digit'}:{})}).format(stamp);
 }
+
+// Clip to the price viewport; never stretch a 36-hour proposal into a calendar day
+// or fabricate history before the first forecast interval. Times are UTC seconds.
+export function batteryStrategyView(raw, from, until, now = new Date()) {
+  const plan = batteryPlan(raw, now);
+  if (plan?.version !== 2 || !Number.isFinite(from) || !Number.isFinite(until) || until <= from) return null;
+  const segments = [], points = [];
+  for (const q of plan.intervals) {
+    const a = Math.max(from, q.from), b = Math.min(until, q.until);
+    if (b <= a) continue;
+    const soc = at => q.socFrom + (q.socTo - q.socFrom) * (at - q.from) / (q.until - q.from);
+    if (!points.length) points.push({at:a, soc:soc(a)});
+    points.push({at:b, soc:soc(b)});
+    segments.push({...q, from:a, until:b, socFrom:soc(a), socTo:soc(b)});
+  }
+  return {plan, segments, points};
+}

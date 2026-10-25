@@ -275,3 +275,5 @@ battery_detail_predicted: "Plan %.1f kW | predicted %.0f%%"
 battery_detail_measured: "Measured now: %.0f%% | %.0f W (white point)"
 battery_detail_assumptions: "Proposal | demand and headroom are assumptions"
 battery_detail_select: "Select a time with the slider"
+
+battery_strategy: "Battery strategy"

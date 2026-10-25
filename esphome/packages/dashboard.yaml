@@ -457,14 +457,14 @@ lvgl:
                   border_width: 0
               - obj:
                   x: 43
-                  y: 118
+                  y: 103
                   width: 389
                   height: 1
                   bg_color: 0x294033
                   border_width: 0
               - obj:
                   x: 43
-                  y: 177
+                  y: 147
                   width: 389
                   height: 1
                   bg_color: 0x294033
@@ -481,7 +481,7 @@ lvgl:
               - label:
                   id: price_scale_mid_label
                   x: 3
-                  y: 110
+                  y: 95
                   width: 35
                   text: "0.0"
                   text_align: RIGHT
@@ -490,7 +490,7 @@ lvgl:
               - label:
                   id: price_scale_min_label
                   x: 3
-                  y: 169
+                  y: 139
                   width: 35
                   text: "0.0"
                   text_align: RIGHT
@@ -512,7 +512,7 @@ lvgl:
                   x: 46
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xE8B94C
@@ -521,7 +521,7 @@ lvgl:
                   x: 50
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xE8B94C
@@ -530,7 +530,7 @@ lvgl:
                   x: 54
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xE8B94C
@@ -539,7 +539,7 @@ lvgl:
                   x: 58
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xE8B94C
@@ -548,7 +548,7 @@ lvgl:
                   x: 62
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0x45BD70
@@ -557,7 +557,7 @@ lvgl:
                   x: 66
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0x45BD70
@@ -566,7 +566,7 @@ lvgl:
                   x: 70
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0x45BD70
@@ -575,7 +575,7 @@ lvgl:
                   x: 74
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0x45BD70
@@ -584,7 +584,7 @@ lvgl:
                   x: 78
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0x45BD70
@@ -593,7 +593,7 @@ lvgl:
                   x: 82
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0x45BD70
@@ -602,7 +602,7 @@ lvgl:
                   x: 86
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0x45BD70
@@ -611,7 +611,7 @@ lvgl:
                   x: 90
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0x45BD70
@@ -620,7 +620,7 @@ lvgl:
                   x: 94
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0x45BD70
@@ -629,7 +629,7 @@ lvgl:
                   x: 98
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0x45BD70
@@ -638,7 +638,7 @@ lvgl:
                   x: 102
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0x45BD70
@@ -647,7 +647,7 @@ lvgl:
                   x: 106
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0x45BD70
@@ -656,7 +656,7 @@ lvgl:
                   x: 110
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0x45BD70
@@ -665,7 +665,7 @@ lvgl:
                   x: 114
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0x45BD70
@@ -674,7 +674,7 @@ lvgl:
                   x: 118
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0x45BD70
@@ -683,7 +683,7 @@ lvgl:
                   x: 122
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0x45BD70
@@ -692,7 +692,7 @@ lvgl:
                   x: 126
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0x45BD70
@@ -701,7 +701,7 @@ lvgl:
                   x: 130
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xE8B94C
@@ -710,7 +710,7 @@ lvgl:
                   x: 134
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xE8B94C
@@ -719,7 +719,7 @@ lvgl:
                   x: 138
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xE8B94C
@@ -728,7 +728,7 @@ lvgl:
                   x: 142
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xE8B94C
@@ -737,7 +737,7 @@ lvgl:
                   x: 146
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xE8B94C
@@ -746,7 +746,7 @@ lvgl:
                   x: 150
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xE8B94C
@@ -755,7 +755,7 @@ lvgl:
                   x: 154
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xE8B94C
@@ -764,7 +764,7 @@ lvgl:
                   x: 158
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xE8B94C
@@ -773,7 +773,7 @@ lvgl:
                   x: 162
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xE8B94C
@@ -782,7 +782,7 @@ lvgl:
                   x: 166
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xE8B94C
@@ -791,7 +791,7 @@ lvgl:
                   x: 170
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xE8B94C
@@ -800,7 +800,7 @@ lvgl:
                   x: 174
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xE8B94C
@@ -809,7 +809,7 @@ lvgl:
                   x: 178
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xEA665F
@@ -818,7 +818,7 @@ lvgl:
                   x: 182
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xEA665F
@@ -827,7 +827,7 @@ lvgl:
                   x: 186
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xEA665F
@@ -836,7 +836,7 @@ lvgl:
                   x: 190
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xE8B94C
@@ -845,7 +845,7 @@ lvgl:
                   x: 194
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xE8B94C
@@ -854,7 +854,7 @@ lvgl:
                   x: 198
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xE8B94C
@@ -863,7 +863,7 @@ lvgl:
                   x: 202
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xE8B94C
@@ -872,7 +872,7 @@ lvgl:
                   x: 206
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xE8B94C
@@ -881,7 +881,7 @@ lvgl:
                   x: 210
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xE8B94C
@@ -890,7 +890,7 @@ lvgl:
                   x: 214
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xE8B94C
@@ -899,7 +899,7 @@ lvgl:
                   x: 218
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xE8B94C
@@ -908,7 +908,7 @@ lvgl:
                   x: 222
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xE8B94C
@@ -917,7 +917,7 @@ lvgl:
                   x: 226
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xE8B94C
@@ -926,7 +926,7 @@ lvgl:
                   x: 230
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xE8B94C
@@ -935,7 +935,7 @@ lvgl:
                   x: 234
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xE8B94C
@@ -944,7 +944,7 @@ lvgl:
                   x: 238
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xE8B94C
@@ -953,7 +953,7 @@ lvgl:
                   x: 242
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xE8B94C
@@ -962,7 +962,7 @@ lvgl:
                   x: 246
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xE8B94C
@@ -971,7 +971,7 @@ lvgl:
                   x: 250
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xE8B94C
@@ -980,7 +980,7 @@ lvgl:
                   x: 254
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xE8B94C
@@ -989,7 +989,7 @@ lvgl:
                   x: 258
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xEA665F
@@ -998,7 +998,7 @@ lvgl:
                   x: 262
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xEA665F
@@ -1007,7 +1007,7 @@ lvgl:
                   x: 266
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xE8B94C
@@ -1016,7 +1016,7 @@ lvgl:
                   x: 270
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xEA665F
@@ -1025,7 +1025,7 @@ lvgl:
                   x: 274
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xEA665F
@@ -1034,7 +1034,7 @@ lvgl:
                   x: 278
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xEA665F
@@ -1043,7 +1043,7 @@ lvgl:
                   x: 282
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xEA665F
@@ -1052,7 +1052,7 @@ lvgl:
                   x: 286
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xEA665F
@@ -1061,7 +1061,7 @@ lvgl:
                   x: 290
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xEA665F
@@ -1070,7 +1070,7 @@ lvgl:
                   x: 294
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xEA665F
@@ -1079,7 +1079,7 @@ lvgl:
                   x: 298
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xEA665F
@@ -1088,7 +1088,7 @@ lvgl:
                   x: 302
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xEA665F
@@ -1097,7 +1097,7 @@ lvgl:
                   x: 306
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xEA665F
@@ -1106,7 +1106,7 @@ lvgl:
                   x: 310
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xEA665F
@@ -1115,7 +1115,7 @@ lvgl:
                   x: 314
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xEA665F
@@ -1124,7 +1124,7 @@ lvgl:
                   x: 318
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xEA665F
@@ -1133,7 +1133,7 @@ lvgl:
                   x: 322
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xEA665F
@@ -1142,7 +1142,7 @@ lvgl:
                   x: 326
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xEA665F
@@ -1151,7 +1151,7 @@ lvgl:
                   x: 330
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xEA665F
@@ -1160,7 +1160,7 @@ lvgl:
                   x: 334
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xE8B94C
@@ -1169,7 +1169,7 @@ lvgl:
                   x: 338
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xE8B94C
@@ -1178,7 +1178,7 @@ lvgl:
                   x: 342
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xE8B94C
@@ -1187,7 +1187,7 @@ lvgl:
                   x: 346
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xE8B94C
@@ -1196,7 +1196,7 @@ lvgl:
                   x: 350
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xE8B94C
@@ -1205,7 +1205,7 @@ lvgl:
                   x: 354
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xE8B94C
@@ -1214,7 +1214,7 @@ lvgl:
                   x: 358
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xE8B94C
@@ -1223,7 +1223,7 @@ lvgl:
                   x: 362
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xE8B94C
@@ -1232,7 +1232,7 @@ lvgl:
                   x: 366
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xE8B94C
@@ -1241,7 +1241,7 @@ lvgl:
                   x: 370
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xE8B94C
@@ -1250,7 +1250,7 @@ lvgl:
                   x: 374
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xE8B94C
@@ -1259,7 +1259,7 @@ lvgl:
                   x: 378
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xE8B94C
@@ -1268,7 +1268,7 @@ lvgl:
                   x: 382
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0x45BD70
@@ -1277,7 +1277,7 @@ lvgl:
                   x: 386
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0x45BD70
@@ -1286,7 +1286,7 @@ lvgl:
                   x: 390
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0xE8B94C
@@ -1295,7 +1295,7 @@ lvgl:
                   x: 394
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0x45BD70
@@ -1304,7 +1304,7 @@ lvgl:
                   x: 398
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0x45BD70
@@ -1313,7 +1313,7 @@ lvgl:
                   x: 402
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0x45BD70
@@ -1322,7 +1322,7 @@ lvgl:
                   x: 406
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0x45BD70
@@ -1331,7 +1331,7 @@ lvgl:
                   x: 410
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0x45BD70
@@ -1340,7 +1340,7 @@ lvgl:
                   x: 414
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0x45BD70
@@ -1349,7 +1349,7 @@ lvgl:
                   x: 418
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0x45BD70
@@ -1358,7 +1358,7 @@ lvgl:
                   x: 422
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0x45BD70
@@ -1367,7 +1367,7 @@ lvgl:
                   x: 426
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   indicator:
                     bg_color: 0x45BD70
@@ -1376,7 +1376,7 @@ lvgl:
                   x: 426
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   hidden: true
                   indicator:
@@ -1386,7 +1386,7 @@ lvgl:
                   x: 426
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   hidden: true
                   indicator:
@@ -1396,7 +1396,7 @@ lvgl:
                   x: 426
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   hidden: true
                   indicator:
@@ -1406,74 +1406,111 @@ lvgl:
                   x: 426
                   y: 58
                   width: 3
-                  height: 120
+                  height: 90
                   value: 0
                   hidden: true
                   indicator:
                     bg_color: 0x45BD70
               - label:
                   x: 46
-                  y: 184
+                  y: 150
                   id: price_tick_0
                   text: "00"
-                  text_font: montserrat_12
+                  text_font: montserrat_10
                   text_color: 0x82958A
               - label:
                   x: 94
-                  y: 184
+                  y: 150
                   id: price_tick_1
                   text: "03"
-                  text_font: montserrat_12
+                  text_font: montserrat_10
                   text_color: 0x82958A
               - label:
                   x: 142
-                  y: 184
+                  y: 150
                   id: price_tick_2
                   text: "06"
-                  text_font: montserrat_12
+                  text_font: montserrat_10
                   text_color: 0x82958A
               - label:
                   x: 190
-                  y: 184
+                  y: 150
                   id: price_tick_3
                   text: "09"
-                  text_font: montserrat_12
+                  text_font: montserrat_10
                   text_color: 0x82958A
               - label:
                   x: 238
-                  y: 184
+                  y: 150
                   id: price_tick_4
                   text: "12"
-                  text_font: montserrat_12
+                  text_font: montserrat_10
                   text_color: 0x82958A
               - label:
                   x: 286
-                  y: 184
+                  y: 150
                   id: price_tick_5
                   text: "15"
-                  text_font: montserrat_12
+                  text_font: montserrat_10
                   text_color: 0x82958A
               - label:
                   x: 334
-                  y: 184
+                  y: 150
                   id: price_tick_6
                   text: "18"
-                  text_font: montserrat_12
+                  text_font: montserrat_10
                   text_color: 0x82958A
               - label:
                   x: 382
-                  y: 184
+                  y: 150
                   id: price_tick_7
                   text: "21"
-                  text_font: montserrat_12
+                  text_font: montserrat_10
                   text_color: 0x82958A
               - label:
                   x: 414
-                  y: 184
+                  y: 150
                   id: price_tick_8
                   text: "23"
-                  text_font: montserrat_12
+                  text_font: montserrat_10
                   text_color: 0x82958A
+              - label:
+                  id: price_strategy_caption
+                  x: 46
+                  y: 165
+                  text: "${battery_plan_unavailable}"
+                  text_font: montserrat_10
+                  text_color: 0xA9B8AE
+              # Shares the price plot's UTC window and horizontal coordinates.
+              - obj:
+                  id: price_battery_strategy_plot
+                  x: 46
+                  y: 179
+                  width: 384
+                  height: 29
+                  bg_opa: TRANSP
+                  border_width: 0
+                  pad_all: 0
+                  scrollbar_mode: "OFF"
+                  clickable: false
+              - label:
+                  x: 3
+                  id: price_strategy_max
+                  y: 176
+                  width: 35
+                  text: "100%"
+                  text_align: RIGHT
+                  text_font: montserrat_10
+                  text_color: 0x48BD70
+              - label:
+                  x: 3
+                  id: price_strategy_min
+                  y: 195
+                  width: 35
+                  text: "0%"
+                  text_align: RIGHT
+                  text_font: montserrat_10
+                  text_color: 0x48BD70
               - label:
                   id: cheapest_period_label
                   x: 105

@@ -3,6 +3,44 @@
 #include "lvgl.h"
 
 namespace energydeck {
+class BatteryStrategyChart {
+  std::array<lv_obj_t *, 145> phases_{}, sun_{};
+  std::array<lv_point_precise_t, 146> points_{};
+  lv_obj_t *line_{nullptr}, *now_{nullptr};
+ public:
+  void draw(lv_obj_t *parent, const BatteryPlan *p, int64_t from, int64_t until, uint32_t now) {
+    for (const auto *items : {&phases_, &sun_}) for (auto *o : *items) if (o) lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
+    for (auto *o : {line_, now_}) if (o) lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
+    if (!p || from <= 0 || until <= from) return;
+    auto rect = [&](lv_obj_t *&o, int x, int y, int w, int h, uint32_t color) {
+      if (!o) { o = lv_obj_create(parent); lv_obj_remove_style_all(o); lv_obj_remove_flag(o, LV_OBJ_FLAG_CLICKABLE); lv_obj_remove_flag(o, LV_OBJ_FLAG_SCROLLABLE); }
+      lv_obj_set_pos(o, x, y); lv_obj_set_size(o, std::max(1, w), h);
+      lv_obj_set_style_bg_color(o, lv_color_hex(color), 0); lv_obj_set_style_bg_opa(o, LV_OPA_COVER, 0);
+      lv_obj_clear_flag(o, LV_OBJ_FLAG_HIDDEN);
+    };
+    const BatteryStrategyWindow window{from, until};
+    const int w = lv_obj_get_width(parent);
+    size_t count = 0;
+    for (size_t i = 0; i < p->interval_count; i++) {
+      const auto &q = p->intervals[i]; int64_t a, b;
+      if (!window.clip(q, a, b)) continue;
+      const int x = window.x(a, w), width = window.x(b, w) - x;
+      rect(phases_[i], x, 25, width, 4, q.action == 1 ? 0x3AA7D8 : q.action == 2 ? 0xE7A052 : 0x617064);
+      if (std::isfinite(q.sun)) rect(sun_[i], x, 0, q.sun > 0 ? std::max(1, int(width * q.sun)) : width, 2, q.sun > 0 ? 0xFFD35A : 0x34443A);
+      if (!count) points_[count++] = {x, 3 + BatteryDetailGeometry::soc_y(window.soc(q, a), 20)};
+      points_[count++] = {std::min(w - 1, window.x(b, w)), 3 + BatteryDetailGeometry::soc_y(window.soc(q, b), 20)};
+    }
+    if (!count) return;
+    if (!line_) {
+      line_ = lv_line_create(parent); lv_obj_remove_style_all(line_);
+      lv_obj_remove_flag(line_, LV_OBJ_FLAG_CLICKABLE); lv_obj_remove_flag(line_, LV_OBJ_FLAG_SCROLLABLE);
+      lv_obj_set_pos(line_, 0, 0); lv_obj_set_style_line_color(line_, lv_color_hex(0x48BD70), 0);
+      lv_obj_set_style_line_width(line_, 2, 0); lv_obj_set_style_line_opa(line_, LV_OPA_COVER, 0);
+    }
+    lv_line_set_points(line_, points_.data(), count); lv_obj_clear_flag(line_, LV_OBJ_FLAG_HIDDEN); lv_obj_move_foreground(line_);
+    if (now >= from && now < until) { rect(now_, window.x(now, w), 0, 1, 29, 0xEEF6F0); lv_obj_move_foreground(now_); }
+  }
+};
 class BatteryDetailChart {
   std::array<lv_obj_t *, 145> prices_{}, power_{}, sun_{};
   lv_obj_t *price_parent_{nullptr}, *power_parent_{nullptr}, *sun_parent_{nullptr};

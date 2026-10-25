@@ -18,5 +18,13 @@ int main() {
   assert(g.soc_y(101, 144) == 0 && g.soc_y(-1, 144) == 143);
   assert(g.selected(epoch + 70, epoch) == 1 && g.selected(0, epoch) == 0);
   assert(g.selected(epoch - 1, epoch) == 0);
+  const energydeck::BatteryStrategyWindow window{epoch + 30, epoch + 510};
+  int64_t a, b;
+  assert(window.clip(p.intervals[0], a, b) && a == epoch + 30 && b == epoch + 60);
+  assert(window.x(a, 384) == 0 && window.x(b, 384) == 24);
+  assert(std::abs(window.soc(p.intervals[0], a) - 50.15f) < .001f);
+  assert(window.clip(p.intervals[1], a, b) && b == epoch + 510);
+  assert(window.x(b, 384) == 384);
+  assert((!energydeck::BatteryStrategyWindow{epoch + 960, epoch + 2000}.clip(p.intervals[1], a, b)));
   std::cout << "PASS: aligned UTC axes, partial quarters, negative prices, signed power and time selection\n";
 }

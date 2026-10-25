@@ -157,6 +157,8 @@ script:
     then:
       - lambda: |-
           id(prices_calendar_day) = 0;
+          id(battery_price_from) = 0;
+          id(battery_price_until) = 0;
           lv_obj_clear_flag(id(price_source_warning), LV_OBJ_FLAG_HIDDEN);
           lv_obj_clear_flag(id(tomorrow_source_warning), LV_OBJ_FLAG_HIDDEN);
           id(show_tomorrow_prices) = false;
@@ -404,6 +406,8 @@ script:
                     const int current = today_prices.quarter(price_now.timestamp);
                     energydeck::PriceWindow window;
                     window.select(today_prices, tomorrow_available ? &tomorrow_prices : nullptr, id(show_tomorrow_prices), current);
+                    id(battery_price_from) = window.start;
+                    id(battery_price_until) = window.start + window.count * 900;
                     const bool rolling = window.rolling;
                     const int count = window.count;
                     auto &prices = window.values;

@@ -405,3 +405,24 @@ an unavailable state when v2 data is missing or expires. No Homey write or new
 forecast request is performed by opening the page. Native aligned-axis/selection
 tests, web model/navigation tests, existing card navigation tests and simulator/
 target builds cover the change; local LVGL and responsive web previews use test data.
+
+
+### Strategy below overview prices
+
+The display and web overview place a compact strategy chart directly below the
+price bars. Both plots use exactly the same UTC viewport: the selected calendar
+day (including 23/25-hour DST days) or the rolling noon-to-noon price window.
+Blue segments mean charging, orange means discharging, and grey means holding.
+The green line uses a separate 0–100% scale for predicted state of charge;
+yellow marks retain the separate sunshine forecast. A white marker shows now.
+Only overlapping proposal intervals are rendered. Partial boundary quarters
+interpolate predicted SoC, while periods outside forecast coverage remain blank.
+Stale/missing proposals hide the strategy instead of fabricating history. The
+proposal/active label follows the snapshot, and the existing battery-card tap
+still opens the detailed plan. This presentation does not activate price control.
+
+Validation: native clipping/interpolation geometry checks, 92 passing web tests,
+simulator build and an LVGL preview using fixture data. Both 5-inch and 7-inch
+firmware builds pass; each setup() frame is 2736 B against a 4096 B guard budget.
+Firmware build and visual preview alone do not verify the physical display or
+touch behavior. This change has not yet been pushed or deployed.

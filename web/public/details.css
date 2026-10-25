@@ -293,9 +293,18 @@ dialog p { font-size: 14px; line-height: 1.6; color: var(--muted); }
 .display-status-icons { padding-top:6px; }
 
 @media (min-width:1000px) {
-  .energy-overview { grid-template-columns:minmax(0,2fr) minmax(280px,1fr); }
-  .energy-actions { grid-template-columns:1fr; }
-  #page-overview .climate-panel, #page-overview .weather-panel { grid-column:span 3; }
+  /* The nested six-column grid uses the same gutters as the outer grid. */
+  .energy-overview { grid-template-columns:repeat(6,minmax(0,1fr)); align-items:stretch; }
+  .energy-overview .chart-panel { grid-column:span 4; }
+  .energy-actions { grid-column:span 2; grid-template-columns:1fr; grid-template-rows:auto 1fr; }
+  #page-overview .energy-actions .charger-panel { align-self:stretch; }
+  #page-overview .energy-actions .charger-panel .card-foot { margin-top:auto; }
+  #page-overview .climate-panel { grid-column:span 4; }
+  #page-overview .weather-panel { grid-column:span 2; }
+  #page-overview #price-chart { height:235px; }
+  #page-overview .chart-summary > div { gap:4px; }
+  #page-overview .rooms { grid-template-columns:repeat(2,minmax(0,1fr)); }
+
 }
 @media (max-width:900px) {
   .topbar { grid-template-columns:1fr auto; gap:8px 12px; }
@@ -349,3 +358,19 @@ dialog p { font-size: 14px; line-height: 1.6; color: var(--muted); }
 
 .strategy-legend .measured,.strategy-legend .expected { color:#48bd70; }
 .strategy-legend .expected::before { background:transparent; border-top:2px dashed currentColor; height:0; }
+
+/* The overview summarizes rooms; the dedicated page retains every room. */
+#page-overview .rooms { gap:0 20px; margin-top:4px; }
+#page-overview .room { padding:12px 0; gap:5px; }
+#page-overview .room strong { font-size:20px; }
+#page-overview #compact-climate-status { margin:10px 0 0; }
+.forecast-heading { display:flex; flex-wrap:wrap; gap:0 4px; align-items:baseline; font-size:12px; line-height:1.5; margin:12px 0 3px; }
+.rain-message { color:var(--blue); }
+.sunshine-message { color:var(--yellow); }
+.forecast-divider { color:var(--muted); }
+#page-overview .weather-summary { grid-template-columns:auto 1fr; gap:8px; }
+#page-overview .weather-summary strong { font-size:28px; }
+#page-overview .weather-summary span { font-size:11px; }
+#page-overview .weather-summary > div { gap:5px; }
+#page-overview .rain-chart { height:92px; }
+#page-overview .weather-sources { margin-top:6px; }

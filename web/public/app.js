@@ -1,6 +1,6 @@
 import { initializeDetails } from './details.js';
 import { priceWindow, priceQuarter, priceTime } from './charts.js';
-import { dayComparison } from './display.js';
+import { dayComparison, overviewRooms } from './display.js';
 import { createLiveUpdates } from './live.js';
 import { batteryPlanView, batteryStrategyView, batterySocView, planClock } from './battery-plan.js';
 import { renderForwardBattery } from './battery-forward.js';
@@ -161,7 +161,7 @@ function render() {
   if (!data.rooms.length) {
     const p = document.createElement('p'); p.className = 'empty'; p.textContent = t(data.status === 'offline' ? 'unavailable' : 'noRooms'); $('rooms').append(p);
   }
-  data.rooms.forEach(room => {
+  overviewRooms(data.rooms,data.climate).forEach(room => {
     const node = document.createElement('div');
     node.className = `room${data.climate?.mode && data.climate?.demand !== 'off' && room.temperature !== null && room.target !== null && room.target - room.temperature > .05 ? ' heating' : ''}`;
     const name = document.createElement('span'); name.textContent = room.name;

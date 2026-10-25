@@ -127,3 +127,13 @@ test('manual cards resume automatic priority at five idle minutes and new input 
   assert.equal(policy.update('gas', true, false, true, 300000), 'sonos');
   assert.equal(policy.update('gas', false, true, true, 300000), 'climate');
 });
+
+test('overview shows four rooms with heat demand first without altering the full room list', async()=>{
+  const {overviewRooms}=await import('../public/display.js');
+  const rooms=Array.from({length:9},(_,i)=>({name:String(i),temperature:i===7?18:20,target:20}));
+  const selected=overviewRooms(rooms,{mode:'auto',demand:'demand'});
+  assert.deepEqual(selected.map(r=>r.name),['7','0','1','2']);
+  assert.equal(rooms.length,9);assert.equal(rooms[0].name,'0');
+  assert.deepEqual(overviewRooms(rooms,{mode:'auto',demand:'off'}).map(r=>r.name),['0','1','2','3']);
+  assert.deepEqual(overviewRooms([{name:'unknown',temperature:null,target:20},rooms[7]],{mode:'auto'}).map(r=>r.name),['7','unknown']);
+});

@@ -183,6 +183,7 @@ export function initializeDetails({ api, t, format, time, svgNode, onUnauthorize
   function renderClimate() {
     if (!dashboard) return;
     const climate = dashboard.climate || { demand: 'unknown', mode: null };
+    text('overview-all-rooms',t('allRoomsCount').replace('{count}',dashboard.rooms.length));
     text('compact-climate-status', t(`heat${climate.demand}`));
     $('compact-climate-status').className = `fine-print heat-${climate.demand}`;
     const programme = $('climate-programme'); programme.className = `programme ${climate.demand}`;
@@ -212,13 +213,14 @@ export function initializeDetails({ api, t, format, time, svgNode, onUnauthorize
       // This rolling two-hour summary is independent of rain availability.
       const sunNow = Date.now();
       const sunny = sunshineFraction(data?.sunshine, sunNow, sunNow + 7200000, sunNow);
-      const sunLabel = sunny === null ? t('weatherSunUnknown') : sunny <= 0 ? t('weatherSunNone') :
+      const sunLabel = sunny === null ? t('weatherSunUnknownShort') : sunny <= 0 ? t('weatherSunNoneShort') :
         t('weatherSunMinutes').replace('{minutes}', format(Math.max(1, Math.round(sunny * 120)), 0));
-      container.append(node('p', `sunshine-heading${sunny === null ? ' muted' : ''}`, sunLabel));
       const points = data?.rain?.points?.filter(point => point.time + 300000 > Date.now()) || [];
       const firstRain = points.findIndex(point => point.value >= .1);
-      const label = !points.length ? t('rainUnknown') : firstRain < 0 ? t('rainDry') : firstRain === 0 ? t('rainNow') : `${t('rainAt')} ${time(points[firstRain].time)}`;
-      container.append(node('p', 'rain-heading', label));
+      const label = !points.length ? t('rainUnknown') : firstRain < 0 ? t('rainDryShort') : firstRain === 0 ? t('rainNow') : `${t('rainAt')} ${time(points[firstRain].time)}`;
+      const forecast=node('p','forecast-heading');
+      forecast.append(node('span',points.length?'rain-message':'muted',label),node('span','forecast-divider',' · '),node('span',sunny===null?'muted':'sunshine-message',sunLabel));
+      container.append(forecast);
       const chartWidth = Math.max(280, container.clientWidth || 720), step = (chartWidth - 58) / 24;
       const svg = svgNode('svg', { viewBox: `0 0 ${chartWidth} 95`, role: 'img', 'aria-label': t('rainForecast'), class: 'rain-chart' });
       for (const [key, y] of [['rainHeavy', 13], ['rainModerate', 31], ['rainLight', 49]]) svg.append(svgNode('text', { x: 0, y, class: 'rain-scale' }, t(key)));

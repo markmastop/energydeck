@@ -263,7 +263,11 @@
     "batteryExpectedPower": "verwacht vermogen",
     "batteryMeasured": "Gemeten",
     "batteryHistoryMissing": "Geen meting op dit tijdstip",
-    "batteryPriceHistoryMissing": "Prijshistorie niet beschikbaar"
+    "batteryPriceHistoryMissing": "Prijshistorie niet beschikbaar",
+    "allRoomsCount": "Alle {count} kamers",
+    "rainDryShort": "Voorlopig droog",
+    "weatherSunNoneShort": "geen zon",
+    "weatherSunUnknownShort": "zon onbekend"
   },
   "en": {
     "logout": "Sign out",
@@ -529,6 +533,10 @@
     "batteryExpectedPower": "expected power",
     "batteryMeasured": "Measured",
     "batteryHistoryMissing": "No measurement at this time",
-    "batteryPriceHistoryMissing": "Price history unavailable"
+    "batteryPriceHistoryMissing": "Price history unavailable",
+    "allRoomsCount": "All {count} rooms",
+    "rainDryShort": "Dry for now",
+    "weatherSunNoneShort": "no sunshine",
+    "weatherSunUnknownShort": "sunshine unknown"
   }
 }

@@ -253,3 +253,79 @@ dialog p { font-size: 14px; line-height: 1.6; color: var(--muted); }
 #sonos-queue { position: relative; height: clamp(200px, 36vh, 320px); overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; overflow-anchor: none; }
 
 .sunshine-cap { fill:#FFD35A; pointer-events:auto; }
+
+/* Keep prices beside the complete charging stack, rather than stretching the
+   chart across unrelated grid rows. DOM order also defines the mobile order. */
+.energy-overview { grid-column:1 / -1; display:grid; gap:14px; min-width:0; align-items:start; }
+.energy-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; min-width:0; align-items:start; }
+.topbar { display:grid; grid-template-columns:auto minmax(0,1fr) auto; gap:24px; }
+.topbar .page-heading { margin:0; min-width:0; gap:16px; }
+.topbar .dashboard-date { white-space:nowrap; }
+.topbar .header-actions { grid-column:3; }
+.topbar .status { white-space:nowrap; }
+.energy-overview .chart-panel, .energy-actions > .panel { grid-column:auto; grid-row:auto; }
+#page-overview { gap:14px; align-items:start; }
+#page-overview .panel { padding:18px; }
+#page-overview .chart-info { margin-top:12px; }
+#page-overview #price-chart { height:170px; }
+#page-overview .chart-summary { margin-top:12px; padding-top:12px; }
+#page-overview .cheapest { margin-top:12px; padding:10px 12px; }
+#page-overview .battery-heading { margin:12px 0 10px; }
+#page-overview .battery-plan { margin-top:12px; }
+#page-overview .card-foot { margin-top:12px; padding-top:12px; }
+#page-overview .charger-body { min-height:64px; gap:12px; }
+#page-overview .charger-body strong { font-size:16px; }
+#page-overview .charger-body p { margin:5px 0; font-size:11px; }
+#page-overview .ev-icon { width:42px; height:42px; flex-shrink:0; font-size:27px; }
+#page-overview .totals { grid-column:1 / -1; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+#page-overview .stat { grid-template-columns:36px 1fr; column-gap:12px; row-gap:4px; padding:14px; }
+#page-overview .stat-icon { grid-row:span 3; width:36px; height:36px; font-size:22px; }
+#page-overview .stat > span:nth-child(2) { grid-column:auto; min-height:0; }
+#page-overview .stat strong { font-size:24px; }
+#page-overview .stat small { padding:0; }
+#page-overview .card-tabs { margin-bottom:12px; }
+#page-overview .weather-summary { margin-top:12px; gap:10px; }
+#page-overview .rain-heading { margin-top:12px; }
+.display-header { padding:18px; gap:12px; margin-bottom:14px; }
+.display-header .hero-value { margin-top:8px; }
+.display-status-icons { padding-top:6px; }
+
+@media (min-width:1000px) {
+  .energy-overview { grid-template-columns:minmax(0,2fr) minmax(280px,1fr); }
+  .energy-actions { grid-template-columns:1fr; }
+  #page-overview .climate-panel, #page-overview .weather-panel { grid-column:span 3; }
+}
+@media (max-width:900px) {
+  .topbar { grid-template-columns:1fr auto; gap:8px 12px; }
+  .topbar .header-actions { grid-column:2; grid-row:1; }
+  .topbar .page-heading { grid-column:1 / -1; grid-row:2; padding-top:6px; }
+  .topbar .page-heading .status { max-width:none; }
+}
+@media (max-width:600px) {
+  .energy-actions { grid-template-columns:1fr; gap:10px; }
+  #page-overview, .energy-overview { gap:12px; }
+  #page-overview .panel { padding:15px; }
+  #page-overview #price-chart { height:150px; }
+  #page-overview .totals { gap:8px; }
+  #page-overview .stat { grid-template-columns:1fr; gap:5px; padding:12px 9px; }
+  #page-overview .stat-icon { display:none; }
+  #page-overview .stat strong { font-size:22px; }
+  #page-overview .stat > span:nth-child(2) { font-size:9px; }
+  #page-overview .stat small { font-size:9px; }
+  .display-header { padding:14px 10px; gap:8px; }
+  .display-header .hero-value > span:first-child { font-size:48px; }
+  .display-header .price-hero p { margin:6px 0; }
+  .header-meters { gap:4px; }
+  .header-meter { gap:3px; }
+  .header-meter > span:first-child { min-height:22px; }
+  .meter-dial { width:min(100%,84px); }
+  .meter-dial strong { font-size:21px; }
+  .display-status-icons svg { width:24px; height:24px; }
+  .display-status-icons > * { font-size:9px; }
+}
+@media (max-width:360px) {
+  .topbar .brand { font-size:17px; }
+  .topbar .brand img { width:28px; height:28px; }
+  .topbar .header-actions { gap:0; }
+  .topbar .quiet { padding-inline:6px; }
+}

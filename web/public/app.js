@@ -46,12 +46,14 @@ function showLogin() {
   $('loading').hidden = true;
   $('dashboard').hidden = true;
   $('logout').hidden = true;
+  $('dashboard-meta').hidden = true;
 }
 function showDashboard() {
   $('login').hidden = true;
   $('loading').hidden = true;
   $('dashboard').hidden = false;
   $('logout').hidden = false;
+  $('dashboard-meta').hidden = false;
 }
 async function api(path, body) {
   return fetch(path, { method: body === undefined ? 'GET' : 'POST',

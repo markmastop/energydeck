@@ -4,9 +4,18 @@ The web app reproduces EnergyDeck's household functions in a responsive interfac
 
 ## Pages and display parity
 
-The web masthead shows the EnergyDeck brand once. A compact row below it holds
-the clock, date and Homey connection state on all pages; the dashboard's accessible
-level-one heading is visually hidden to avoid a second visible brand title.
+The web masthead shows the EnergyDeck brand once. On desktop the clock, date,
+Homey connection state and account actions share that same row. Below 900 px,
+clock/date and connection state move to a compact second row. The accessible
+level-one heading is visually hidden to avoid a second visible brand title;
+authenticated metadata is hidden on the login screen.
+
+On desktop the price chart sits beside a stack containing the battery plan and
+EV controls. Three compact daily totals follow, then the Home card and weather
+side by side. On phones the reading and keyboard order is current energy header,
+prices, battery plan, EV controls, daily totals, Home card, then weather. Cards
+use their content height; the chart no longer spans unrelated rows. Tighter
+spacing keeps the overview compact without shrinking control hit areas.
 
 | View | Features |
 | --- | --- |

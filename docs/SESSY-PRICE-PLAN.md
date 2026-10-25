@@ -268,7 +268,19 @@ Simulator and both target firmware builds pass.
 
 ## Battery detail page
 
-Implemented locally; not yet rolled out to physical displays or the public web app.
+Implemented in `ce25245`. Rolled out to the 5-inch display on 25 October 2026;
+the detail page has not yet been rolled out to the 7-inch or public web app.
+
+### 5-inch follow-up
+
+After another report of a missing home plan, read-only diagnostics confirmed a
+fresh Homey envelope containing 131 forward intervals. Replaying the exact YAML
+parser accepted it on five consecutive refreshes. The 5-inch target build and
+native plan/detail tests passed; OTA to `energydeck.local` succeeded. This updates
+the display to the current detail-page firmware and retains the refresh fix.
+It does not establish the cause of the reported missing plan: the physical screen
+and touch behavior still need confirmation. No charging Flow was triggered and
+the planner remains in shadow mode.
 
 One tap anywhere on the home battery card opens its dedicated page on both clients.
 The existing shared header remains present, and the back action returns to overview.

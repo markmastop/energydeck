@@ -250,7 +250,7 @@ checks passed. This presentation revision has not been flashed to physical panel
 ### 7-inch sunshine-row rollout on 2026-10-25
 
 The user requested the sunshine-row revision on the physical 7-inch panel.
-The device resolved as `energydeck-7.local` / `192.168.1.100` and its ARP identity
+The device resolved as `energydeck-7.local` / `[device IP redacted]` and its ARP identity
 matched `[device MAC redacted]`. Firmware based on `50077de`, with the Xtensa literal
 placement repair documented in PERFORMANCE.md, built successfully at
 `2026-10-25 11:22:39 +0100` (`config_hash=0x60516aaf`). ESPHome acknowledged

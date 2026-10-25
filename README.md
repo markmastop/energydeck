@@ -326,3 +326,25 @@ ENERGYDECK_BACKLIGHT_WAKE_DURATION_S=30
 This project is open-source under the MIT License.
 
 The bundled Montserrat font uses the [SIL Open Font License](web/public/fonts/OFL.txt). Station logos belong to their respective broadcasters.
+
+## Privacy when sharing the repository
+
+Keep household names, Wi-Fi credentials, location, Homey IDs and Sonos bootstrap
+addresses in the ignored `.env`, never in source files or documentation. The
+tracked defaults and examples are synthetic; configure your own Sonos addresses
+before use. Display room names can be overridden with
+`HOMEY_ROOM_THERMOSTAT_1_NAME` through `HOMEY_ROOM_THERMOSTAT_9_NAME`; the web app
+uses the same settings. Sonos discovers device identities from network topology.
+Historical hardware notes omit private IP and MAC addresses. Public screenshots
+use demo data (see `docs/screenshots/README.md`).
+
+Use your Git hosting account's noreply email for commits. Removing private data
+from a file does not remove earlier versions: published history and existing
+clones must be handled separately when sanitizing a repository. Never distribute
+local `.env`, firmware builds, flash backups or an unsanitized Git recovery bundle.
+
+The local privacy cleanup rewrote earlier commits. Hardware notes retain their
+original commit labels as historical provenance; those labels may no longer
+resolve in the sanitized history. Replacing an already published history requires
+an explicit coordinated force push; fetching an unsanitized remote can bring
+old private data back into a local clone.

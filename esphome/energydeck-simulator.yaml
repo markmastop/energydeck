@@ -27,6 +27,7 @@ substitutions:
   homey_room_thermostat_2_id: !env_var HOMEY_ROOM_THERMOSTAT_2_ID none
   evohome_zone_2_name: !env_var HOMEY_ROOM_THERMOSTAT_2_NAME Aanbouw
   homey_room_thermostat_3_id: !env_var HOMEY_ROOM_THERMOSTAT_3_ID none
+  # Household names belong in local .env overrides, not public defaults.
   evohome_zone_3_name: !env_var HOMEY_ROOM_THERMOSTAT_3_NAME Bedroom 1
   homey_room_thermostat_4_id: !env_var HOMEY_ROOM_THERMOSTAT_4_ID none
   evohome_zone_4_name: !env_var HOMEY_ROOM_THERMOSTAT_4_NAME Bedroom 2

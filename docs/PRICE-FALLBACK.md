@@ -62,9 +62,9 @@ a quarter can therefore trigger reevaluation even if `Prijsinterval` is unchange
 Identical repeated updates do not retrigger. It is a completion signal, not a
 transaction or lock across multiple simultaneous script runs.
 
-The disabled backup is `Auto - Run (Kopie)`:
+The disabled backup is `Auto - Run (Kopie)` (synthetic example ID):
 `3d2fe647-b2c7-5bd2-8ae3-b480c8ebd84c`.
-The active Flow keeps ID `4d7b815a-3956-527c-a802-2948525c1d60`.
+The active Flow is represented by synthetic example ID `4d7b815a-3956-527c-a802-2948525c1d60`.
 All 47 nodes and 40 connections were compared through the web UI; only the two
 price cards changed. No manual charging test was started. To roll back, disable
 the active Flow before enabling the backup; never run both simultaneously.
@@ -86,7 +86,7 @@ For example, 0.061 EUR/kWh becomes 20.5 ct/kWh; cached numeric prices remain raw
 The deck's minimum-span behavior also applies to flat days. Invalid data shows no old numerical price and uses
 the neutral dashboard branch. Neither field changes legacy Sessy control values.
 
-In `Datavista - Set Information` (`9f0518c4-3fad-549a-8272-3e7726588b0d`):
+In `Datavista - Set Information` (synthetic example ID `9f0518c4-3fad-549a-8272-3e7726588b0d`):
 
 - `widget_kwh_prijs` now combines `Energie - Dashboardprijs` and the existing
   HomeWizard P1 `Vermogen totaal` tag (updated 2026-09-09).

@@ -952,7 +952,23 @@ void test_favorite_preserves_rooms() {
   s.capture(); f.grouped = true; poll(s, f);
   assert(!s.prepare_favorite(favorite(true)) && !s.has_request()); // Stale scope must never play in a new group.
 }
+void test_bootstrap_identity_discovery() {
+  State s;
+  s.begin(living, kitchen);
+  assert(s.rooms[0].uuid.empty() && s.rooms[1].uuid.empty());
+  Fixture f;
+  const std::string first = "RINCON_NEW_FIRST", second = "RINCON_NEW_SECOND";
+  f.zones = "<ZoneGroups><ZoneGroup Coordinator=\"" + first + "\">" +
+    member(first, living) + member(second, kitchen) + "</ZoneGroup></ZoneGroups>";
+  poll_requests(s, f);
+  assert(s.rooms[0].uuid == first && s.rooms[1].uuid == second);
+  assert(s.rooms[0].known() && s.rooms[1].known() && s.grouped());
+  // Further polls preserve discovered identities rather than resetting to fixtures.
+  poll(s, f);
+  assert(s.rooms[0].uuid == first && s.rooms[1].uuid == second);
+}
 int main(int argc, char **argv) {
+  test_bootstrap_identity_discovery();
   test_favorite_preserves_rooms();
   if(argc > 1 && std::string(argv[1]) == "--favorites-probe") {
     Favorites f; f.begin(kitchen);

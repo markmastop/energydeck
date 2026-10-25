@@ -194,7 +194,7 @@ on 2026-10-17 with build timestamp `2026-10-17 14:06:43 +0200` (`9db1b8d`).
 Serial logs confirmed:
 - Full 384,000-pixel dashboard initial redraw duration reduced from 229.0 ms to **167.7 ms** (104.5 ms LVGL draw, **63.2 ms** tiled portrait rotation/copy, down from 90.5 ms).
 - Data publication warnings eliminated during routine polls due to global unchanged-value guards.
-- Wi-Fi connected to `example-wifi` (192.168.1.100, -51 dBm).
+- Wi-Fi connected to `example-wifi` ([device IP redacted], -51 dBm).
 - I2C backlight controller (0x30) and GT911 touchscreen (0x5D) initialized.
 - Live data verified: Solar (3490 W), Sessy battery (38%), EV charger (charging at 1503 W), and Sonos (9 playable favorites loaded).
 - The user confirmed noticeably improved responsiveness during physical interaction.

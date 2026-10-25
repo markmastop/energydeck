@@ -424,8 +424,8 @@ touch behavior.
 The user-authorized rollout of `d4a11ec` on 2026-10-25 pushed the change to
 `origin/main` and uploaded the normal production images to both displays.
 Both OTA uploads reported success. Hostname/MAC checks identified the 5-inch
-`energydeck.local` at 192.168.1.100 ([device MAC redacted]) and the 7-inch
-`energydeck-7.local` at 192.168.1.100 ([device MAC redacted]). Both devices
+`energydeck.local` at [device IP redacted] ([device MAC redacted]) and the 7-inch
+`energydeck-7.local` at [device IP redacted] ([device MAC redacted]). Both devices
 recovered their OTA ports after restart. The public web deployment returned
 HTTP 200 and byte-identical `app.js`, `battery-plan.js`, `details.css`, `sw.js`
 and `translations.json`; the overview also contains the new strategy markup.

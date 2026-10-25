@@ -531,7 +531,7 @@ class State {
   }
   void begin(const std::string &living, const std::string &kitchen) {
     if (rooms[0].uuid.empty()) {
-      rooms[0].uuid = "RINCON_LIVING"; rooms[1].uuid = "RINCON_KITCHEN";
+      // Bootstrap addresses identify rooms until topology supplies their real UUIDs.
       rooms[0].host = origin(living); rooms[1].host = origin(kitchen);
     }
     requests_.clear(); cursor_ = 0; topology_ok_ = false; commanding_ = false; read_retried_ = false;
@@ -1081,9 +1081,10 @@ class State {
             else complete = false;
           } else if (duplicate->host != host || duplicate->coordinator != coordinator) complete = false;
         }
-        for (auto &r : result) if (!r.uuid.empty() && uuid == r.uuid) {
-          auto host = origin(attribute(n, "Location")); if (host.empty()) continue;
-          r.host = host; r.coordinator = coordinator; r.coordinator_host = coordinator_host; r.members = signature; r.topology = true;
+        for (auto &r : result) if ((!r.uuid.empty() && uuid == r.uuid) ||
+            (r.uuid.empty() && !host.empty() && r.host == host)) {
+          if (uuid.empty() || host.empty()) continue;
+          r.uuid = uuid; r.host = host; r.coordinator = coordinator; r.coordinator_host = coordinator_host; r.members = signature; r.topology = true;
         }
       }
     }

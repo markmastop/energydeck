@@ -181,7 +181,7 @@ touch navigation was not manually tested. No control commands were issued.
 
 ## 7-inch firmware refresh (2026-10-22)
 
-The known `energydeck-7.local` device was reachable at `192.168.1.100`; the local
+The known `energydeck-7.local` device was reachable at `[device IP redacted]`; the local
 ARP entry matched its verified MAC `[device MAC redacted]`. No USB serial port was
 available, so the current `d71c858` sources were built with
 `energydeck-crowpanel-7.yaml` and uploaded through ESPHome OTA. The built image
@@ -233,7 +233,7 @@ playback, charging or thermostat commands were issued.
 
 ## 7-inch automatic-card rollout (2026-10-22)
 
-The known `energydeck-7.local` device at `192.168.1.100` matched the verified
+The known `energydeck-7.local` device at `[device IP redacted]` matched the verified
 7-inch MAC `[device MAC redacted]`. Sources from `4a6b5e2` were built successfully
 with `energydeck-crowpanel-7.yaml`; the image reports
 `2026-10-22 20:49:11 +0200`. The device acknowledged a successful ESPHome OTA

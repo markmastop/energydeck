@@ -495,7 +495,7 @@ Forecast dashes are split explicitly because LVGL's software renderer only
 supports built-in dashes on horizontal/vertical segments. Persistent history
 buffers use in-place globals without a large setup-stack initializer. The
 change is presentation/read-only data acquisition; it triggers no charging Flow
-and does not activate shadow control. Not yet pushed or flashed.
+and does not activate shadow control. The user-authorized rollout is recorded below.
 
 
 Verification: all 94 web tests pass, including read-only history acquisition,
@@ -504,4 +504,21 @@ clipping, and session protection for the new endpoint. The native geometry test
 covers measured/forecast segmentation and an extended history viewport. Simulator
 and both hardware builds pass; LVGL fixture captures verify overview and detail.
 The new service also returned 237 fresh real Homey points in a read-only check.
-No browser visual inspection or physical rollout was performed for this change.
+No browser visual inspection or physical rollout was performed during implementation.
+
+
+### Measured-history rollout on 2026-10-25
+
+Commits `44dc6f5` (readability) and `78804dd` (measured history) were pushed through
+GitHub Desktop to `origin/main`. The existing production 5-inch and 7-inch images
+were uploaded via OTA; both reported `OTA successful` and successful completion.
+Hostname/MAC checks matched the same devices documented above. Both recovered
+port 3232 after restart. The 2672 B setup frames passed the 4096 B guard budget.
+
+The public deployment returned HTTP 200 with byte-identical `app.js`,
+`battery-plan.js`, `battery-detail.js`, `styles.css`, `details.css`, `sw.js` and
+`translations.json`. An additional authenticated API check was unavailable:
+the locally configured web access code returned HTTP 401. No credentials were
+changed or retried. The histories service's real Homey read was already verified
+during implementation; this rollout does not establish an authenticated browser
+visual check or physical touch validation. No charging Flow was invoked.

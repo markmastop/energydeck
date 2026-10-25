@@ -1,7 +1,7 @@
 # Forward-looking Sessy charge and discharge plan
 
 Status: planner, shadow integration, ESP/web readers and offline tests implemented.
-**Not installed or enabled in Homey.**
+**Deployed in shadow mode on 25 October 2026; active price control is not enabled.**
 The current ready-by-17 controller remains authoritative. This document supersedes
 neither its running configuration nor any manual override.
 
@@ -214,8 +214,8 @@ throughput assumptions remain those listed above.
 
 The next activation step needs measured household/EV history, confirmed site/phase
 headroom, shadow replay over complete cycles, removal of the redundant legacy price
-gate and an explicitly reviewed activation/rollback. This commit installs none of
-those live changes and does not flash physical displays.
+gate and an explicitly reviewed activation/rollback. The implementation commit did not install those active-control changes or flash
+physical displays; the separate shadow deployment is recorded below.
 
 Checks: `node scripts/test-sessy-price-plan.mjs`, existing ready-by-17 and installer
 checks, native `scripts/test-battery-plan.cpp`, web tests and ESP simulator build.
@@ -227,3 +227,28 @@ It retains the old three-hour `periods` and legacy total, and publishes a separa
 they never become zero sunshine or break the short-horizon controller. Display
 and web show the available next-day sunshine on the same UTC plan axis. Forecast
 minutes still do not authorise estimated PV kWh.
+
+## Shadow deployment: 25 October 2026
+
+- Installed the bundled normal-control step and extended sunshine publisher with
+  private backups and exact source/Flow read-back verification. `Sessy - Run`
+  remains the sole actuator path; its ready-by-17 policy and existing guards are
+  retained. No real charge Flow was manually triggered for testing.
+- The normal loop independently published a v2 `shadow` proposal covering 133
+  quarters using the Homey/Epex all-in price sources. Inputs remain provisional.
+- Refreshed only the verified weather script, using its existing HomeyScript run
+  endpoint. The cache became valid with 145 forward sunshine quarters; the next
+  natural controller cycle included known sunshine in all 133 planned intervals,
+  of which 24 had a positive sunshine forecast at verification time.
+- Firmware source `b9a118d` was OTA-uploaded successfully to both 5-inch and 7-inch
+  displays. Both returned to the network and accepted connections more than
+  80 seconds after upload. Physical rendering/touch remains user-verifiable.
+- Pushed the implementation to `origin/main`. The public web card markup and
+  `battery-forward.js` were deployed; the served module exactly matched the
+  committed file. Authenticated production-card rendering was not verified:
+  the production access code differed from the local configured code. No access
+  codes or authentication settings were changed.
+
+Shadow output is ready for comparison with measured battery behaviour. Enabling
+price-based actuation still requires the calibration and reviewed activation
+steps above; this deployment does not enable the execution guard.

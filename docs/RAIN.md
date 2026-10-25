@@ -34,7 +34,7 @@ The web uses a separate sunshine summary. The display combines rain and sunshine
 in one line above the wider chart, for example `Rain from 14:40 | no sunshine`.
 Unknown sources remain independent (`Rain -- | 25 min sun`). Expected rain is
 blue, predicted sunshine is yellow and dry/zero sunshine is muted.
-A small `Next 2 hours` caption explains the horizon. The display replaces
+The times below the chart explain its horizon without a separate caption. The display replaces
 intensity captions with subtle fixed-band guides and uses smaller source text.
 This display layout is intentionally ahead of the web layout at the user's
 request; the web redesign is deferred. Both still interpret the same forecasts.
@@ -47,9 +47,9 @@ must not change Homey variables, battery planning or real forecast caches. Norma
 production firmware does not start a weather demo.
 
 The combined display outlook uses adjacent labels: rain stays blue when expected,
-predicted sunshine is yellow, and zero/unknown sunshine stays muted. The horizon
-caption is white for readability. Demo firmware uses the same label helper and
-colors while retaining explicit demo wording.
+predicted sunshine is yellow, and zero/unknown sunshine stays muted. The former
+horizon-label slot remains empty in live mode and shows only a white `DEMO`
+marker during previews. Demo firmware uses the same label helper and colors.
 
 The current-weather icon follows Homey's current condition independently of the
 forecast. Cloud, rain, snow and fog hide the decorative sun; clear and explicitly

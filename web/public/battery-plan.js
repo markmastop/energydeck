@@ -16,8 +16,14 @@ export function batteryPlan(raw, now = new Date()) {
       !finite(value.deadlineMinute, value.reserveMinute + 1, 1439) ||
       (value.startMinute !== null && !finite(value.startMinute, value.reserveMinute, value.deadlineMinute))) return null;
   const sunValid = finite(value.sunMinutes, 0, 180) && finite(value.sunWindowMinutes, 15, 180) && value.sunMinutes <= value.sunWindowMinutes;
+  let sunPeriods = [];
+  if (sunValid && Array.isArray(value.sunPeriods) && value.sunPeriods.length <= 16 && value.sunPeriods.every((p, i, all) =>
+      p && finite(p.from, value.reserveMinute, value.deadlineMinute) && finite(p.until, p.from + 0.001, value.deadlineMinute) &&
+      p.until - p.from <= 15.02 && finite(p.fraction, 0, 1) && (!i || Math.abs(p.from - all[i - 1].until) <= 0.02))) {
+    sunPeriods = value.sunPeriods.map(({from, until, fraction}) => ({from, until, fraction}));
+  }
   return {version: 1, day, updatedAt: value.updatedAt, enabled: value.enabled, phase: value.phase,
-    sunMinutes: sunValid ? value.sunMinutes : null, sunWindowMinutes: sunValid ? value.sunWindowMinutes : null,
+    sunPeriods, sunMinutes: sunValid ? value.sunMinutes : null, sunWindowMinutes: sunValid ? value.sunWindowMinutes : null,
     sunAdvanceMinutes: sunValid && finite(value.sunAdvanceMinutes, 0, 60) ? value.sunAdvanceMinutes : 0,
     capacityKwh: value.capacityKwh, topUpW: value.topUpW, targetPercent: value.targetPercent,
     reserveMinute: value.reserveMinute, deadlineMinute: value.deadlineMinute, startMinute: value.startMinute};
@@ -36,5 +42,8 @@ export function batteryPlanView(raw, now = new Date()) {
   const position = n => Math.max(0, Math.min(100, (n - plan.reserveMinute) / (plan.deadlineMinute - plan.reserveMinute) * 100));
   const label = !plan.enabled ? 'batteryPlanOff' : plan.phase === 'grid-top-up' ? 'batteryPlanTopup' :
     plan.phase === 'full-reserve' ? 'batteryPlanReserve' : plan.phase === 'normal' ? 'batteryPlanNormal' : 'batteryPlanSolar';
-  return {plan, label, start: plan.startMinute === null ? null : position(plan.startMinute), now: position(minute)};
+  const sunshine = plan.sunPeriods.filter(p => p.until > minute).map(p => ({
+    left: position(Math.max(minute, p.from)), width: position(p.until) - position(Math.max(minute, p.from)), fraction: p.fraction,
+  }));
+  return {plan, label, sunshine, start: plan.startMinute === null ? null : position(plan.startMinute), now: position(minute)};
 }

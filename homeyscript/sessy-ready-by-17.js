@@ -47,7 +47,7 @@ let soc = null;
 let latestStartMinute = null;
 let chargeLimitW = MAX_CHARGE_W;
 let startedMinute = previous?.day === day && Number.isFinite(previous?.startedMinute) ? previous.startedMinute : null;
-let sunMinutes = null, sunWindowMinutes = null, sunAdvanceMinutes = 0;
+let sunMinutes = null, sunWindowMinutes = null, sunAdvanceMinutes = 0, sunPeriods = [];
 
 function sunshineUntil(deadline) {
   const candidates = variables.filter(v => v.name === 'sessy_sunshine_forecast' && v.type === 'string');
@@ -59,6 +59,7 @@ function sunshineUntil(deadline) {
       !Number.isFinite(f.updatedAt) || epoch - f.updatedAt > 4500 || f.updatedAt - epoch > 30 ||
       !Array.isArray(f.periods) || !f.periods.length || f.periods.length > 16) return null;
   let cursor = epoch, total = 0;
+  const periods = [];
   const end = Math.min(epoch + 10800, epoch + (deadline - minute) * 60, f.periods.at(-1)?.end);
   if (!Number.isFinite(end) || end - epoch < 900) return null;
   for (let i = 0; i < f.periods.length; i++) {
@@ -70,9 +71,13 @@ function sunshineUntil(deadline) {
     if (p.start > cursor) return null;
     const until = Math.min(p.end, end);
     total += p.sunMinutes * (until - cursor) / 900;
+    // Local daytime positions share the 09:00–17:00 card axis. These are
+    // sunshine fractions within each quarter, not PV watts or energy.
+    periods.push({from: Math.round((minute + (cursor - epoch) / 60) * 100) / 100,
+      until: Math.round((minute + (until - epoch) / 60) * 100) / 100, fraction: Math.round(p.sunMinutes / 15 * 1000) / 1000});
     cursor = until;
   }
-  return cursor >= end ? {minutes: total, window: (end - epoch) / 60} : null;
+  return cursor >= end ? {minutes: total, window: (end - epoch) / 60, periods} : null;
 }
 
 if (enabled.value === true && minute >= RESERVE_FROM_MINUTE && minute < DEADLINE_MINUTE) {
@@ -93,6 +98,7 @@ if (enabled.value === true && minute >= RESERVE_FROM_MINUTE && minute < DEADLINE
   const sunshine = sunshineUntil(DEADLINE_MINUTE);
   if (sunshine) {
     sunMinutes = Math.round(sunshine.minutes);
+    sunPeriods = sunshine.periods;
     sunWindowMinutes = Math.round(sunshine.window);
     // Sunshine minutes are not PV kWh. Only use cloudiness as extra lead time;
     // even a completely wrong sunny forecast cannot delay the safe latest start.
@@ -127,7 +133,7 @@ await Homey.logic.updateVariable({id: target.id, variable: {value: watts}});
 // normal control (for example a manual override) through snapshot expiry.
 const plan = JSON.stringify({version: 1, day, updatedAt: Math.floor(now.getTime() / 60000) * 60,
   enabled: enabled.value === true, phase: reason, capacityKwh: CAPACITY_KWH,
-  sunMinutes, sunWindowMinutes, sunAdvanceMinutes,
+  sunMinutes, sunWindowMinutes, sunAdvanceMinutes, sunPeriods,
   topUpW: TOP_UP_W, targetPercent: 100, reserveMinute: RESERVE_FROM_MINUTE,
   deadlineMinute: DEADLINE_MINUTE,
   startMinute: toppingUp || reason === 'full-reserve' || reason === 'normal' ?

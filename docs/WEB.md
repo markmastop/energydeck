@@ -203,7 +203,10 @@ Net grid power is negative for export. Sessy battery power is negative while cha
 The battery card can also read `HOMEY_BATTERY_PLAN_VARIABLE_ID`. It visualizes
 the controller's current start/target times and top-up limit, matching the ESP
 card. Valid local sunshine forecasts add expected sunshine minutes and the
-remaining forecast window to the plan status. The EV card stays beside it with the existing charge/stop button,
+remaining forecast window to the plan status. A separate yellow row follows the
+same time axis: each quarter becomes brighter as its predicted sunshine fraction
+increases. It covers only the available future forecast, independently of the
+green solar-first and blue grid-top-up windows. The EV card stays beside it with the existing charge/stop button,
 readiness checks and status messages available. Stored kWh is an estimate from SoC and configured capacity. Missing/stale
 plans never replace live battery measurements. See [the snapshot contract and
 installation](SESSY-READY-BY-17.md).

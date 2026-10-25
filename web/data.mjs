@@ -217,6 +217,9 @@ export function climateState(controller, rooms) {
 }
 
 function demoData(config, now) {
+  const clock = Object.fromEntries(new Intl.DateTimeFormat('en-GB', {timeZone:'Europe/Amsterdam',
+    hour:'2-digit', minute:'2-digit', hourCycle:'h23'}).formatToParts(now).map(p=>[p.type,p.value]));
+  const forecastFrom = Math.max(540, Number(clock.hour)*60 + Number(clock.minute));
   const device = values => ({ capabilitiesObj: Object.fromEntries(Object.entries(values).map(([key, value]) => [key, { value }])) });
   const day = offset => ({ date: localDay(now, offset), source: 'homey',
     values: Array.from({ length: priceDayBounds(localDay(now, offset)).count }, (_, i) => .065 + .045 * Math.sin((i - 22) / 12) + .018 * Math.cos(i / 5)) });
@@ -229,6 +232,10 @@ function demoData(config, now) {
     gas: device({ meter_m3_this_day: .83, meter_m3_last_day: 1.2, meter_m3_this_month: 24.8, meter_m3_this_year: 382.6 }),
     controller: { ...device({ honeywell_thermostat_mode: 'Auto' }), driverId: 'homey:app:com.honeywell:thermostat' } }, rooms, { today: day(0), tomorrow: day(1) }, config, now, {version: 1, day: localDay(now), updatedAt: Math.floor(now.getTime()/1000),
       enabled: true, phase: 'solar-and-reserve', capacityKwh: 5, topUpW: 1000, targetPercent: 100,
-      reserveMinute: 540, deadlineMinute: 1020, startMinute: 828, sunMinutes: 0, sunWindowMinutes: 180, sunAdvanceMinutes: 60}),
+      reserveMinute: 540, deadlineMinute: 1020, startMinute: 828, sunMinutes: 90, sunWindowMinutes: 180, sunAdvanceMinutes: 0,
+      sunPeriods: Array.from({length:12}, (_,i) => {
+        const from = forecastFrom + i*15;
+        return {from, until:Math.min(1020,from+15), fraction:[0.1,0.2,0.35,0.6,0.9,1,1,0.8,0.6,0.3,0.1,0][i]};
+      }).filter(p=>p.from<p.until)}),
     demo: true, status: 'demo', errors: [], updatedAt: now.toISOString(), day: localDay(now) };
 }

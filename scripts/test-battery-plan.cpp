@@ -13,6 +13,13 @@ int main() {
   assert(p.position(809, 268) == 150);
   p.set_sunshine(11,180);
   assert(p.sun_minutes == 11 && p.sun_window == 180);
+  assert(p.add_sun_period(795,810,0));
+  assert(p.add_sun_period(810,825,1));
+  assert(p.sun_count == 2 && p.sun_periods[1].fraction == 1);
+  assert(!p.add_sun_period(826,840,0.5));
+  assert(p.sun_count == 0 && p.known);
+  assert(!p.add_sun_period(1000,1030,1));
+  assert(!p.add_sun_period(810,825,2));
   p.set_sunshine(190,180);
   assert(std::isnan(p.sun_minutes) && p.known);
   assert(!p.set(1, "2026-10-25", 1792931400, true, "made-up", 5, 1000, 100, 540, 1020, 809, 100));

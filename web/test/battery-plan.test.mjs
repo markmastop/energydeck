@@ -55,3 +55,19 @@ test('plan fetch is restricted, private, and independent from live battery avail
   assert.equal(paths.length, 2);
   assert.equal(JSON.stringify(result).includes('secret-test-token'), false);
 });
+
+test('sunshine quarters share the charge-plan axis and reject malformed optional data', () => {
+  const forecast = {...plan, sunMinutes:15, sunWindowMinutes:30, sunPeriods:[
+    {from:795, until:810, fraction:0}, {from:810, until:825, fraction:1}]};
+  const view = batteryPlanView(forecast, now); // 13:30 local: first interval is past.
+  assert.equal(view.sunshine.length,1);
+  assert.equal(view.sunshine[0].left,56.25);
+  assert.equal(view.sunshine[0].width,3.125);
+  assert.equal(view.sunshine[0].fraction,1);
+  for (const bad of [[{from:1000,until:1030,fraction:1}], [{from:810,until:825,fraction:2}],
+      [{from:795,until:810,fraction:0},{from:811,until:825,fraction:1}], Array(17).fill({from:810,until:825,fraction:1}), [null]]) {
+    const parsed = batteryPlan({...forecast,sunPeriods:bad},now);
+    assert.deepEqual(parsed.sunPeriods,[]);
+    assert.equal(parsed.startMinute,809,'Invalid sunshine must retain the charging plan');
+  }
+});

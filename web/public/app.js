@@ -128,6 +128,14 @@ function render() {
     text('battery-plan-status', `${$('battery-plan-status').textContent} · ${sunshine}`);
   }
   text('battery-plan-rate', plan?.enabled ? `${t('batteryPlanRate')} ${format(plan.topUpW / 1000)} kW` : '');
+  $('battery-sunshine').title = t('batterySunTimeline');
+  $('battery-sunshine').replaceChildren(...(plan?.enabled ? view.sunshine : []).map(period => {
+    const segment = document.createElement('span');
+    segment.style.left = `${period.left}%`;
+    segment.style.width = `${period.width}%`;
+    segment.style.opacity = String((45 + period.fraction * 210) / 255);
+    return segment;
+  }));
   $('battery-timeline').hidden = !plan?.enabled;
   if (plan?.enabled) {
     const start = view.start ?? 100;
@@ -138,7 +146,7 @@ function render() {
     text('battery-reserve-time', planClock(plan.reserveMinute));
     text('battery-start-time', plan.startMinute === null ? '' : `${t('batteryPlanStart')} ${planClock(plan.startMinute)}`);
     text('battery-deadline-time', planClock(plan.deadlineMinute));
-    $('battery-timeline').setAttribute('aria-label', t('batteryPlanTimeline').replace('{reserve}', planClock(plan.reserveMinute)).replace('{start}', planClock(plan.startMinute)).replace('{deadline}', planClock(plan.deadlineMinute)));
+    $('battery-timeline').setAttribute('aria-label', t('batteryPlanTimeline').replace('{reserve}', planClock(plan.reserveMinute)).replace('{start}', planClock(plan.startMinute)).replace('{deadline}', planClock(plan.deadlineMinute)) + (view.sunshine.length ? ` ${t('batterySunTimeline')}` : ''));
   }
   const charger = data.charger;
   const chargeState = charger.connected === false ? 'disconnected' : charger.fault === true ? 'fault' :

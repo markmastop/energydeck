@@ -34,7 +34,7 @@ script:
                   Authorization: "Bearer ${homey_token}"
                   Accept: "application/json"
                 capture_response: true
-                max_response_buffer_size: 4096
+                max_response_buffer_size: 8192
                 on_response:
                   then:
                     - lambda: |-
@@ -55,6 +55,15 @@ script:
                               p["startMinute"].isNull() ? NAN : p["startMinute"].as<float>(), millis());
                             if (valid && p["sunMinutes"].is<float>() && p["sunWindowMinutes"].is<float>())
                               id(battery_plan).set_sunshine(p["sunMinutes"].as<float>(), p["sunWindowMinutes"].as<float>());
+                            if (valid && std::isfinite(id(battery_plan).sun_minutes) && p["sunPeriods"].is<JsonArray>()) {
+                              auto periods = p["sunPeriods"].as<JsonArray>();
+                              if (periods.size() <= 16) for (JsonObject part : periods) {
+                                if (!part["from"].is<float>() || !part["until"].is<float>() || !part["fraction"].is<float>()) {
+                                  id(battery_plan).sun_count = 0; break;
+                                }
+                                if (!id(battery_plan).add_sun_period(part["from"].as<float>(), part["until"].as<float>(), part["fraction"].as<float>())) break;
+                              }
+                            }
                             return valid;
                           });
                         });
@@ -107,6 +116,23 @@ script:
               id(battery_plan_reserve_label), id(battery_plan_start_label), id(battery_plan_deadline_label)}) {
             if (known && p.enabled) lv_obj_clear_flag(o, LV_OBJ_FLAG_HIDDEN);
             else lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
+          }
+          // A separate yellow row encodes quarter-hour sunshine, independently
+          // of the green/blue charging windows. Empty/expired data hides the row.
+          lv_obj_t *sun_segments[] = {id(battery_sun_00), id(battery_sun_01), id(battery_sun_02), id(battery_sun_03), id(battery_sun_04), id(battery_sun_05), id(battery_sun_06), id(battery_sun_07), id(battery_sun_08), id(battery_sun_09), id(battery_sun_10), id(battery_sun_11), id(battery_sun_12), id(battery_sun_13), id(battery_sun_14), id(battery_sun_15)};
+          const float current = time.hour * 60 + time.minute + time.second / 60.0f;
+          for (size_t i = 0; i < 16; i++) {
+            auto *o = sun_segments[i];
+            lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
+            if (!known || !p.enabled || i >= p.sun_count) continue;
+            const auto &part = p.sun_periods[i];
+            if (part.until <= current) continue;
+            const int left = p.position(std::fmax(current, part.from), 268), right = p.position(part.until, 268);
+            if (right <= left) continue;
+            lv_obj_set_x(o, 12 + left);
+            lv_obj_set_width(o, std::max(1, right - left - 1));
+            lv_obj_set_style_bg_opa(o, static_cast<lv_opa_t>(45 + part.fraction * 210), LV_PART_MAIN);
+            lv_obj_clear_flag(o, LV_OBJ_FLAG_HIDDEN);
           }
           if (!known || !p.enabled) return;
           const int x = std::isfinite(p.start) ? p.position(p.start, 268) : 268;

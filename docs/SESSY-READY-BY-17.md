@@ -150,6 +150,11 @@ top-up window, and a white marker the current Amsterdam clock time. These are
 planning windows, not measured energy-source histories or a guarantee of full
 charge. The start stays fixed once top-up begins rather than sliding forward
 as SoC rises. Valid forecasts add compact sunshine minutes/window information.
+A separate yellow strip above the charging timeline shows each forecast quarter
+at its actual clock position. Brighter yellow means a larger sunshine fraction
+within that quarter; dim yellow means little or no sunshine. Only forecast-covered
+future intervals appear. Outside that horizon the strip is absent, not a zero-sun
+prediction. This is weather data, not measured solar power or predicted battery kWh.
 The battery uses the original large-percentage card with the EV card to its
 right. Vehicle status, charging details and the existing charge/stop button
 remain available; the lower cards and shared header stay in place.
@@ -157,7 +162,10 @@ remain available; the lower cards and shared header stay in place.
 The controller publishes version 1 JSON with `day`, epoch-seconds `updatedAt`,
 `enabled`, `phase`, `capacityKwh`, `topUpW`, `targetPercent`, `reserveMinute`,
 `deadlineMinute` and nullable `startMinute`. Optional `sunMinutes`,
-`sunWindowMinutes` and `sunAdvanceMinutes` describe the forecast used. Invalid
+`sunWindowMinutes` and `sunAdvanceMinutes` describe the forecast used.
+Optional `sunPeriods` contains at most 16 consecutive intervals with local-day
+minute `from`/`until` and sunshine `fraction` in 0–1. Both clients reject malformed
+intervals independently, clip elapsed periods and retain the safe charging plan. Invalid
 optional forecast data does not invalidate an otherwise valid plan. Consumers validate the schema, the
 Amsterdam date and a maximum age of three minutes (up to 30 seconds clock skew).
 The ESP polls the configured variable every minute. The web server reads it
@@ -214,3 +222,13 @@ visually inspected, the display simulator built successfully, and all 81 web
 tests passed. Forecast/controller simulations, installer tests, native validation
 and nine navigation combinations passed. Physical displays were not flashed;
 real completion at 17:00 remains to be observed.
+
+### Visual sunshine quarters verified on 2026-10-25
+
+The snapshot now includes the validated quarter-hour sunshine intervals used by
+the controller. Read-back from the normal live loop confirmed these intervals
+and their deadline clipping; no manual charging Flow was run. Both clients render
+a separate yellow forecast row with shared 0–1 brightness mapping. Native LVGL
+and mobile demo previews were visually inspected, the simulator built, all 82 web
+tests passed, and controller, native validation, installer and nine navigation
+checks passed. This presentation revision has not been flashed to physical panels.

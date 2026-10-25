@@ -1,5 +1,6 @@
 #pragma once
 #include <cmath>
+#include <array>
 #include <cstdint>
 #include <string>
 
@@ -11,6 +12,9 @@ struct BatteryPlan {
   uint32_t updated_at{0}, received_at{0};
   float capacity{NAN}, top_up_w{NAN}, start{NAN};
   float sun_minutes{NAN}, sun_window{NAN};
+  struct SunPeriod { float from, until, fraction; };
+  std::array<SunPeriod, 16> sun_periods{};
+  size_t sun_count{0};
   int reserve{0}, deadline{0};
   void clear() { known = false; }
   bool set(int version, const std::string &date, uint32_t updated, bool on,
@@ -27,12 +31,23 @@ struct BatteryPlan {
     capacity = kwh; top_up_w = watts; reserve = static_cast<int>(from);
     deadline = static_cast<int>(until); start = beginning; received_at = received;
     sun_minutes = sun_window = NAN;
+    sun_count = 0;
     return true;
   }
   void set_sunshine(float minutes, float window) {
     if (std::isfinite(minutes) && std::isfinite(window) && window >= 15 && window <= 180 && minutes >= 0 && minutes <= window) {
       sun_minutes = minutes; sun_window = window;
     } else sun_minutes = sun_window = NAN;
+  }
+  bool add_sun_period(float from, float until, float fraction) {
+    if (sun_count >= sun_periods.size() || !std::isfinite(from) || !std::isfinite(until) ||
+        !std::isfinite(fraction) || from < reserve || until > deadline || until <= from ||
+        until - from > 15.02f || fraction < 0 || fraction > 1 ||
+        (sun_count && std::fabs(from - sun_periods[sun_count - 1].until) > 0.02f)) {
+      sun_count = 0; return false;
+    }
+    sun_periods[sun_count++] = {from, until, fraction};
+    return true;
   }
   bool valid(uint32_t ms, int64_t epoch, const std::string &date) const {
     return known && day == date && uint32_t(ms - received_at) <= 180000 &&

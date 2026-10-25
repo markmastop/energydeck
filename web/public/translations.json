@@ -205,7 +205,8 @@
     "batteryPlanStart": "Start",
     "batteryPlanRate": "max.",
     "batteryPlanTimeline": "Laadplan: zon vanaf {reserve}, bijladen vanaf {start}, doel vol om {deadline}",
-    "batterySunForecast": "zon {minutes}m/{hours}u"
+    "batterySunForecast": "zon {minutes}m/{hours}u",
+    "batterySunTimeline": "Geel: zonverwachting per kwartier; helderder betekent meer zon. Geen strook buiten de voorspelling."
   },
   "en": {
     "logout": "Sign out",
@@ -413,6 +414,7 @@
     "batteryPlanStart": "Start",
     "batteryPlanRate": "max.",
     "batteryPlanTimeline": "Charge plan: solar from {reserve}, top-up from {start}, target full by {deadline}",
-    "batterySunForecast": "sun {minutes}m/{hours}h"
+    "batterySunForecast": "sun {minutes}m/{hours}h",
+    "batterySunTimeline": "Yellow: sunshine forecast per quarter hour; brighter means more sunshine. No strip beyond the forecast."
   }
 }

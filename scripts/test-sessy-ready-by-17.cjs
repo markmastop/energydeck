@@ -52,6 +52,11 @@ async function run(local, options = {}) {
   assert.equal((await run(at('12:30'),{sun:{...stale,updatedAt:Date.parse(at('12:30'))/1000,valid:false}})).result.targetW,0);
   const late=JSON.parse((await run(at('16:30'),{soc:99,sun:sunshine(at('16:30'),1)})).vars.plan.value);
   assert.equal(late.sunWindowMinutes,30,'Sunshine after 17:00 is excluded');
+  assert.equal(late.sunPeriods.at(-1).until,1020);
+  assert.ok(late.sunPeriods.every(p=>p.from>=990 && p.until<=1020 && p.fraction===1));
+  assert.ok(JSON.parse(cloudy.vars.plan.value).sunPeriods.every(p=>p.fraction===0));
+  const expiredPlan=JSON.parse((await run(at('12:30'),{sun:stale})).vars.plan.value);
+  assert.deepEqual(expiredPlan.sunPeriods,[],'Stale sunshine never leaves a visual forecast behind');
   assert.equal((await run(at('08:59'))).result.targetW, 600, 'Night/morning control is retained');
   assert.equal((await run(at('09:00'))).result.targetW, 0, 'Reserve starts at 09:00');
   assert.equal((await run(at('12:00'), {demand: -1800})).result.targetW, -200, 'Solar still charges');

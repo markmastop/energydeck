@@ -30,6 +30,19 @@ script:
       - lambda: |-
           auto *plot = id(rain_plot);
           const auto now = id(energydeck_time).now();
+          // Report sunshine even when rain is dry/unavailable; zero is not missing.
+          const float sun = now.is_valid() ?
+            id(weather_sunshine).fraction(now.timestamp, now.timestamp + 7200, now.timestamp) : NAN;
+          if (!std::isfinite(sun)) {
+            esphome::ui_performance::set_text(id(weather_sunshine_label), "${weather_sunshine_unknown}");
+          } else if (sun <= 0) {
+            esphome::ui_performance::set_text(id(weather_sunshine_label), "${weather_sunshine_none}");
+          } else {
+            const int minutes = std::max(1, int(std::round(sun * 120)));
+            esphome::ui_performance::set_text_fmt(id(weather_sunshine_label), "${weather_sunshine_minutes}", minutes);
+          }
+          esphome::ui_performance::set_style_text_color(id(weather_sunshine_label),
+            lv_color_hex(std::isfinite(sun) ? 0xFFD35A : 0x82958A), LV_PART_MAIN);
           for (uint32_t i = 0; i < lv_obj_get_child_count(plot); i++) {
             auto *bar = lv_obj_get_child(plot, i);
             auto *cap = lv_obj_get_child(bar, 0);

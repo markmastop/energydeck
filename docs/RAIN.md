@@ -25,3 +25,10 @@ Both the display and web weather charts retain the full blue rain column and add
 The existing Open-Meteo temperature request also fetches `minutely_15=sunshine_duration`, avoiding an additional external request. According to the [Open-Meteo interval definitions](https://open-meteo.com/en/docs), these values are seconds over the **preceding** quarter hour. Each five-minute rain interval uses a weighted overlap, assuming sunshine is distributed uniformly within that quarter. UTC bounds keep the alignment continuous across midnight and clock changes; labels remain local.
 
 Missing, invalid or more than 45-minute-old sunshine hides only the yellow caps and leaves valid rain visible. Known zero sunshine also has no yellow cap. This weather forecast covers the full two-hour rain window and is independent of the battery planner's 17:00 deadline and Homey charging Flows.
+
+Both weather cards also state the expected sunshine minutes in the next two
+hours, including an explicit no-sunshine message for known zero. Missing/stale
+data or incomplete two-hour coverage shows an unknown forecast instead. Positive
+values round to whole minutes with a one-minute minimum for brief sunshine.
+The display uses the spare line below tomorrow's temperatures for this summary;
+it remains available independently of the rain feed and refreshes every minute.

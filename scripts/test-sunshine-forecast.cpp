@@ -21,5 +21,10 @@ int main() {
   assert(sun.fraction(midnight - 300, midnight, sun.updated) == 0);
   sun.clear();
   assert(std::isnan(sun.fraction(midnight - 300, midnight, sun.updated)));
+  // The summary needs full coverage, unlike an individual five-minute cap.
+  sun.updated = midnight;
+  for (int i = 1; i <= 8; ++i) assert(sun.add(midnight + i * 900, 225));
+  assert(sun.fraction(midnight, midnight + 7200, midnight) * 120 == 30);
+  assert(std::isnan(sun.fraction(midnight + 1, midnight + 7201, midnight)));
   std::cout << "Sunshine forecast overlap, freshness and validation passed\n";
 }

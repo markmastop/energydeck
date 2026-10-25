@@ -206,6 +206,12 @@ export function initializeDetails({ api, t, format, time, svgNode, onUnauthorize
       const outlook = node('div'); outlook.append(node('span', 'muted', `${t('inThreeHours')} ${format(data?.temperature3h)} °C`),
         node('span', 'muted', `${t('tomorrow')} ${format(data?.summary?.tomorrowMin, 0)} – ${format(data?.summary?.tomorrowMax, 0)} °C`));
       summary.append(current, outlook); container.append(summary);
+      // This rolling two-hour summary is independent of rain availability.
+      const sunNow = Date.now();
+      const sunny = sunshineFraction(data?.sunshine, sunNow, sunNow + 7200000, sunNow);
+      const sunLabel = sunny === null ? t('weatherSunUnknown') : sunny <= 0 ? t('weatherSunNone') :
+        t('weatherSunMinutes').replace('{minutes}', format(Math.max(1, Math.round(sunny * 120)), 0));
+      container.append(node('p', `sunshine-heading${sunny === null ? ' muted' : ''}`, sunLabel));
       const points = data?.rain?.points?.filter(point => point.time + 300000 > Date.now()) || [];
       const firstRain = points.findIndex(point => point.value >= .1);
       const label = !points.length ? t('rainUnknown') : firstRain < 0 ? t('rainDry') : firstRain === 0 ? t('rainNow') : `${t('rainAt')} ${time(points[firstRain].time)}`;

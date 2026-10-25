@@ -40,6 +40,17 @@ test('UTC overlap remains continuous across midnight', () => {
   assert.equal(sunshineFraction(sunshineSeries(input, current), current.getTime(), current.getTime() + 300000, current.getTime()), .75);
 });
 
+test('two-hour summary distinguishes sunny minutes, known zero and incomplete coverage', () => {
+  const start = now.getTime(), input = raw();
+  input.minutely_15.time = Array.from({length:10}, (_,i) => end + i * 900);
+  input.minutely_15.sunshine_duration = Array(10).fill(225);
+  assert.equal(sunshineFraction(sunshineSeries(input, now), start, start + 7200000, start) * 120, 30);
+  input.minutely_15.sunshine_duration.fill(0);
+  assert.equal(sunshineFraction(sunshineSeries(input, now), start, start + 7200000, start), 0);
+  input.minutely_15.time.length = input.minutely_15.sunshine_duration.length = 8;
+  assert.equal(sunshineFraction(sunshineSeries(input, now), start, start + 7200000, start), null);
+});
+
 test('weather preserves simultaneous rain and sunshine from independent sources', async () => {
   let openMeteoRequests = 0;
   const service = createExtrasService({ latitude: 52, longitude: 5 }, async url => {

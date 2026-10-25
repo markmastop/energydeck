@@ -2589,9 +2589,9 @@ lvgl:
         - obj:
             id: shared_weather_card
             x: 14
-            y: 726
+            y: 722
             width: 452
-            height: 60
+            height: 64
             radius: 8
             bg_color: 0x0F1712
             border_color: 0x343A37
@@ -2680,6 +2680,14 @@ lvgl:
                   text: "${weather_tomorrow_loading}"
                   text_font: montserrat_12
                   text_color: 0xA9B8AE
+              - label:
+                  id: weather_sunshine_label
+                  x: 70
+                  y: 48
+                  width: 190
+                  text: "${weather_sunshine_unknown}"
+                  text_font: montserrat_10
+                  text_color: 0x82958A
               - label:
                   id: weather_rain_label
                   x: 244

@@ -253,6 +253,8 @@ dialog p { font-size: 14px; line-height: 1.6; color: var(--muted); }
 #sonos-queue { position: relative; height: clamp(200px, 36vh, 320px); overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; overflow-anchor: none; }
 
 .sunshine-cap { fill:#FFD35A; pointer-events:auto; }
+.sunshine-heading { color:var(--yellow); font-size:12px; line-height:1.5; margin:10px 0 0; }
+.sunshine-heading.muted { color:var(--muted); }
 
 /* Keep prices beside the complete charging stack, rather than stretching the
    chart across unrelated grid rows. DOM order also defines the mobile order. */

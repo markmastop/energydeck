@@ -1,4 +1,5 @@
 #pragma once
+#include "weather_outlook.h"
 
 #include "esphome/core/component.h"
 #include "esphome/core/hal.h"

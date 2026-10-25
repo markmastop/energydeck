@@ -2688,7 +2688,7 @@ lvgl:
                   width: 144
                   text: "${weather_horizon}"
                   text_font: montserrat_8
-                  text_color: 0x82958A
+                  text_color: 0xEEF6F0
               - label:
                   id: weather_rain_label
                   x: 208
@@ -2698,6 +2698,14 @@ lvgl:
                   text: "${weather_rain_unknown}"
                   text_font: montserrat_10
                   text_color: 0x3AA7D8
+              - label:
+                  id: weather_sun_label
+                  x: 208
+                  y: 3
+                  width: 232
+                  text: ""
+                  text_font: montserrat_10
+                  text_color: 0xA9B8AE
               - obj:
                   id: rain_chart
                   x: 208

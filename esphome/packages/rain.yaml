@@ -44,14 +44,8 @@ script:
           else if (sun <= 0) snprintf(sunshine, sizeof(sunshine), "${weather_sun_short_none}");
           else snprintf(sunshine, sizeof(sunshine), "${weather_sun_short_minutes}",
             std::max(1, int(std::round(sun * 120))));
-          char outlook[100];
-          // ASCII separator: the bundled Montserrat font lacks the middle dot.
-          snprintf(outlook, sizeof(outlook), "%s | %s", id(rain_outlook).c_str(), sunshine);
-          // Keep the summary secondary to the chart, even for short dry messages.
-          lv_obj_set_style_text_font(id(weather_rain_label), &lv_font_montserrat_10, LV_PART_MAIN);
-          esphome::ui_performance::set_text(id(weather_rain_label), outlook);
-          esphome::ui_performance::set_style_text_color(id(weather_rain_label),
-            lv_color_hex(id(rain_has_rain) ? 0x3AA7D8 : sun > 0 ? 0xFFD35A : 0xA9B8AE), LV_PART_MAIN);
+          energydeck::set_weather_outlook(id(weather_rain_label), id(weather_sun_label),
+            id(rain_outlook).c_str(), sunshine, id(rain_has_rain), sun > 0);
           for (uint32_t i = 0; i < lv_obj_get_child_count(plot); i++) {
             auto *bar = lv_obj_get_child(plot, i);
             auto *cap = lv_obj_get_child(bar, 0);

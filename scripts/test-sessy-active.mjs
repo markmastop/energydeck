@@ -12,7 +12,7 @@ assert.equal(p.samples,168);assert.ok(p.bins.flat().every(b=>b.houseW===1000));
 assert.ok(p.bins.flat().every(b=>b.evW===3000&&b.phaseW===500));
 assert.throws(()=>buildSessyProfile({...logs,ev:{values:[]}},epoch),/Insufficient/);
 const cap=value=>({value,lastUpdated:epoch*1000});
-const config={version:1,phases:3,fuseA:25,phase:3,marginA:2};
+const config={version:1,phases:3,fuseA:25,phase:3,marginA:2,wearCt:1.5};
 const battery={available:true,settings:{power_max_charge:2200,power_max_discharge:1800},capabilitiesObj:{
   measure_power:cap(-500),measure_battery:cap(50),alarm_fault:cap(false),override:cap(false),control_strategy:cap('POWER_STRATEGY_API'),meter_setpoint:cap(500)}};
 const grid={available:true,capabilitiesObj:{measure_power:cap(500),'measure_voltage.l3':cap(230),'measure_current.l3':cap(10),'measure_power.l3':cap(2300)}};
@@ -75,6 +75,7 @@ if(source) {
   const control=await run('control');assert.deepEqual(control.writes.map(w=>w.id),['saved','target','plan']);
   const snapshot=JSON.parse(control.variables.plan.value);
   assert.equal(snapshot.forwardPlan.mode,'active');assert.equal(snapshot.execution.targetW,control.out.targetW);
+  assert.equal(snapshot.forwardPlan.inputs.wearCt,1.5,'The selected allowance reaches the exact installed controller');
   const ev=structuredClone(charger);ev.capabilitiesObj.is_charging.value=true;ev.capabilitiesObj.measure_power.value=11000;
   const withEv=await run('control',{charger:ev});assert.ok(withEv.out.targetW<=0,'Never discharge into an active EV');
   assert.ok(JSON.stringify(control.variables.plan.value).length<65536);

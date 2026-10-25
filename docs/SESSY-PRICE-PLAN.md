@@ -592,8 +592,14 @@ PV energy forecasts remain unknown (`pvForecast: unknown`): the model makes no
 sunshine-to-kWh conversion and conservatively reserves capacity without predicted
 PV energy. Actual solar surplus is still used immediately. Open-Meteo sunshine
 fractions remain visible separately in the strategy and weather cards. Fixed
-5 kWh capacity, 90%/95% charge/discharge efficiencies, a 3 ct/kWh throughput
+5 kWh capacity, 90%/95% charge/discharge efficiencies, a configurable throughput
 allowance, 10% operating reserve and 20% terminal reserve remain model settings.
+After reviewing the evening hold decision, the user selected **1.5 ct per charged
+or delivered kWh**, approximately 3 ct per complete round trip. The earlier
+3 ct per charged AND delivered kWh amounted to over 6 ct per round trip and
+favoured preserving energy over an additional overnight cycle. These are model
+preferences, not measured battery degradation costs. `sessy_price_config.wearCt`
+records the chosen allowance; absence retains the legacy default of 3.
 
 ### Execution and deviations
 
@@ -659,7 +665,7 @@ python3 scripts/install-sessy-price-control.py --apply --restore build/homey-bac
 ```
 
 This disables the active flag, restores the previous script/Flow and verifies
-readback. Simply disabling the new flag pauses automatic targets; it does not
+readback. New backups also restore the previous site/wear configuration. Simply disabling the new flag pauses automatic targets; it does not
 restore the old deadline controller or its removed legacy price filter.
 
 Offline validation covers actual source bundling, zero-write previews, measured
@@ -687,3 +693,22 @@ to the 5-inch and 7-inch passed. USB on the 5-inch confirmed all workers startin
 v2 plan parsing/rendering, 251 measured history points and a successful boot
 marker; both displays remained reachable after restart. Physical touch and the
 7-inch pixels were not directly inspected in this rollout.
+
+### Evening use and overnight replenishment
+
+The installer accepts `--wear-ct-per-throughput-kwh 1.5` for the selected
+approximately 3 ct round-trip model allowance. Omitting this option preserves
+the saved value on future updates. Site limits and reserves do not change.
+A replay of the 19:41 photo situation using the current measured profile and
+published prices selected roughly 1.4 kWh additional evening discharge with
+about 4.1 kWh overnight grid charging and 100% before the morning peak. The
+old allowance selected no additional evening discharge and about 2.4 kWh
+overnight charging. This is a replay/forecast, not an observed completed cycle;
+actual demand, EV state, phase room and SoC keep changing the live plan.
+
+The selected 1.5 ct setting was installed through the zero-write preview and
+verified normal-loop source/config readback. The next live discharge observation
+showed a 624 W device setpoint and about 634 W measured AC supply, while the
+profile/planner remained active. No additional discharge Flow was manually run.
+Planner/active-bundle/install tests and all 97 web tests pass. No ESP or web
+layout/protocol change was needed: current clients read the revised Homey plan.

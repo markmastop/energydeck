@@ -8,6 +8,7 @@ import argparse
 import copy
 import importlib.util
 import json
+import math
 import os
 from pathlib import Path
 import sys
@@ -51,13 +52,27 @@ def without_price_gate(flow, price_id):
     del result['cards'][key]
     return result,key
 
+def selected_wear(config, requested=None):
+    # Updating source must not silently reset the user's economic preference.
+    try: saved=json.loads(config.get('value','{}')) if config else {}
+    except (ValueError,TypeError): saved={}
+    if not isinstance(saved,dict):saved={}
+    wear=requested if requested is not None else saved.get('wearCt',3)
+    if not isinstance(wear,(int,float)) or isinstance(wear,bool) or not math.isfinite(wear) or not 0<=wear<=100:
+        raise ValueError('Invalid wear allowance')
+    return wear
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--apply',action='store_true')
     parser.add_argument('--restore',type=Path)
     parser.add_argument('--main-fuse-amps',type=int,default=25)
     parser.add_argument('--sessy-phase',type=int,choices=[1,2,3],default=3)
+    parser.add_argument('--wear-ct-per-throughput-kwh',type=float,
+        help='Model allowance per charged AND delivered kWh; omit to preserve the current setting (legacy default 3)')
     args=parser.parse_args();load_env()
+    if args.wear_ct_per_throughput_kwh is not None and (not math.isfinite(args.wear_ct_per_throughput_kwh) or not 0<=args.wear_ct_per_throughput_kwh<=100):
+        raise ValueError('Wear allowance must be finite and between 0 and 100 ct/kWh')
     if args.main_fuse_amps!=25:raise ValueError('This deployment was reviewed for the confirmed 3x25 A connection')
     client=HomeyClient(os.environ['HOMEY_ADDRESS'].rstrip('/'),os.environ['HOMEY_TOKEN'])
     def write(method,path,body):
@@ -77,6 +92,7 @@ def main():
         if not args.apply:return
         flag=lookup('sessy_price_plan_enabled','boolean')
         if flag:write('PUT','/api/manager/logic/variable/'+flag['id'],{'value':False})
+        if backup.get('config'):write('PUT','/api/manager/logic/variable/'+backup['config']['id'],{'value':backup['config']['value']})
         write('PUT','/api/app/com.athom.homeyscript/script/'+backup['script']['id'],script_body(backup['script']))
         write('PUT','/api/manager/flow/advancedflow/'+backup['flow']['id'],body(backup['flow']))
         if client.get('/api/app/com.athom.homeyscript/script/'+backup['script']['id']).get('code')!=backup['script']['code']:raise RuntimeError('Rollback script verification failed')
@@ -100,11 +116,13 @@ def main():
     owners={c.get('ownerUri') for c in flow['cards'].values() if c.get('id','').endswith(':set_power_setpoint')}
     if owners!={'homey:device:'+os.environ['HOMEY_SESSY_DEVICE_ID']}:raise ValueError('Actuator identity mismatch')
     source=bundle(os.environ)
+    wear=selected_wear(lookup('sessy_price_config','string'),args.wear_ct_per_throughput_kwh)
     print('Measured week profile; 5 kWh, 1 kW grid / 1.8 kW discharge, 3x25 A, phase',args.sessy_phase,'with 2 A margin.')
+    print('Wear model allowance:',wear,'ct per charged AND delivered kWh; approximately',round(wear*(1+1/(.90*.95)),2),'ct per delivered round-trip kWh including model losses.')
     print('Only legacy price-gate bypass; manual, EV, SoC, error-stop and actuator cards preserved.')
     if not args.apply:print('Read-only preview. --apply installs and enables actual price control.');return
     flag=lookup('sessy_price_plan_enabled','boolean')
-    backup={'flow':flow,'script':script,'flag':flag}
+    backup={'flow':flow,'script':script,'flag':flag,'config':lookup('sessy_price_config','string')}
     directory=ROOT/'build/homey-backups';directory.mkdir(parents=True,exist_ok=True,mode=0o700)
     path=directory/('sessy-before-active-'+datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')+'.json')
     with open(path,'x',opener=lambda p,f:os.open(p,f,0o600)) as out:json.dump(backup,out)
@@ -116,7 +134,7 @@ def main():
     profile=ensure('sessy_price_profile','string','{}')
     config=ensure('sessy_price_config','string','{}')
     write('PUT','/api/manager/logic/variable/'+flag['id'],{'value':False})
-    write('PUT','/api/manager/logic/variable/'+config['id'],{'value':json.dumps({'version':1,'phases':3,'fuseA':25,'phase':args.sessy_phase,'marginA':2,'confirmed':'user'})})
+    write('PUT','/api/manager/logic/variable/'+config['id'],{'value':json.dumps({'version':1,'phases':3,'fuseA':25,'phase':args.sessy_phase,'marginA':2,'confirmed':'user','wearCt':wear})})
     script_path='/api/app/com.athom.homeyscript/script/'+script['id'];flow_path='/api/manager/flow/advancedflow/'+flow['id']
     try:
         write('PUT',script_path,{**script_body(script),'code':source})
@@ -133,6 +151,7 @@ def main():
         if client.get('/api/manager/logic/variable/'+flag['id']).get('value') is not True:raise RuntimeError('Enable read-back failed')
     except Exception:
         write('PUT','/api/manager/logic/variable/'+flag['id'],{'value':False})
+        if backup['config']:write('PUT','/api/manager/logic/variable/'+backup['config']['id'],{'value':backup['config']['value']})
         write('PUT',script_path,script_body(script));write('PUT',flow_path,body(flow))
         if backup['flag']:write('PUT','/api/manager/logic/variable/'+flag['id'],{'value':backup['flag']['value']})
         raise

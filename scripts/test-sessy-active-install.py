@@ -9,6 +9,12 @@ spec=importlib.util.spec_from_file_location('active',ROOT/'scripts/install-sessy
 active=importlib.util.module_from_spec(spec);spec.loader.exec_module(active)
 
 class InstallTests(unittest.TestCase):
+    def test_user_allowance_survives_source_updates(self):
+        self.assertEqual(active.selected_wear(None),3)
+        self.assertEqual(active.selected_wear({'value':'{"wearCt":1.5}'}),1.5)
+        self.assertEqual(active.selected_wear({'value':'{"wearCt":1.5}'},0),0)
+        for value in [True,-1,101,float('nan')]:
+            with self.assertRaises(ValueError):active.selected_wear(None,value)
     def test_only_verified_price_gate_is_bypassed(self):
         flow={'name':'Sessy - Run','cards':{
           'guard':{'id':'permission','outputTrue':['price'],'outputFalse':['stop']},

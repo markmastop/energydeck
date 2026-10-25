@@ -28,6 +28,15 @@ assert.ok(p.intervals.slice(24).some(q=>q.action==='discharge'),'Morning peak us
 assert.ok(p.intervals.every(q=>q.action!=='charge'||q.powerW>=-1000));
 const later=solve(forecast([...Array(8).fill(25),...Array(8).fill(65)]),50); verify(later);
 assert.ok(later.intervals.slice(0,8).every(q=>q.action!=='discharge'),'Save limited energy for the more valuable later peak');
+const refill=forecast([...Array(8).fill(25.5),...Array(24).fill(17),...Array(12).fill(50)])
+  .map((q,i)=>({...q,ev:i>=8&&i<32,houseW:i<8?700:900}));
+const conservative=solve(refill,56,{wearCt:3}),utilised=solve(refill,56,{wearCt:1.5});
+verify(conservative);verify(utilised);
+assert.equal(conservative.intervals[0].action,'hold');
+assert.equal(utilised.intervals[0].action,'discharge','Use evening energy when cheaper refill beats losses and the selected allowance');
+assert.ok(utilised.intervals.slice(8,32).some(q=>q.action==='charge'));
+assert.equal(utilised.intervals[32].socFrom,conservative.intervals[32].socFrom,'Overnight replenishment restores the same morning energy despite the extra evening use');
+assert.ok(utilised.intervals.at(-1).socTo>=20);
 const unknown=solve(forecast(Array(24).fill(50),{ev:null,headroomW:null}),50);
 assert.ok(unknown.intervals.every(q=>q.action==='hold'));
 const blocked=solve(forecast(Array(24).fill(-20),{ev:true,headroomW:0}));

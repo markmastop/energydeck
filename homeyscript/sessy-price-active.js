@@ -30,7 +30,9 @@ async function activeSessyStep(variables, now, deviceId, previous) {
   }
   let plan=null,reason=profileFailure?'history-unavailable':'prices-unavailable';
   const bridge=parse(variables.find(v=>v.id==='__SESSY_PRICES_VARIABLE_ID__')?.value);
-  const configOK=config?.version===1&&config.phases===3&&config.fuseA===25&&config.marginA>=2&&config.marginA<10&&[1,2,3].includes(config.phase);
+  const wearCt=config?.wearCt??3;
+  const configOK=config?.version===1&&config.phases===3&&config.fuseA===25&&config.marginA>=2&&config.marginA<10&&[1,2,3].includes(config.phase)&&
+    typeof wearCt==='number'&&Number.isFinite(wearCt)&&wearCt>=0&&wearCt<=100;
   if (validProfile(profile)&&configOK&&bridge&&Number.isFinite(state.soc)&&state.soc>=0&&state.soc<=100) {
     const sun=parse(find('sessy_sunshine_forecast')?.value);
     let hash=2166136261;
@@ -61,10 +63,10 @@ async function activeSessyStep(variables, now, deviceId, previous) {
         }
       }
       if (slots.length) {
-        plan=planSessy({now:epoch,soc:state.soc,slots,inputQuality:'calibrated'});
+        plan=planSessy({now:epoch,soc:state.soc,slots,inputQuality:'calibrated',wearCt});
         plan.mode='active';plan.inputKey=key;
         plan.inputs={source:'homey-insights',samples:profile.samples,updatedAt:profile.updatedAt,
-          forecast:'historical-hourly',pvForecast:'unknown',fuseA:config.fuseA,phase:config.phase,marginA:config.marginA};
+          forecast:'historical-hourly',pvForecast:'unknown',fuseA:config.fuseA,phase:config.phase,marginA:config.marginA,wearCt};
       }
     }
   }

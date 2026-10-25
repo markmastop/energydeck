@@ -31,6 +31,18 @@ async function run(instant, options = {}) {
     assert.ok(f.periods.at(-1).end>=Date.parse(instant)/1000+10800);
   }
   assert.equal((await run('2026-10-25T10:00:00Z',{seconds:900})).result.sunshineMinutes,180);
+  const instant='2026-10-25T10:07:00Z', epoch=Date.parse(instant)/1000, first=Math.floor(epoch/900)*900;
+  const long={minutely_15_units:{sunshine_duration:'s'},minutely_15:{
+    time:Array.from({length:149},(_,i)=>first+i*900),sunshine_duration:Array(149).fill(450)}};
+  const future=await run(instant,{payload:long});
+  const forecast=JSON.parse(future.vars.cache.value);
+  assert.ok(forecast.periods.length<=16,'Existing short-horizon readers keep their bound');
+  assert.equal(forecast.forwardPeriods.length,145);
+  assert.ok(forecast.forwardPeriods.at(-1).end>=epoch+36*3600,'Tomorrow sunshine is included');
+  long.minutely_15.sunshine_duration[80]=null;
+  const missing=await run(instant,{payload:long});
+  assert.equal(missing.result.sunshineMinutes,90,'Missing distant weather cannot break the current controller');
+  assert.ok(JSON.parse(missing.vars.cache.value).forwardPeriods.length<80,'Future missing data truncates coverage');
   for(const options of [{fail:true},{seconds:null},{seconds:901},{payload:{minutely_15_units:{sunshine_duration:'min'}}}]) {
     const r=await run('2026-10-25T10:00:00Z',options);assert.ok(r.error);assert.equal(JSON.parse(r.vars.cache.value).valid,false);
   }

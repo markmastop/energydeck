@@ -25,6 +25,7 @@ const staticFiles = new Map([
   ['/details.css', ['details.css', 'text/css; charset=utf-8']],
   ['/charts.js', ['charts.js', 'text/javascript; charset=utf-8']],
   ['/display.js', ['display.js', 'text/javascript; charset=utf-8']],
+  ['/battery-forward.js', ['battery-forward.js', 'text/javascript; charset=utf-8']],
   ['/battery-plan.js', ['battery-plan.js', 'text/javascript; charset=utf-8']],
   ['/sunshine.js', ['sunshine.js', 'text/javascript; charset=utf-8']],
   ['/live.js', ['live.js', 'text/javascript; charset=utf-8']],

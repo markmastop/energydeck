@@ -2,11 +2,41 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {batteryPlan, batteryPlanView, planClock} from '../public/battery-plan.js';
 import {configuration, createDataService} from '../data.mjs';
+import {forwardBatteryPlan, forwardClock} from '../public/battery-plan.js';
 
 const now = new Date('2026-10-25T12:30:00Z');
 const plan = {version: 1, day: '2026-10-25', updatedAt: now.getTime()/1000,
   enabled: true, phase: 'solar-and-reserve', capacityKwh: 5, topUpW: 1000,
   targetPercent: 100, reserveMinute: 540, deadlineMinute: 1020, startMinute: 809};
+
+const epoch=now.getTime()/1000;
+const forward={version:2,mode:'shadow',inputQuality:'provisional',updatedAt:epoch,validUntil:epoch+600,
+  capacityKwh:5,topUpW:1000,reservePercent:10,endReservePercent:20,atRisk:false,
+  intervals:[{from:epoch,until:epoch+900,action:'charge',powerW:-1000,price:15,socFrom:50,socTo:54.5,ev:true,sun:.5},
+    {from:epoch+900,until:epoch+1800,action:'discharge',powerW:500,price:50,socFrom:54.5,socTo:52,ev:false,sun:null}]};
+
+test('forward proposal keeps sunshine separate, next action and measured-vs-predicted data explicit',()=>{
+  const parsed=batteryPlan({...plan,forwardPlan:forward},now);
+  assert.equal(parsed.version,2);assert.equal(parsed.mode,'shadow');assert.equal(parsed.inputQuality,'provisional');
+  const view=batteryPlanView(parsed,now);
+  assert.equal(view.current.action,'charge');assert.equal(view.next.action,'discharge');
+  assert.equal(view.phases.length,2);assert.equal(view.sunshine.length,1);assert.equal(view.sunshine[0].fraction,.5);
+  assert.equal(forwardClock(epoch,now,'nl'),'13:30');
+  assert.match(forwardClock(epoch+86400,now,'nl'),/26/);
+});
+
+test('stale/manual, unsafe EV, unknown actions and incomplete forward intervals fall back safely',()=>{
+  for(const bad of [{...forward,validUntil:epoch},{...forward,updatedAt:epoch-601},
+    {...forward,intervals:[{...forward.intervals[0],action:'discharge',powerW:100}]},
+    {...forward,intervals:[{...forward.intervals[0],sun:2}]},
+    {...forward,intervals:[forward.intervals[0],{...forward.intervals[1],from:epoch+901}]}]) {
+    assert.equal(forwardBatteryPlan(bad,now),null);
+    assert.equal(batteryPlan({...plan,forwardPlan:bad},now).version,1);
+  }
+  assert.equal(batteryPlan({...plan,updatedAt:epoch-181,forwardPlan:forward},now),null,'A fresh proposal cannot revive a stopped normal-control envelope');
+  const envelope=batteryPlan({...plan,forwardPlan:forward},now);
+  assert.equal(batteryPlan(envelope,new Date((epoch+181)*1000)),null,'Normalised v2 must retain manual-control expiry');
+});
 
 test('charge plan uses controller values and actual Amsterdam/DST time', () => {
   const view = batteryPlanView(JSON.stringify(plan), now);

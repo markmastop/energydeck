@@ -26,6 +26,22 @@ ERROR_NODE = "21d27afb-a34c-45f4-baa6-1b3aa6eefce7"
 MARKER = "const DEVICE_ID = '__SESSY_DEVICE_ID__';"
 
 
+def price_plan_bundle(prices_id, charger_id, tariff):
+    """Bundle the actual chart conversion/calendar, never a second tariff policy."""
+    if not prices_id or prices_id == "none" or not charger_id or charger_id == "none":
+        raise ValueError("Price and EV device IDs are required for the shadow planner")
+    if not all(isinstance(v, (int, float)) and math.isfinite(v) for v in tariff.values()):
+        raise ValueError("Invalid all-in tariff settings")
+    charts = (ROOT / "web/public/charts.js").read_text().split("export function priceQuarter", 1)[0]
+    data = (ROOT / "web/data.mjs").read_text()
+    canonical = data[data.index("export function localDay"):data.index("const cap =")]
+    planner = (ROOT / "homeyscript/sessy-price-planner.mjs").read_text()
+    adapter = (ROOT / "homeyscript/sessy-price-shadow.js").read_text()
+    adapter = adapter.replace("'__SESSY_PRICES_VARIABLE_ID__'", json.dumps(prices_id)).replace(
+        "'__SESSY_CHARGER_DEVICE_ID__'", json.dumps(charger_id)).replace("__SESSY_TARIFF__", json.dumps(tariff))
+    return (charts + canonical + planner).replace("export function ", "function ") + adapter + "\n"
+
+
 def patch_flow(flow, source, device_id):
     """Replace only normal target calculation; retain actuator/guard branches."""
     original = copy.deepcopy(flow)
@@ -81,6 +97,7 @@ def main():
     parser.add_argument("--apply", action="store_true", help="Install and enable (changes real charging behavior)")
     parser.add_argument("--configure-readers", action="store_true", help="Save only the plan variable ID in local .env")
     parser.add_argument("--with-sunshine", action="store_true", help="Update the existing local sunshine script and connect its forecast")
+    parser.add_argument("--with-price-plan", action="store_true", help="Publish a forward price plan in shadow mode; current charging behavior is retained")
     parser.add_argument("--restore", type=Path, help="Restore an exact Flow backup; requires --apply")
     args = parser.parse_args()
     load_env()
@@ -124,6 +141,13 @@ def main():
         raise ValueError("Expected one enabled Sessy - Run Flow")
     original = flows[0]
     source = (ROOT / "homeyscript/sessy-ready-by-17.js").read_text()
+    if args.with_price_plan:
+        tariff = {key: float(os.environ.get(name, default)) for key, name, default in [
+            ("tax", "ENERGYDECK_ENERGY_TAX_EX_VAT_CT", "9.161"),
+            ("vat", "ENERGYDECK_VAT_PERCENT", "21"),
+            ("fee", "ENERGYDECK_SUPPLIER_FEE_INCL_VAT_CT", "2")]}
+        source = price_plan_bundle(os.environ.get("HOMEY_PRICES_VARIABLE_ID"),
+            os.environ.get("HOMEY_CHARGER_DEVICE_ID"), tariff) + source
     patched, key = patch_flow(copy.deepcopy(original), source, os.environ["HOMEY_SESSY_DEVICE_ID"])
     flag = lookup(ENABLED, "boolean")
     state = lookup(STATE, "string")
@@ -145,6 +169,8 @@ def main():
     print("Flow:", original["name"], "| normal calculation:", key)
     print("5 kWh, 1000 W grid top-up / up to 2200 W solar, 09:00–17:00 reserve, 45 min finish margin (Amsterdam)")
     print("Existing device commands/guards retained; script error -> zero target -> existing stop command")
+    if args.with_price_plan:
+        print("Forward price/EV/solar proposal included in the existing snapshot (SHADOW ONLY).")
     if not args.apply:
         print("Read-only preview. Use --apply to install and enable.")
         return

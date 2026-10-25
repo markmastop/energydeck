@@ -40,7 +40,9 @@ configured charging limit is below the planning limit.
 ## Local sunshine forecast
 
 The existing hourly `fetchExpectedSunshineComingHours` HomeyScript now publishes
-local Open-Meteo sunshine intervals to `sessy_sunshine_forecast`. It explicitly
+local Open-Meteo sunshine intervals to `sessy_sunshine_forecast`. The optional
+forward-planner rollout extends a separate `forwardPeriods` array to 36 hours;
+the existing `periods` and ready-by-17 calculation retain their three-hour horizon. It explicitly
 converts seconds to minutes and uses Unix quarter-hour timestamps across midnight
 and daylight-saving transitions. The legacy `ExpectedSunshineMinutes` variable
 remains available. No extra schedule is added.
@@ -282,3 +284,7 @@ same blue start/red stop distinction. No charging command is needed for this UI 
 See [the forward-looking price-plan proposal](SESSY-PRICE-PLAN.md) for joint
 charging/discharging optimisation, EV protection and the v2 timeline design.
 It is a design and offline example; it is not enabled in the running controller.
+
+The optional `--with-price-plan` installer flag now adds a read-only forward
+proposal inside the same snapshot. It retains this controller as the sole active
+policy; see [shadow rollout](SESSY-PRICE-PLAN.md#implemented-shadow-rollout).

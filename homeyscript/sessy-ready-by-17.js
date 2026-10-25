@@ -131,7 +131,15 @@ await Homey.logic.updateVariable({id: target.id, variable: {value: watts}});
 // Read-only clients share this controller snapshot instead of copying its
 // planning assumptions. A minute timestamp bounds writes and reveals stopped
 // normal control (for example a manual override) through snapshot expiry.
-const plan = JSON.stringify({version: 1, day, updatedAt: Math.floor(now.getTime() / 60000) * 60,
+let forwardPlan = null;
+// The optional bundle is shadow-only: its failure must not interrupt the current
+// controller, nor can a proposal write a target or bypass existing EV guards.
+if (typeof forwardSessyPlan === 'function') {
+  let oldPlan;
+  try { oldPlan = JSON.parse(published.value); } catch (_) {}
+  try { forwardPlan = await forwardSessyPlan(variables, now, DEVICE_ID, oldPlan?.forwardPlan); } catch (_) {}
+}
+const plan = JSON.stringify({version: 1, forwardPlan, day, updatedAt: Math.floor(now.getTime() / 60000) * 60,
   enabled: enabled.value === true, phase: reason, capacityKwh: CAPACITY_KWH,
   sunMinutes, sunWindowMinutes, sunAdvanceMinutes, sunPeriods,
   topUpW: TOP_UP_W, targetPercent: 100, reserveMinute: RESERVE_FROM_MINUTE,

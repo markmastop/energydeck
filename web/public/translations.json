@@ -210,7 +210,23 @@
     "weatherSunUnknown": "Zonverwachting onbekend",
     "weatherSunNone": "Geen zon verwacht in de komende 2 uur",
     "weatherSunMinutes": "Zon: {minutes} min in de komende 2 uur",
-    "batterySunTimeline": "Geel: verwachte zon per kwartier; hoger betekent meer zon. Grijs: geen zon verwacht. Geen strook buiten de voorspelling."
+    "batterySunTimeline": "Geel: verwachte zon per kwartier; hoger betekent meer zon. Grijs: geen zon verwacht. Geen strook buiten de voorspelling.",
+    "batteryActioncharge": "Bijladen",
+    "batteryActiondischarge": "Ontladen",
+    "batteryActionhold": "Bewaren",
+    "batteryShadow": "Voorstel",
+    "batteryActivePlan": "Prijsplan actief",
+    "batteryTargetRisk": "Reserve niet haalbaar",
+    "batteryNoNext": "Geen volgende wissel bekend",
+    "batteryEvProtected": "Auto: ontladen geblokkeerd",
+    "batteryForward": "Vooruitblik",
+    "batteryForwardLegend": "Blauw: laden · oranje: ontladen · grijs: bewaren · geel: zon",
+    "batteryPlanDetail": "Bekijk laad- en ontlaadplan",
+    "batteryAssumptions": "Verbruik en laadruimte zijn aannames",
+    "batteryCalibrated": "Gemodelleerd verbruik",
+    "batteryForecastNote": "Zon is een verwachting; onbekende uren blijven leeg. De grote accustand is gemeten.",
+    "batteryExpectedSoc": "Verwachte accustand aan het einde van elk blok",
+    "batteryForecastChart": "Grijze balken: prijs in ct/kWh; groene lijn: verwachte accustand 0 tot 100 procent; daaronder het accuplan en zonverwachting."
   },
   "en": {
     "logout": "Sign out",
@@ -423,6 +439,22 @@
     "weatherSunUnknown": "Sunshine forecast unavailable",
     "weatherSunNone": "No sunshine expected in the next 2 hours",
     "weatherSunMinutes": "Sunshine: {minutes} min in the next 2 hours",
-    "batterySunTimeline": "Yellow: sunshine forecast per quarter hour; taller means more sunshine. Grey: no sunshine expected. No strip beyond the forecast."
+    "batterySunTimeline": "Yellow: sunshine forecast per quarter hour; taller means more sunshine. Grey: no sunshine expected. No strip beyond the forecast.",
+    "batteryActioncharge": "Top up",
+    "batteryActiondischarge": "Discharge",
+    "batteryActionhold": "Hold",
+    "batteryShadow": "Proposal",
+    "batteryActivePlan": "Price plan active",
+    "batteryTargetRisk": "Reserve not achievable",
+    "batteryNoNext": "No further transition known",
+    "batteryEvProtected": "EV: discharge blocked",
+    "batteryForward": "Look ahead",
+    "batteryForwardLegend": "Blue: charge · orange: discharge · grey: hold · yellow: sunshine",
+    "batteryPlanDetail": "View charge and discharge plan",
+    "batteryAssumptions": "Consumption and headroom are assumptions",
+    "batteryCalibrated": "Modelled consumption",
+    "batteryForecastNote": "Sunshine is a forecast; unknown hours stay empty. The large battery percentage is measured.",
+    "batteryExpectedSoc": "Predicted state of charge at the end of each block",
+    "batteryForecastChart": "Grey bars: price in ct/kWh; green line: predicted state of charge from 0 to 100 percent; battery actions and sunshine forecast below."
   }
 }

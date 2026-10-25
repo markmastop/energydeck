@@ -34,7 +34,7 @@ script:
                   Authorization: "Bearer ${homey_token}"
                   Accept: "application/json"
                 capture_response: true
-                max_response_buffer_size: 8192
+                max_response_buffer_size: 65536
                 on_response:
                   then:
                     - lambda: |-
@@ -64,6 +64,38 @@ script:
                                 if (!id(battery_plan).add_sun_period(part["from"].as<float>(), part["until"].as<float>(), part["fraction"].as<float>())) break;
                               }
                             }
+                            // Only a fresh normal-control envelope may expose its optional
+                            // forward proposal; manual branches leave this envelope to expire.
+                            auto clock = id(energydeck_time).now();
+                            if (valid && clock.is_valid() && id(battery_plan).valid(millis(), clock.timestamp, p["day"].as<std::string>()) && p["forwardPlan"].is<JsonObject>()) {
+                              auto f = p["forwardPlan"].as<JsonObject>();
+                              static energydeck::BatteryPlan proposal;
+                              bool ok = f["version"] == 2 && f["updatedAt"].is<uint32_t>() && f["validUntil"].is<uint32_t>() &&
+                                f["capacityKwh"].is<float>() && f["topUpW"].is<float>() && f["reservePercent"].is<float>() &&
+                                f["endReservePercent"].is<float>() && f["atRisk"].is<bool>() &&
+                                (f["mode"] == "shadow" || f["mode"] == "active") &&
+                                (f["inputQuality"] == "provisional" || f["inputQuality"] == "calibrated") && f["intervals"].is<JsonArray>();
+                              if (ok) ok = proposal.begin_forward(f["updatedAt"].as<uint32_t>(), f["validUntil"].as<uint32_t>(),
+                                f["capacityKwh"].as<float>(), f["topUpW"].as<float>(), f["reservePercent"].as<float>(),
+                                f["endReservePercent"].as<float>(), f["mode"] == "shadow", f["inputQuality"] == "provisional", f["atRisk"].as<bool>(), millis());
+                              if (ok) {
+                                auto rows = f["intervals"].as<JsonArray>();
+                                ok = rows.size() > 0 && rows.size() <= 145;
+                                for (JsonObject q : rows) {
+                                  if (!ok) break;
+                                  ok = q["from"].is<uint32_t>() && q["until"].is<uint32_t>() && q["powerW"].is<float>() &&
+                                    q["price"].is<float>() && q["socFrom"].is<float>() && q["socTo"].is<float>() &&
+                                    (q["sun"].isNull() || q["sun"].is<float>()) && (q["ev"].isNull() || q["ev"].is<bool>());
+                                  const int action = q["action"] == "charge" ? 1 : q["action"] == "discharge" ? 2 : q["action"] == "hold" ? 0 : -1;
+                                  if (ok) ok = proposal.add_forward(q["from"].as<uint32_t>(), q["until"].as<uint32_t>(), action,
+                                    q["powerW"].as<float>(), q["price"].as<float>(), q["socFrom"].as<float>(), q["socTo"].as<float>(),
+                                    q["sun"].isNull() ? NAN : q["sun"].as<float>(), q["ev"].isNull() ? -1 : q["ev"].as<bool>() ? 1 : 0);
+                                }
+                              }
+                              proposal.known = ok;
+                              proposal.controller_updated_at = p["updatedAt"].as<uint32_t>();
+                              if (ok && proposal.valid(millis(), clock.timestamp, "")) id(battery_plan) = proposal;
+                            }
                             return valid;
                           });
                         });
@@ -92,6 +124,79 @@ script:
           }
           if (known && live) set_text_fmt(id(battery_energy_label), "${battery_energy_format}", s.battery.value * p.capacity / 100, p.capacity);
           else set_text(id(battery_energy_label), "-- / -- kWh");
+          // Allocate the small forward-phase rectangles only when a v2 snapshot
+          // is received. Existing v1 cards retain their current layout and controls.
+          static std::array<lv_obj_t *, 145> phases{}, forward_sun{};
+          for (auto *o : forward_sun) if (o) lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
+          for (auto *o : phases) if (o) lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
+          if (known && p.version == 2) {
+            for (auto *o : {id(battery_plan_solar), id(battery_plan_topup), id(battery_plan_start_label)}) lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_t *sun[] = {id(battery_sun_00), id(battery_sun_01), id(battery_sun_02), id(battery_sun_03), id(battery_sun_04), id(battery_sun_05), id(battery_sun_06), id(battery_sun_07), id(battery_sun_08), id(battery_sun_09), id(battery_sun_10), id(battery_sun_11), id(battery_sun_12), id(battery_sun_13), id(battery_sun_14), id(battery_sun_15)};
+            for (auto *o : sun) lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
+            const int index = p.current(time.timestamp);
+            const auto &current = p.intervals[index];
+            auto action_text = [](int action) { return action == 1 ? "${battery_action_charge}" : action == 2 ? "${battery_action_discharge}" : "${battery_action_hold}"; };
+            const energydeck::BatteryPlan::ForwardInterval *next = nullptr;
+            for (size_t i = index + 1; i < p.interval_count; i++) if (p.intervals[i].action != current.action) { next = &p.intervals[i]; break; }
+            auto stamp = [&](uint32_t epoch, bool date) {
+              const auto at = ESPTime::from_epoch_local(epoch);
+              char label[24];
+              if (date && (at.day_of_month != time.day_of_month || at.month != time.month)) snprintf(label, sizeof(label), "%02d/%02d %02d:%02d", at.day_of_month, at.month, at.hour, at.minute);
+              else snprintf(label, sizeof(label), "%02d:%02d", at.hour, at.minute);
+              return std::string(label);
+            };
+            std::string status = p.shadow ? "${battery_forward_shadow}" : "${battery_forward_active}";
+            status += ": "; status += action_text(current.action);
+            set_text(id(battery_plan_label), status.c_str());
+            if (p.at_risk) set_text(id(battery_goal_label), "${battery_forward_risk}");
+            else if (next) {
+              std::string goal = action_text(next->action); goal += " "; goal += stamp(next->from, true);
+              set_text(id(battery_goal_label), goal.c_str());
+            } else set_text(id(battery_goal_label), "${battery_forward_no_next}");
+            set_style_text_color(id(battery_goal_label), lv_color_hex(0xA9B8AE), LV_PART_MAIN);
+            if (current.ev != 0) set_text(id(battery_plan_label), "${battery_forward_ev}");
+            for (size_t i = 0; i < p.interval_count; i++) {
+              const auto &q = p.intervals[i];
+              const int left = p.forward_position(q.from, 268), right = p.forward_position(q.until, 268);
+              if (!phases[i]) {
+                phases[i] = lv_obj_create(id(battery_card));
+                lv_obj_remove_style_all(phases[i]);
+                lv_obj_remove_flag(phases[i], LV_OBJ_FLAG_CLICKABLE);
+                lv_obj_remove_flag(phases[i], LV_OBJ_FLAG_SCROLLABLE);
+              }
+              auto *o = phases[i];
+              lv_obj_set_pos(o, 12 + left, 96); lv_obj_set_size(o, std::max(1, right - left), 5);
+              lv_obj_set_style_bg_color(o, lv_color_hex(q.action == 1 ? 0x3AA7D8 : q.action == 2 ? 0xE7A052 : 0x617064), LV_PART_MAIN);
+              lv_obj_set_style_bg_opa(o, LV_OPA_COVER, LV_PART_MAIN);
+              lv_obj_clear_flag(o, LV_OBJ_FLAG_HIDDEN);
+              auto *mark = forward_sun[i];
+              if (mark) lv_obj_add_flag(mark, LV_OBJ_FLAG_HIDDEN);
+              if (std::isfinite(q.sun) && q.until > time.timestamp) {
+                if (!mark) {
+                  mark = lv_obj_create(id(battery_card)); forward_sun[i] = mark;
+                  lv_obj_remove_style_all(mark);
+                  lv_obj_remove_flag(mark, LV_OBJ_FLAG_CLICKABLE);
+                  lv_obj_remove_flag(mark, LV_OBJ_FLAG_SCROLLABLE);
+                }
+                lv_obj_set_pos(mark, 12 + left, q.sun > 0 ? 89 : 92);
+                lv_obj_set_size(mark, std::max(1, right - left - 1), q.sun > 0 ? 5 : 2);
+                lv_obj_set_style_bg_color(mark, lv_color_hex(q.sun > 0 ? 0xFFD35A : 0x617064), LV_PART_MAIN);
+                lv_obj_set_style_bg_opa(mark, LV_OPA_COVER, LV_PART_MAIN);
+                lv_obj_clear_flag(mark, LV_OBJ_FLAG_HIDDEN);
+              }
+            }
+            for (auto *o : {id(battery_plan_track), id(battery_plan_now), id(battery_plan_reserve_label), id(battery_plan_deadline_label)}) lv_obj_clear_flag(o, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_move_foreground(id(battery_plan_now));
+            lv_obj_set_x(id(battery_plan_now), 12 + p.forward_position(time.timestamp, 268));
+            set_text(id(battery_plan_reserve_label), stamp(p.intervals[0].from, false).c_str());
+            set_text(id(battery_plan_deadline_label), stamp(p.intervals[p.interval_count - 1].until, true).c_str());
+            lv_obj_set_width(id(battery_plan_start_label), 90);
+            set_text(id(battery_plan_start_label), p.provisional ? "${battery_forward_assumptions}" : "");
+            lv_obj_clear_flag(id(battery_plan_start_label), LV_OBJ_FLAG_HIDDEN);
+            return;
+          }
+          lv_obj_set_width(id(battery_plan_start_label), 110);
+          set_style_text_color(id(battery_goal_label), lv_color_hex(0x48BD70), LV_PART_MAIN);
           char deadline[6], start[6], reserve[6];
           snprintf(deadline, sizeof(deadline), "%02d:%02d", p.deadline / 60, p.deadline % 60);
           const int beginning = std::isfinite(p.start) ? static_cast<int>(p.start) : 0;

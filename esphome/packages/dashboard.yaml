@@ -1821,12 +1821,12 @@ lvgl:
             - label:
                 id: battery_plan_deadline_label
                 hidden: true
-                x: 225
+                x: 180
                 y: 106
                 text: --:--
                 text_font: montserrat_10
                 text_color: 0xA9B8AE
-                width: 55
+                width: 100
                 long_mode: DOT
                 text_align: RIGHT
         - obj:

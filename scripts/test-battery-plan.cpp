@@ -25,5 +25,20 @@ int main() {
   assert(!p.set(1, "2026-10-25", 1792931400, true, "made-up", 5, 1000, 100, 540, 1020, 809, 100));
   assert(!p.known);
   assert(!p.set(1, "2026-10-25", 1792931400, true, "grid-top-up", 5, 1000, 100, 540, 1020, 1100, 100));
+  assert(p.begin_forward(1792931400,1792932000,5,1000,10,20,true,true,false,100));
+  assert(p.add_forward(1792931400,1792932300,1,-1000,10,50,54.5,0.5,1));
+  assert(p.add_forward(1792932300,1792933200,2,600,50,54.5,51.34,NAN,0));
+  p.known = true;
+  assert(p.valid(100,1792931400,"2026-10-25"));
+  assert(p.valid(180100,1792931999,"2026-10-26")); // UTC intervals do not expire at local midnight.
+  assert(!p.valid(180101,1792931999,"2026-10-25"));
+  assert(!p.valid(100,1792932000,"2026-10-25"));
+  assert(p.forward_position(1792932300,268)==134);
+  assert(p.current(1792932300)==1);
+  p.controller_updated_at = 1792931400;
+  assert(!p.valid(100,1792931581,"2026-10-25"));
+  assert(!p.add_forward(1792933200,1792934100,2,600,50,51.34,48,NAN,1));
+  assert(!p.add_forward(1792933200,1792934100,2,600,50,51.34,48,NAN,-1));
+  assert(!p.add_forward(1792933201,1792934100,0,0,50,51,51,NAN,0));
   std::cout << "PASS: display plan validation, stale/manual expiry, midnight, future data and timeline geometry\n";
 }

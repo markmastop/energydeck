@@ -255,3 +255,13 @@ battery_energy_format: "%.1f / %.1f kWh"
 battery_goal_format: "100%% om %s"
 
 battery_sun_forecast_format: " | zon %.0f min / %.1f u"
+
+battery_action_charge: "Bijladen"
+battery_action_discharge: "Ontladen"
+battery_action_hold: "Bewaren"
+battery_forward_shadow: "Voorstel"
+battery_forward_active: "Prijsplan"
+battery_forward_risk: "Reserve niet haalbaar"
+battery_forward_no_next: "Geen volgende wissel"
+battery_forward_ev: "Voorstel | auto: ontladen geblokkeerd"
+battery_forward_assumptions: "Aannames"

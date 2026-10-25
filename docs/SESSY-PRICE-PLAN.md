@@ -1,6 +1,7 @@
 # Forward-looking Sessy charge and discharge plan
 
-Status: design proposal and offline visual example. **Not installed in Homey.**
+Status: planner, shadow integration, ESP/web readers and offline tests implemented.
+**Not installed or enabled in Homey.**
 The current ready-by-17 controller remains authoritative. This document supersedes
 neither its running configuration nor any manual override.
 
@@ -162,3 +163,67 @@ to the following evening. Exact periods must come from the real forecast/model.
 5. After reviewing shadow results, enable the planner with a recorded backup,
    read-back verification and rollback. Update both physical displays and web only
    after their respective checks. Do not test presentation by starting real Flows.
+
+## Implemented shadow rollout
+
+`homeyscript/sessy-price-planner.mjs` is the pure optimisation engine, shared by
+replay tests and the Homey bundle. It operates on UTC intervals (including a
+partial first quarter), validated all-in prices, demand, EV, headroom and optional
+PV forecasts. It jointly allocates charge/hold/discharge within capacity, power,
+efficiency and reserve constraints. A missing terminal reserve is marked at risk.
+The execution guard is unit-tested but is **not wired to device commands**.
+
+The existing installer can include a shadow proposal:
+
+```sh
+python3 scripts/install-sessy-ready-by-17.py --with-price-plan --with-sunshine
+# Installation only when rollout is requested:
+python3 scripts/install-sessy-ready-by-17.py --with-price-plan --with-sunshine --apply
+```
+
+The bundle uses the actual web `priceDay`, `localDay` and `priceDayBounds` source
+for the canonical tariff and DST conversion. Configured Homey price/charger IDs
+and tariff settings are bound at installation; changing tariffs requires rebuilding
+the Homey bundle. It reads the charger and battery and replans at most five minutes
+apart, immediately after SoC, EV, input or price changes. Errors remove only the
+proposal, retaining the existing controller and error path.
+
+The v2 proposal is nested as `forwardPlan` inside the existing v1
+`sessy_ready_by_17_plan` envelope. Old readers continue using v1. New ESP and web
+readers prefer a valid v2 proposal, display **Proposal**, and fall back to v1 on a
+malformed/expired proposal. The enclosing normal-control snapshot must also be
+fresh, so manual control cannot leave a shadow plan looking current. Existing
+`HOMEY_BATTERY_PLAN_VARIABLE_ID` is sufficient; no new Coolify variable is needed.
+
+The forward card retains measured SoC, stored energy and power. Its next-transition
+label and UTC timeline span the published horizon; subsequent dates are printed
+explicitly. Blue is charging, orange household discharge and grey holding. Yellow
+sunshine marks are separate, with unknown coverage left empty. The web card expands
+to aligned prices, predicted SoC and action/EV blocks. The EV controls remain intact.
+
+**Calibration still required before active control:** no household history or site
+phase-headroom model is installed yet. Shadow proposals explicitly use provisional
+350 W baseline / 700 W evening / 900 W morning demand, 00:00–06:00 predicted EV
+charging and 1 kW assumed spare headroom. The first EV interval uses the actual
+charger state; unknown EV state blocks discharge. These assumptions never authorise
+actuation. Optional fresh `sessy_price_inputs` v1 periods may replace these estimates
+(`updatedAt`, `validUntil`, `periods` with UTC `from/until`, `houseW`, `pvW`, `ev`,
+`headroomW`); proposals remain marked provisional. Missing sunshine is not zero sun.
+No sunshine-to-PV-energy conversion is made. The operating/end reserves and loss/
+throughput assumptions remain those listed above.
+
+The next activation step needs measured household/EV history, confirmed site/phase
+headroom, shadow replay over complete cycles, removal of the redundant legacy price
+gate and an explicitly reviewed activation/rollback. This commit installs none of
+those live changes and does not flash physical displays.
+
+Checks: `node scripts/test-sessy-price-plan.mjs`, existing ready-by-17 and installer
+checks, native `scripts/test-battery-plan.cpp`, web tests and ESP simulator build.
+
+The sunshine publisher now requests up to 36 hours through Open-Meteo's documented
+`forecast_minutely_15` parameter ([API reference](https://open-meteo.com/en/docs)).
+It retains the old three-hour `periods` and legacy total, and publishes a separate
+`forwardPeriods` array. Distant missing values truncate that optional coverage;
+they never become zero sunshine or break the short-horizon controller. Display
+and web show the available next-day sunshine on the same UTC plan axis. Forecast
+minutes still do not authorise estimated PV kWh.

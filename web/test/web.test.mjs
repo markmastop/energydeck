@@ -189,7 +189,7 @@ test('session rotation revokes the old cookie and server errors reveal no detail
 
 test('private APIs require cookies, never query-string access codes', async t => {
   const { request } = await fixture(t);
-  for (const path of ['/api/dashboard', `/api/dashboard?code=${code}`, '/api/session', '/api/sonos', '/api/weather', '/api/history', `/api/sonos/artwork/${'a'.repeat(64)}`]) assert.equal((await request(path)).status, 401);
+  for (const path of ['/api/dashboard', `/api/dashboard?code=${code}`, '/api/session', '/api/sonos', '/api/weather', '/api/history', '/api/battery/history', `/api/sonos/artwork/${'a'.repeat(64)}`]) assert.equal((await request(path)).status, 401);
   assert.equal((await request('/healthz')).status, 200);
   assert.equal((await request('/.env')).status, 404);
   assert.equal((await request('/data.mjs')).status, 404);

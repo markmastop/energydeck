@@ -1,0 +1,75 @@
+# Measured Homey Insights percentages, independent of replaceable forecasts.
+globals:
+  - id: battery_soc_history
+    type: energydeck::LineHistory
+esphome:
+  on_boot:
+    priority: -100
+    then:
+      - delay: 12s
+      - script.execute: refresh_battery_history
+interval:
+  - interval: 5min
+    then:
+      - script.execute: refresh_battery_history
+script:
+  - id: refresh_battery_history
+    mode: single
+    then:
+      - if:
+          condition:
+            lambda: return id(energydeck_time).now().is_valid() && std::string("${homey_sessy_device_id}") != "none";
+          then:
+            - background_http.get:
+                # Local Homey requires ownerUri AND the full returned log ID.
+                url: "${homey_address}/api/manager/insights/log/homey:device:${homey_sessy_device_id}/homey:device:${homey_sessy_device_id}:measure_battery/entry?resolution=today"
+                request_headers:
+                  Authorization: "Bearer ${homey_token}"
+                  Accept: "application/json"
+                capture_response: true
+                max_response_buffer_size: 32768
+                on_error:
+                  then:
+                    - lambda: id(battery_soc_history).clear();
+                on_response:
+                  then:
+                    - lambda: |-
+                        auto &destination = id(battery_soc_history);
+                        destination.clear();
+                        const auto now = id(energydeck_time).now();
+                        if (response->status_code != 200 || !now.is_valid()) return;
+                        auto &next = destination;
+                        next.date = now.year * 10000 + now.month * 100 + now.day_of_month;
+                        auto midnight = now;
+                        midnight.hour = 0; midnight.minute = 0; midnight.second = 0;
+                        midnight.recalc_timestamp_local();
+                        next.day_start = midnight.timestamp;
+                        // Local days can last 23 or 25 real hours across DST.
+                        auto tomorrow = ESPTime::from_epoch_local(midnight.timestamp + 36 * 3600);
+                        tomorrow.hour = 0; tomorrow.minute = 0; tomorrow.second = 0;
+                        tomorrow.recalc_timestamp_local();
+                        next.day_end = tomorrow.timestamp;
+                        bool parsed = json::parse_json(body, [&](JsonObject root) -> bool {
+                          JsonArray values = root["values"].as<JsonArray>();
+                          if (values.isNull() || values.size() > next.samples.size()) return false;
+                          for (JsonObject point : values) {
+                            const char *stamp = point["t"] | "";
+                            int year, month, day, hour, minute, second;
+                            if (!point["v"].is<float>() ||
+                                sscanf(stamp, "%d-%d-%dT%d:%d:%d", &year, &month, &day, &hour, &minute, &second) != 6 ||
+                                year < 2020 || year > 2100 || month < 1 || month > 12 || day < 1 || day > 31 ||
+                                hour < 0 || hour > 23 || minute < 0 || minute > 59 || second != 0) continue;
+                            ESPTime utc{};
+                            utc.year = year; utc.month = month; utc.day_of_month = day;
+                            utc.hour = hour; utc.minute = minute; utc.second = second;
+                            if (!utc.is_valid(false, false)) continue;
+                            utc.recalc_timestamp_utc(false);
+                            if (utc.timestamp > now.timestamp) continue;
+                            if (point["v"].as<float>() > 100) continue;
+                            next.add(utc.timestamp, point["v"].as<float>(), false);
+                          }
+                          return next.count > 0 && now.timestamp - next.latest() <= 900;
+                        });
+                        if (!parsed) { next.clear(); return; }
+                        next.loaded = true; next.fetched_at = millis();
+                        ESP_LOGI("battery_history", "SoC: loaded %u five-minute samples", next.count);

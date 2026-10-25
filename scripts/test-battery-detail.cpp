@@ -26,5 +26,15 @@ int main() {
   assert(window.clip(p.intervals[1], a, b) && b == epoch + 510);
   assert(window.x(b, 384) == 384);
   assert((!energydeck::BatteryStrategyWindow{epoch + 960, epoch + 2000}.clip(p.intervals[1], a, b)));
+  energydeck::LineHistory history;history.day_start=epoch-3600;history.day_end=epoch+3600;
+  history.add(epoch-1800,60,false);history.add(epoch-1500,58,false);history.add(epoch-300,52,false);
+  int measured=0,forecast=0;
+  energydeck::battery_soc_segments(&history,&p,epoch,51,[&](int64_t a,float av,int64_t b,float bv,bool predicted){
+    if(predicted){if(!forecast){assert(a==epoch && av==51);}forecast++;}
+    else {assert(b-a<=900 && b<=epoch);measured++;}
+  });
+  assert(measured==2 && forecast==2);
+  const energydeck::BatteryDetailGeometry historical(p,epoch-3600);
+  assert(historical.x(epoch-3600,404)==0 && historical.x(epoch,404)>0);
   std::cout << "PASS: aligned UTC axes, partial quarters, negative prices, signed power and time selection\n";
 }

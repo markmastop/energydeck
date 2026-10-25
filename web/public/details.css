@@ -346,3 +346,6 @@ dialog p { font-size: 14px; line-height: 1.6; color: var(--muted); }
 #page-overview .battery-plan-heading { flex-direction:column; align-items:flex-start; gap:6px; }
 #page-overview #battery-plan-status { font-size:.85rem; }
 #page-overview #battery-plan-rate:empty { display:none; }
+
+.strategy-legend .measured,.strategy-legend .expected { color:#48bd70; }
+.strategy-legend .expected::before { background:transparent; border-top:2px dashed currentColor; height:0; }

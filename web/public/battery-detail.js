@@ -1,4 +1,4 @@
-import {batteryPlanView, forwardClock} from './battery-plan.js';
+import {batteryPlanView, batterySocView, forwardClock} from './battery-plan.js';
 
 // Both plots use UTC bounds from the controller, including partial quarters and
 // repeated DST hours. Unknown/stale proposals never become an empty zero graph.
@@ -14,7 +14,7 @@ export function batteryDetailModel(raw, now = new Date(), selection = null) {
 
 export function initializeBatteryDetail({t,format}) {
   const $=id=>document.getElementById(id),svg=$('battery-comparison'),slider=$('battery-detail-selection');
-  let selected=null,last=null;
+  let selected=null,last=null,viewportFrom=null;
   const ns='http://www.w3.org/2000/svg';
   const node=(name,attrs,content)=>{const n=document.createElementNS(ns,name);for(const[k,v]of Object.entries(attrs))n.setAttribute(k,v);if(content!==undefined)n.textContent=content;return n;};
   function render(battery,now=new Date()) {
@@ -30,7 +30,11 @@ export function initializeBatteryDetail({t,format}) {
     slider.setAttribute('aria-valuetext',`${clock(q.from)} · ${action}`);
     $('battery-detail-selected').textContent=`${clock(q.from)} · ${format(q.price)} ct/kWh · ${action} ${format(Math.abs(q.powerW)/1000)} kW · ${t('batteryExpected')} ${format(q.socTo,0)}%`;
     $('battery-detail-note').textContent=[m.plan.inputQuality==='provisional'?t('batteryAssumptions'):t('batteryCalibrated'),m.plan.atRisk?t('batteryTargetRisk'):'',q.ev!==false?t('batteryEvProtected'):''].filter(Boolean).join(' · ');
-    const x=epoch=>62+(epoch-m.from)/(m.until-m.from)*578;
+    const history=battery?.history;
+    const fresh=history?.stale===false && history.start<=now.getTime() && history.end>now.getTime() && now.getTime()-(history.points?.at(-1)?.time??0)<=900000;
+    const from=fresh?Math.min(m.from,history.start/1000):m.from;
+    viewportFrom=from;
+    const x=epoch=>62+(epoch-from)/(m.until-from)*578;
     const py=price=>192-(price-m.minimum)/(m.maximum-m.minimum)*140;
     const wy=watts=>337-watts/m.powerMaximum*70;
     const marks=[];
@@ -52,16 +56,17 @@ export function initializeBatteryDetail({t,format}) {
     // Predicted SoC uses its own 0–100% scale, independently of signed watts.
     const sy=percent=>407-percent/100*140;
     for(const percent of [0,50,100])label(646,sy(percent)+7,`${percent}%`,'start','#48BD70');
-    marks.push(node('polyline',{points:m.socPoints.map(p=>`${x(p.at)},${sy(p.percentage)}`).join(' '),fill:'none',stroke:'#48BD70','stroke-width':2,'vector-effect':'non-scaling-stroke','aria-label':t('batteryExpectedSoc')}));
-    for(const epoch of [m.from,(m.from+m.until)/2,m.until]){
-      const anchor=epoch===m.from?'start':epoch===m.until?'end':'middle';
+    const soc=batterySocView(history,battery.plan,from,m.until,battery.percentage,now);
+    for(const [a,b] of soc.measured) marks.push(node('line',{x1:x(a.at),x2:x(b.at),y1:sy(a.soc),y2:sy(b.soc),stroke:'#48bd70','stroke-width':2,'vector-effect':'non-scaling-stroke'}));
+    marks.push(node('polyline',{points:soc.predicted.map(p=>`${x(p.at)},${sy(p.soc)}`).join(' '),fill:'none',stroke:'#48BD70','stroke-width':2,'stroke-dasharray':'4 3','vector-effect':'non-scaling-stroke','aria-label':t('batteryExpectedSoc')}));
+    for(const epoch of [from,(from+m.until)/2,m.until]){
+      const anchor=epoch===from?'start':epoch===m.until?'end':'middle';
       for(const y of [220,440])label(x(epoch),y,clock(epoch),anchor);
     }
     for(const [epoch,color] of [[Math.max(m.from,now.getTime()/1000),'#617064'],[q.from,'var(--text)']]){
       for(const [a,b]of [[52,192],[267,407]])marks.push(node('line',{x1:x(epoch),x2:x(epoch),y1:a,y2:b,stroke:color,'stroke-width':2}));
     }
-    // Only a measured point at now is available here. Do not invent a historic
-    // actual line from the future proposal or the predicted state of charge.
+    // Historical SoC is measured; past power is still unavailable in this plot.
     if(typeof live==='number' && Number.isFinite(live)) marks.push(node('circle',{cx:x(now.getTime()/1000),cy:wy(Math.max(-2500,Math.min(2500,live))),r:5,fill:'var(--text)',stroke:'var(--panel)','stroke-width':2}));
     svg.replaceChildren(...marks);
   }
@@ -72,7 +77,7 @@ export function initializeBatteryDetail({t,format}) {
   svg.addEventListener('click',event=>{
     const m=batteryDetailModel(last?.plan);if(!m)return;
     const x=(event.clientX-svg.getBoundingClientRect().left)/svg.getBoundingClientRect().width*720;
-    selected=Math.min(m.until-1,Math.max(m.from,m.from+(x-62)/578*(m.until-m.from)));render(last);
+    selected=Math.min(m.until-1,Math.max(viewportFrom??m.from,(viewportFrom??m.from)+(x-62)/578*(m.until-(viewportFrom??m.from))));render(last);
   });
   return {render,reset(){selected=null;last=null;svg.replaceChildren();}};
 }

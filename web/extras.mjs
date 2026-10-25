@@ -88,6 +88,23 @@ export function createExtrasService(config, fetcher = fetch, clock = () => new D
     return { power, gas, updatedAt: now.toISOString(), demo: config.demo };
   }, 240000, () => clock().getTime(), () => localDay(clock()));
 
+  const batteryHistory = singleFlight(async () => {
+    const now = clock();
+    let raw = null;
+    try {
+      if (config.demo) {
+        const demo = demoHistory(now, false);
+        raw = {values:demo.points.map(p=>({t:new Date(p.time).toISOString(),v:50+25*Math.sin((p.time-demo.start)/3600000/6)}))};
+      } else if (enabled(config.devices.battery)) {
+        const owner = `homey:device:${config.devices.battery}`;
+        raw = await homey(`insights/log/${encodeURIComponent(owner)}/${encodeURIComponent(`${owner}:measure_battery`)}/entry?resolution=today`);
+      }
+    } catch { /* A failed historical read never removes live SoC or a valid forecast. */ }
+    if (Array.isArray(raw?.values) && raw.values.length<=310) raw.values=raw.values.filter(p=>finite(p.v)!==null && p.v>=0 && p.v<=100);
+    else raw=null;
+    return historySeries(raw,now);
+  },240000,()=>clock().getTime(),()=>localDay(clock()));
+
   const weather = singleFlight(async () => {
     const now = clock();
     if (config.demo) return demoWeather(now);
@@ -129,7 +146,7 @@ export function createExtrasService(config, fetcher = fetch, clock = () => new D
   }, 300000, () => clock().getTime(), () => localDay(clock()));
 
   let chargeBusy = false, lastCharge = 0, lastTarget = null;
-  return { history, weather,
+  return { history, batteryHistory, weather,
     async charge(body) {
       if (body?.confirm !== true) throw new AppError('confirmationRequired', 400);
       if (typeof body.target !== 'boolean') throw new AppError('invalidCommand', 400);

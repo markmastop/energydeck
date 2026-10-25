@@ -463,3 +463,45 @@ frames are 2672 B on each target (4096 B guard budget). Native geometry checks
 and all 92 web tests pass. An LVGL capture with fixture data verifies the taller
 strategy, larger ticks, legend and shortened battery/EV row. Browser visual
 inspection was unavailable in this session; physical displays were not flashed.
+
+
+### Measured SoC history and dashed forecast
+
+The overview and battery detail now read today's actual `measure_battery` history
+from Homey Insights. ESP fetches on boot and every five minutes; the web uses the
+session-protected, read-only `/api/battery/history` endpoint with a four-minute
+cache. Both use the existing Sessy device ID and server/device-only Homey token;
+no new Coolify settings are needed and no token enters browser storage.
+
+A solid green line represents measured SoC before now. The dashed green line
+represents the current proposal after now and starts at the latest live SoC when
+available. Replacing a proposal no longer removes the measured past. This does
+not archive earlier proposals or turn proposed actions into execution history.
+The existing charge/discharge/hold and sunshine strips remain forecast data.
+Historical power and historical price bars are not invented for battery detail;
+its shared UTC axis extends to today's local midnight when fresh SoC history is
+available. Price/power proposal bars still start at the proposal's own time.
+
+Measurements must be finite percentages from 0 through 100 and lie within the
+current Amsterdam calendar day. At most 310 five-minute points cover a 25-hour
+DST day. Future, duplicate, stale and invalid data are rejected. Historical
+segments skip gaps over fifteen minutes; a fresh last sample may connect to the
+live reading at now. Missing history leaves a gap while a valid forecast remains
+visible. A stale proposal can disappear without deleting independently fresh
+history. Calendar rollover invalidates yesterday's history.
+
+The ESP draws these lines in place instead of allocating a widget per sample.
+Forecast dashes are split explicitly because LVGL's software renderer only
+supports built-in dashes on horizontal/vertical segments. Persistent history
+buffers use in-place globals without a large setup-stack initializer. The
+change is presentation/read-only data acquisition; it triggers no charging Flow
+and does not activate shadow control. Not yet pushed or flashed.
+
+
+Verification: all 94 web tests pass, including read-only history acquisition,
+percentage bounds, replan-independent measured lines, gap handling, stale data,
+clipping, and session protection for the new endpoint. The native geometry test
+covers measured/forecast segmentation and an extended history viewport. Simulator
+and both hardware builds pass; LVGL fixture captures verify overview and detail.
+The new service also returned 237 fresh real Homey points in a read-only check.
+No browser visual inspection or physical rollout was performed for this change.

@@ -2,7 +2,7 @@ import { initializeDetails } from './details.js';
 import { priceWindow, priceQuarter, priceTime } from './charts.js';
 import { dayComparison } from './display.js';
 import { createLiveUpdates } from './live.js';
-import { batteryPlanView, batteryStrategyView, planClock } from './battery-plan.js';
+import { batteryPlanView, batteryStrategyView, batterySocView, planClock } from './battery-plan.js';
 import { renderForwardBattery } from './battery-forward.js';
 
 const $ = id => document.getElementById(id);
@@ -38,10 +38,25 @@ function translate() {
   $('language').setAttribute('aria-label', t('language'));
   if (data) render();
 }
+let batteryHistory=null, batteryHistoryAt=0, batteryHistoryBusy=false;
+async function loadBatteryHistory() {
+  if(batteryHistoryBusy || Date.now()-batteryHistoryAt<240000 && (!batteryHistory || Date.now()<batteryHistory.end)) return;
+  batteryHistoryBusy=true; const generation=authGeneration;
+  try {
+    const response=await api('/api/battery/history');
+    if(generation!==authGeneration) return;
+    if(response.status===401) { showLogin(); return; }
+    if(!response.ok) throw new Error('history');
+    const history=await response.json();
+    if(generation===authGeneration) { batteryHistory=history; batteryHistoryAt=Date.now(); if(data) render(); }
+  } catch { if(generation===authGeneration) { batteryHistory=null; batteryHistoryAt=Date.now(); } }
+  finally { batteryHistoryBusy=false; }
+}
 function showLogin() {
   live.stop();
   authGeneration++;
   data = null;
+  batteryHistory=null; batteryHistoryAt=0;
   details.reset();
   $('login').hidden = false;
   $('loading').hidden = true;
@@ -85,7 +100,7 @@ async function refresh() {
     // A slower REST response must not overwrite a more recent pushed snapshot.
     if (revision !== liveRevision) return;
     data = next;
-    showDashboard(); render();
+    showDashboard(); render(); loadBatteryHistory();
     if (!document.hidden) live.start();
   } catch {
     if (generation !== authGeneration || revision !== liveRevision) return;
@@ -98,6 +113,8 @@ function priceSource(day) {
   return day.source === 'homey' ? 'Homey' : day.source === 'epexprijzen' ? 'EpexPrijzen.nl' : t('unknownSource');
 }
 function render() {
+  if(data?.status!=='offline') loadBatteryHistory();
+  data.battery.history=batteryHistory;
   const now = new Date();
   text('date', new Intl.DateTimeFormat(language === 'nl' ? 'nl-NL' : 'en-GB', {
     timeZone: 'Europe/Amsterdam', weekday: 'long', day: 'numeric', month: 'long',
@@ -212,12 +229,13 @@ function drawChart(today, quarter) {
   const from = window.start / 1000, until = from + window.values.length * 900;
   const strategy = batteryStrategyView(data.battery.plan, from, until);
   text('price-strategy-caption', `${t('batteryStrategy')} · ${strategy?.points.length ? t(strategy.plan.mode === 'shadow' ? 'batteryShadow' : 'batteryActivePlan') : t('batteryPlanUnavailable')}`);
-  if (strategy?.points.length) {
+  const soc=batterySocView(batteryHistory,data.battery.plan,from,until,data.battery.percentage);
+  if (strategy?.points.length || soc.measured.length) {
     $('price-strategy-legend').hidden = false;
-    const x = at => left + (at - from) / (until - from) * width;
+    const x = at => left + (Math.max(from,Math.min(until,at)) - from) / (until - from) * width;
     const sy = soc => 261 - soc / 100 * 60;
     for (const soc of [0, 100]) chart.append(svgNode('text', {x:0, y:sy(soc)+3, class:'strategy-percent'}, `${soc}%`));
-    for (const q of strategy.segments) {
+    for (const q of strategy?.segments || []) {
       const w = Math.max(.5, x(q.until) - x(q.from));
       const color = q.action === 'charge' ? '#3aa7d8' : q.action === 'discharge' ? '#e7a052' : '#617064';
       const phase = svgNode('rect', {x:x(q.from), y:270, width:w, height:5, fill:color});
@@ -225,7 +243,8 @@ function drawChart(today, quarter) {
       chart.append(phase);
       if (q.sun !== null) chart.append(svgNode('rect', {x:x(q.from), y:195, width:q.sun > 0 ? Math.max(.5,w*q.sun) : w, height:2, fill:q.sun > 0 ? '#ffd35a' : '#34443a'}));
     }
-    chart.append(svgNode('polyline', {points:strategy.points.map(p=>`${x(p.at)},${sy(p.soc)}`).join(' '), fill:'none', stroke:'#48bd70', 'stroke-width':2}));
+    for(const [a,b] of soc.measured) chart.append(svgNode('line',{x1:x(a.at),x2:x(b.at),y1:sy(a.soc),y2:sy(b.soc),stroke:'#48bd70','stroke-width':2}));
+    chart.append(svgNode('polyline', {points:soc.predicted.map(p=>`${x(p.at)},${sy(p.soc)}`).join(' '), fill:'none', stroke:'#48bd70', 'stroke-width':2,'stroke-dasharray':'4 3'}));
     const epoch=Date.now()/1000;
     if (epoch>=from && epoch<until) chart.append(svgNode('line', {x1:x(epoch),x2:x(epoch),y1:195,y2:275,stroke:'#eef6f0','stroke-width':1}));
   }

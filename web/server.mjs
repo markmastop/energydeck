@@ -148,6 +148,7 @@ export function createApp(config, { service = createDataService(config), extras 
           return;
         }
         if (url.pathname === '/api/dashboard') return reply(res, 200, await service.get());
+        if (url.pathname === '/api/battery/history') return reply(res, 200, await extras.batteryHistory());
         if (url.pathname === '/api/history') return reply(res, 200, await extras.history());
         if (url.pathname === '/api/weather') return reply(res, 200, await extras.weather());
         if (url.pathname === '/api/sonos') return reply(res, 200, await sonos.get(url.searchParams.get('room') || '', url.searchParams.get('favorites') === 'true', url.searchParams.get('combined') === 'true', url.searchParams.get('queue') === 'true'));

@@ -426,3 +426,17 @@ test('control APIs require session and matching Origin before invoking device se
   }
   assert.equal(commands, 2);
 });
+
+
+test('battery history reads only Sessy Insights, bounds percentages and caches independently',async()=>{
+  let calls=0;
+  const service=createExtrasService(config({HOMEY_SESSY_DEVICE_ID:'battery-test'}),async(url,options)=>{
+    calls++;assert.match(url,/insights\/log\//);assert.match(decodeURIComponent(url),/homey:device:battery-test:measure_battery/);
+    assert.equal(options.method,undefined);
+    return new Response(JSON.stringify({values:[{t:'2026-10-21T09:45:00Z',v:101},
+      {t:'2026-10-21T09:50:00Z',v:70},{t:'2026-10-21T09:55:00Z',v:69}]}));
+  },()=>now);
+  const h=await service.batteryHistory();
+  assert.deepEqual(h.points.map(p=>p.value),[70,69]);assert.equal(h.stale,false);
+  await service.batteryHistory();assert.equal(calls,1);
+});

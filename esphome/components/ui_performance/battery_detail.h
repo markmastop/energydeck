@@ -1,5 +1,6 @@
 #pragma once
 #include "battery_plan.h"
+#include "energy_history.h"
 #include <algorithm>
 
 namespace energydeck {
@@ -17,18 +18,43 @@ struct BatteryStrategyWindow {
     return q.soc_from + (q.soc_to - q.soc_from) * double(epoch - q.from) / (q.until - q.from);
   }
 };
+// Measured and proposed SoC remain separate; outages never become invented lines.
+template<class Draw> void battery_soc_segments(const LineHistory *history, const BatteryPlan *plan,
+                                               int64_t now, float live, Draw draw) {
+  if(history) {
+    for(unsigned i=1;i<history->count;i++) {
+      const auto &a=history->samples[i-1], &b=history->samples[i];
+      if(b.timestamp<=now && b.timestamp-a.timestamp<=900) draw(a.timestamp,a.value,b.timestamp,b.value,false);
+    }
+    if(history->count && std::isfinite(live)) {
+      const auto &last=history->samples[history->count-1];
+      if(now>last.timestamp && now-last.timestamp<=900) draw(last.timestamp,last.value,now,live,false);
+    }
+  }
+  if(!plan) return;
+  bool first=true;
+  for(size_t i=0;i<plan->interval_count;i++) {
+    const auto &q=plan->intervals[i];
+    if(q.until<=now) continue;
+    const int64_t a=std::max(int64_t(q.from),now);
+    const float value=first && a==now && std::isfinite(live)?live:BatteryStrategyWindow::soc(q,a);
+    draw(a,value,q.until,q.soc_to,true);first=false;
+  }
+}
 // Shared UTC axis for prices and signed watts. Forecast values are never
 // interpreted as historical measurements. Negative Sessy power means charging.
 struct BatteryDetailGeometry {
   const BatteryPlan &plan;
+  uint32_t from{0}, until{0};
   float low{0}, high{1};
   static constexpr float POWER_MAX = 2500;
-  explicit BatteryDetailGeometry(const BatteryPlan &p) : plan(p) {
+  explicit BatteryDetailGeometry(const BatteryPlan &p, uint32_t start = 0) : plan(p) {
+    from=start ? start : p.intervals[0].from; until=p.intervals[p.interval_count-1].until;
     for (size_t i = 0; i < p.interval_count; i++) {
       low = std::min(low, p.intervals[i].price); high = std::max(high, p.intervals[i].price);
     }
   }
-  int x(uint32_t epoch, int width) const { return plan.forward_position(epoch, width); }
+  int x(uint32_t epoch, int width) const { return until>from ? int(std::round(double(int64_t(epoch)-from)/(until-from)*width)) : 0; }
   int price_y(float price, int height) const {
     return static_cast<int>(std::round((1 - (price - low) / (high - low)) * (height - 1)));
   }

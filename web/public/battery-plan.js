@@ -117,3 +117,33 @@ export function batteryStrategyView(raw, from, until, now = new Date()) {
   }
   return {plan, segments, points};
 }
+
+
+export function batterySocView(history, raw, from, until, live, now = new Date()) {
+  if(!Number.isFinite(from) || !Number.isFinite(until) || until<=from) return {measured:[],predicted:[]};
+  const epoch=now.getTime()/1000, measured=[], predicted=[];
+  const validHistory=history && history.stale===false && Array.isArray(history.points) && history.points.length<=310 &&
+    history.start<=now.getTime() && history.end>now.getTime() &&
+    epoch-(history.points.at(-1)?.time/1000)<=900;
+  let previous=null;
+  if(validHistory) for(const p of history.points) {
+    const at=p.time/1000;
+    if(!Number.isFinite(at) || !Number.isFinite(p.value) || p.value<0 || p.value>100 || at>epoch ||
+       p.time<history.start || p.time>=history.end || previous && at<=previous.at) continue;
+    const point={at,soc:p.value};
+    if(previous && at-previous.at<=900) measured.push([previous,point]);
+    previous=point;
+  }
+  const current=typeof live==='number' && Number.isFinite(live) && live>=0 && live<=100?live:null;
+  if(previous && current!==null && epoch-previous.at<=900) measured.push([previous,{at:epoch,soc:current}]);
+  const strategy=batteryStrategyView(raw,Math.max(from,epoch),until,now);
+  if(strategy) {
+    predicted.push(...strategy.points);
+    if(predicted.length && predicted[0].at===epoch && current!==null) predicted[0]={at:epoch,soc:current};
+  }
+  return {measured:measured.filter(([a,b])=>b.at>a.at && b.at>=from && a.at<=until).map(([a,b])=>{
+    const left=Math.max(from,a.at),right=Math.min(until,b.at);
+    const soc=t=>a.soc+(b.soc-a.soc)*(t-a.at)/(b.at-a.at);
+    return [{at:left,soc:soc(left)},{at:right,soc:soc(right)}];
+  }),predicted};
+}

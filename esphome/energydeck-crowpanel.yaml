@@ -276,6 +276,7 @@ packages:
   dashboard: !include packages/dashboard.yaml
   homey_live: !include packages/homey-live.yaml
   battery_detail: !include packages/battery-detail.yaml
+  battery_history: !include packages/battery-history.yaml
   battery_plan: !include packages/battery-plan.yaml
   sun_times: !include packages/sun-times.yaml
 

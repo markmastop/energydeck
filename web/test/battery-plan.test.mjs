@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {batteryPlan, batteryPlanView, batteryStrategyView, planClock} from '../public/battery-plan.js';
+import {batteryPlan, batteryPlanView, batteryStrategyView, batterySocView, planClock} from '../public/battery-plan.js';
 import {configuration, createDataService} from '../data.mjs';
 import {forwardBatteryPlan, forwardClock} from '../public/battery-plan.js';
 
@@ -117,4 +117,21 @@ test('price strategy clips UTC windows without fabricating history or stretching
   assert.equal(batteryStrategyView(forward,epoch+1800,epoch+3600,now).points.length,0);
   assert.equal(batteryStrategyView(forward,epoch,epoch,now),null);
   assert.equal(batteryStrategyView(forward,epoch,epoch+3600,new Date((epoch+601)*1000)),null);
+});
+
+
+test('measured SoC survives replans, connects to live now and leaves outages blank',()=>{
+  const history={start:(epoch-7200)*1000,end:(epoch+7200)*1000,stale:false,points:[
+    {time:(epoch-1800)*1000,value:60},{time:(epoch-1500)*1000,value:58},
+    {time:(epoch-300)*1000,value:52}]};
+  const view=batterySocView(history,forward,epoch-3600,epoch+1800,51,now);
+  assert.deepEqual(view.measured,[[{at:epoch-1800,soc:60},{at:epoch-1500,soc:58}],
+    [{at:epoch-300,soc:52},{at:epoch,soc:51}]]);
+  assert.equal(view.predicted[0].at,epoch);assert.equal(view.predicted[0].soc,51);
+  assert.equal(view.predicted.at(-1).soc,52);
+  assert.deepEqual(batterySocView(history,null,epoch-3600,epoch+1800,51,now).measured,view.measured);
+  assert.equal(batterySocView({...history,stale:true},forward,epoch-3600,epoch+1800,51,now).measured.length,0);
+  const clipped=batterySocView(history,null,epoch-1650,epoch-1550,null,now);
+  assert.deepEqual(clipped.measured,[[{at:epoch-1650,soc:59},{at:epoch-1550,soc:58+1/3}]]);
+  assert.equal(batterySocView(history,forward,epoch-3600,epoch+1800,51,new Date((epoch+901)*1000)).measured.length,0);
 });

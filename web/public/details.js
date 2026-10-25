@@ -1,3 +1,4 @@
+import { initializeBatteryDetail } from './battery-detail.js';
 import { sunshineFraction } from './sunshine.js';
 import { lineSegments } from './charts.js';
 import { createDisplayState, powerArc, createHomeCards } from './display.js';
@@ -5,6 +6,7 @@ import { createDisplayState, powerArc, createHomeCards } from './display.js';
 // Detail views share the dashboard session and never send device commands while rendering.
 export function initializeDetails({ api, t, format, time, svgNode, onUnauthorized, onRefresh }) {
   const $ = id => document.getElementById(id);
+  const batteryDetail = initializeBatteryDetail({t,format});
   const display = createDisplayState();
   const homeCards = createHomeCards();
   let lastInteraction = Date.now();
@@ -33,10 +35,10 @@ export function initializeDetails({ api, t, format, time, svgNode, onUnauthorize
     return result;
   }
   function navigate(next, scroll = true) {
-    if (!['overview', 'energy', 'sonos', 'climate'].includes(next)) return;
+    if (!['overview', 'energy', 'sonos', 'climate', 'battery'].includes(next)) return;
     page = next;
     document.body.dataset.page = page;
-    for (const name of ['overview', 'energy', 'sonos', 'climate']) $(`page-${name}`).hidden = name !== page;
+    for (const name of ['overview', 'energy', 'sonos', 'climate', 'battery']) $(`page-${name}`).hidden = name !== page;
     document.querySelectorAll('#page-nav [data-open]').forEach(element => {
       if (element.dataset.open === page) element.setAttribute('aria-current', 'page'); else element.removeAttribute('aria-current');
     });
@@ -111,8 +113,9 @@ export function initializeDetails({ api, t, format, time, svgNode, onUnauthorize
     if (page === 'overview' || page === 'sonos') loadSonos();
   }
   function render() {
-    document.querySelector('.page-heading h1').textContent = page === 'overview' ? t('yourEnergy') : page === 'sonos' ? 'Sonos' : t(page === 'energy' ? 'energy' : 'climate');
+    document.querySelector('.page-heading h1').textContent = page === 'overview' ? t('yourEnergy') : page === 'sonos' ? 'Sonos' : t(page === 'battery' ? 'batteryDetails' : page === 'energy' ? 'energy' : 'climate');
     updateHomeCard();
+    if (page === 'battery') batteryDetail.render(dashboard.battery);
     renderHeader(); renderCards(); renderTotals(); renderClimate(); renderWeather(); renderHistory(); renderSonos(); renderCharge();
   }
   function renderHeader() {
@@ -522,6 +525,7 @@ export function initializeDetails({ api, t, format, time, svgNode, onUnauthorize
       explicitRoom = false;
       display.reset(); homeCards.reset(); card = 'gas'; lastInteraction = Date.now();
       chargeTarget = null;
+      batteryDetail.reset();
       $('charge-dialog').close(); navigate('overview', false);
       for (const id of ['full-player', 'compact-player', 'sonos-rooms', 'favorites-grid', 'climate-rooms', 'weather-overview', 'weather-climate']) $(id).replaceChildren();
     },

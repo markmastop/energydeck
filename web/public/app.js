@@ -124,7 +124,6 @@ function render() {
   text('battery-status', t(data.battery.power === null ? 'unavailable' : data.battery.power < -25 ? 'charging' : data.battery.power > 25 ? 'discharging' : 'standby'));
   const view = batteryPlanView(data.battery.plan, now), plan = view.plan;
   text('battery-energy', plan && data.battery.percentage !== null ? `${format(plan.capacityKwh * data.battery.percentage / 100)} / ${format(plan.capacityKwh)} kWh` : '—');
-  $('battery-forward-detail').hidden = plan?.version !== 2;
   $('battery-phase-windows').hidden = plan?.version !== 2;
   $('battery-solar-window').hidden = $('battery-topup-window').hidden = plan?.version === 2;
   if (plan?.version !== 2) {

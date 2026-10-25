@@ -1,0 +1,98 @@
+globals:
+  - id: battery_detail_selected
+    type: uint32_t
+    initial_value: '0'
+
+interval:
+  - interval: 1s
+    then:
+      - script.execute: render_battery_detail
+
+esphome:
+  on_boot:
+    priority: -100
+    then:
+      - lambda: |-
+          // The battery card has no embedded controls. Let all child labels,
+          // bars and forecast marks pass taps through to its single action.
+          auto passthrough = [](auto &&self, lv_obj_t *parent) -> void {
+            for (uint32_t i = 0; i < lv_obj_get_child_count(parent); i++) {
+              auto *child = lv_obj_get_child(parent, i);
+              lv_obj_remove_flag(child, LV_OBJ_FLAG_CLICKABLE);
+              self(self, child);
+            }
+          };
+          passthrough(passthrough, id(battery_card));
+
+script:
+  - id: open_battery_page
+    then:
+      - lambda: |-
+          id(music_page_open) = false;
+          id(detail_page_open) = 3;
+          id(battery_detail_selected) = 0;
+          lv_obj_set_parent(id(shared_energy_header), id(battery_page)->obj);
+          lv_obj_set_pos(id(shared_energy_header), 0, 0);
+      - lvgl.page.show: battery_page
+      - lambda: lv_obj_update_layout(id(battery_page)->obj);
+      - script.execute: render_battery_detail
+
+  - id: battery_detail_select_point
+    then:
+      - lambda: |-
+          auto &p = id(battery_plan);
+          if (p.version != 2 || !p.interval_count || !lv_indev_active()) return;
+          lv_point_t point; lv_indev_get_point(lv_indev_active(), &point);
+          lv_area_t area; lv_obj_get_coords(id(battery_detail_price_plot), &area);
+          const float fraction = std::max(0.0f, std::min(1.0f, float(point.x - area.x1) / lv_obj_get_width(id(battery_detail_price_plot))));
+          const auto from = p.intervals[0].from, until = p.intervals[p.interval_count - 1].until;
+          id(battery_detail_selected) = std::min(until - 1, from + uint32_t(fraction * (until - from)));
+      - script.execute: render_battery_detail
+
+  - id: render_battery_detail
+    then:
+      - lambda: |-
+          if (id(detail_page_open) != 3) return;
+          using namespace esphome::ui_performance;
+          const auto clock = id(energydeck_time).now();
+          auto &p = id(battery_plan);
+          char date[11]; snprintf(date, sizeof(date), "%04d-%02d-%02d", clock.year, clock.month, clock.day_of_month);
+          const bool valid = clock.is_valid() && p.version == 2 && p.valid(millis(), clock.timestamp, date);
+          static energydeck::BatteryDetailChart chart;
+          chart.attach(id(battery_detail_price_plot), id(battery_detail_power_plot), id(battery_detail_sun_plot));
+          const auto &state = id(energy_state);
+          const float actual = state.battery_power.valid(millis()) ? state.battery_power.value : NAN;
+          chart.draw(valid ? &p : nullptr, clock.timestamp, id(battery_detail_selected), actual);
+          if (state.battery.valid(millis()) && std::isfinite(actual)) set_text_fmt(id(battery_detail_live), "${battery_detail_measured}", state.battery.value, actual);
+          else set_text(id(battery_detail_live), "${battery_unavailable}");
+          if (!valid) {
+            set_text(id(battery_detail_status), "${battery_plan_unavailable}");
+            set_text(id(battery_detail_chosen), "${battery_plan_unavailable}");
+            set_text(id(battery_detail_predicted), "");
+            lv_obj_add_state(id(battery_detail_slider), LV_STATE_DISABLED);
+            return;
+          }
+          lv_obj_remove_state(id(battery_detail_slider), LV_STATE_DISABLED);
+          const energydeck::BatteryDetailGeometry g(p);
+          const int index = g.selected(id(battery_detail_selected), clock.timestamp);
+          const auto &q = p.intervals[index];
+          auto stamp = [&](uint32_t epoch) {
+            const auto at = ESPTime::from_epoch_local(epoch); char text[24];
+            if (at.day_of_month == clock.day_of_month && at.month == clock.month) snprintf(text, sizeof(text), "%02d:%02d", at.hour, at.minute);
+            else snprintf(text, sizeof(text), "%02d/%02d %02d:%02d", at.day_of_month, at.month, at.hour, at.minute);
+            return std::string(text);
+          };
+          const char *action = q.action == 1 ? "${battery_action_charge}" : q.action == 2 ? "${battery_action_discharge}" : "${battery_action_hold}";
+          set_text_fmt(id(battery_detail_chosen), "${battery_detail_chosen}", stamp(q.from).c_str(), q.price, action);
+          set_text_fmt(id(battery_detail_predicted), "${battery_detail_predicted}", q.watts / 1000, q.soc_to);
+          set_text(id(battery_detail_status), p.shadow ? "${battery_detail_assumptions}" : "${battery_forward_active}");
+          if (q.ev != 0) set_text(id(battery_detail_status), "${battery_forward_ev}");
+          if (p.at_risk) set_text(id(battery_detail_status), "${battery_forward_risk}");
+          lv_slider_set_range(id(battery_detail_slider), 0, p.interval_count - 1);
+          if (!lv_obj_has_state(id(battery_detail_slider), LV_STATE_PRESSED)) lv_slider_set_value(id(battery_detail_slider), index, LV_ANIM_OFF);
+          const auto from = p.intervals[0].from, until = p.intervals[p.interval_count - 1].until;
+          for (auto *label : {id(battery_detail_price_start), id(battery_detail_power_start)}) set_text(label, stamp(from).c_str());
+          for (auto *label : {id(battery_detail_price_middle), id(battery_detail_power_middle)}) set_text(label, stamp(from + (until - from) / 2).c_str());
+          for (auto *label : {id(battery_detail_price_end), id(battery_detail_power_end)}) set_text(label, stamp(until).c_str());
+          set_text_fmt(id(battery_detail_price_high), "%.0f", g.high);
+          set_text_fmt(id(battery_detail_price_low), "%.0f", g.low);

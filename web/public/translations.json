@@ -226,7 +226,17 @@
     "batteryCalibrated": "Gemodelleerd verbruik",
     "batteryForecastNote": "Zon is een verwachting; onbekende uren blijven leeg. De grote accustand is gemeten.",
     "batteryExpectedSoc": "Verwachte accustand aan het einde van elk blok",
-    "batteryForecastChart": "Grijze balken: prijs in ct/kWh; groene lijn: verwachte accustand 0 tot 100 procent; daaronder het accuplan en zonverwachting."
+    "batteryForecastChart": "Grijze balken: prijs in ct/kWh; groene lijn: verwachte accustand 0 tot 100 procent; daaronder het accuplan en zonverwachting.",
+    "batteryDetails": "Accuplan",
+    "batteryBack": "← Overzicht",
+    "batteryDetailExplanation": "Dezelfde uren boven en onder: zie bij welke prijs de accu volgens het plan laadt, bewaart of ontlaadt.",
+    "batteryComparison": "Prijsverloop boven, gepland accuvermogen onder, met dezelfde tijdas en zonverwachting.",
+    "batterySelectTime": "Kies een tijdstip",
+    "batteryMeasuredNow": "Gemeten nu",
+    "batteryExpected": "verwacht",
+    "batteryBehaviour": "Accuvermogen",
+    "batteryDetailLegend": "Blauw onder nul: laden · oranje boven nul: ontladen · geel: zonverwachting · wit punt: gemeten nu. Balken tonen het voorstel; er is hier geen gemeten historie.",
+    "batteryOpen": "Open accuplan"
   },
   "en": {
     "logout": "Sign out",
@@ -455,6 +465,16 @@
     "batteryCalibrated": "Modelled consumption",
     "batteryForecastNote": "Sunshine is a forecast; unknown hours stay empty. The large battery percentage is measured.",
     "batteryExpectedSoc": "Predicted state of charge at the end of each block",
-    "batteryForecastChart": "Grey bars: price in ct/kWh; green line: predicted state of charge from 0 to 100 percent; battery actions and sunshine forecast below."
+    "batteryForecastChart": "Grey bars: price in ct/kWh; green line: predicted state of charge from 0 to 100 percent; battery actions and sunshine forecast below.",
+    "batteryDetails": "Battery plan",
+    "batteryBack": "← Overview",
+    "batteryDetailExplanation": "The same hours above and below: compare prices with planned battery charging, holding and discharging.",
+    "batteryComparison": "Prices above, planned battery power below, with a shared time axis and sunshine forecast.",
+    "batterySelectTime": "Choose a time",
+    "batteryMeasuredNow": "Measured now",
+    "batteryExpected": "predicted",
+    "batteryBehaviour": "Battery power",
+    "batteryDetailLegend": "Blue below zero: charging · orange above zero: discharging · yellow: sunshine forecast · white point: measured now. Bars show the proposal; historical measurements are not shown here.",
+    "batteryOpen": "Open battery plan"
   }
 }

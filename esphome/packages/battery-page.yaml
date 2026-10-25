@@ -1,0 +1,304 @@
+id: battery_page
+bg_color: 988946
+text_color: 15660784
+scrollable: false
+widgets:
+- button:
+    id: battery_detail_back
+    bg_opa: TRANSP
+    x: 14
+    y: 154
+    width: 44
+    height: 44
+    radius: 8
+    pad_all: 0
+    bg_color: 1581854
+    border_color: 3425852
+    border_width: 0
+    widgets:
+    - label:
+        text: ''
+        align: CENTER
+    - line:
+        x: 12
+        y: 12
+        clickable: false
+        line_color: 15660784
+        line_width: 2
+        points:
+        - x: 10
+          y: 0
+        - x: 0
+          y: 10
+        - x: 10
+          y: 20
+    - line:
+        x: 12
+        y: 12
+        clickable: false
+        line_color: 15660784
+        line_width: 2
+        points:
+        - x: 0
+          y: 10
+        - x: 20
+          y: 10
+    on_click:
+    - script.execute: close_detail_page
+- label:
+    id: battery_detail_title
+    x: 68
+    y: 156
+    text: ${battery_details_title}
+    text_font: montserrat_20
+    text_color: 11122862
+    width: 390
+    long_mode: DOT
+- label:
+    id: battery_detail_status
+    x: 68
+    y: 184
+    text: ${battery_plan_unavailable}
+    text_font: montserrat_10
+    text_color: 11122862
+    width: 390
+    long_mode: DOT
+- label:
+    id: battery_detail_price_title
+    x: 42
+    y: 220
+    text: ${battery_detail_prices}
+    text_font: montserrat_14
+    text_color: 11122862
+    width: 250
+    long_mode: DOT
+- label:
+    id: battery_detail_price_unit
+    x: 300
+    y: 222
+    text: ct/kWh
+    text_font: montserrat_10
+    text_color: 11122862
+    width: 146
+    long_mode: DOT
+    text_align: RIGHT
+- label:
+    id: battery_detail_price_high
+    x: 4
+    y: 249
+    text: --
+    text_font: montserrat_10
+    text_color: 11122862
+    width: 34
+    long_mode: DOT
+    text_align: RIGHT
+- label:
+    id: battery_detail_price_low
+    x: 4
+    y: 378
+    text: --
+    text_font: montserrat_10
+    text_color: 11122862
+    width: 34
+    long_mode: DOT
+    text_align: RIGHT
+- obj:
+    id: battery_detail_price_plot
+    x: 42
+    y: 246
+    width: 404
+    height: 144
+    bg_color: 1581854
+    border_width: 0
+    pad_all: 0
+    radius: 0
+    scrollable: false
+    clickable: true
+    on_press:
+    - script.execute: battery_detail_select_point
+- obj:
+    id: battery_detail_power_plot
+    x: 42
+    y: 470
+    width: 404
+    height: 144
+    bg_color: 1581854
+    border_width: 0
+    pad_all: 0
+    radius: 0
+    scrollable: false
+    clickable: true
+    on_press:
+    - script.execute: battery_detail_select_point
+- label:
+    id: battery_detail_price_start
+    x: 42
+    y: 397
+    text: --:--
+    text_font: montserrat_10
+    text_color: 11122862
+    width: 125
+    long_mode: DOT
+    text_align: LEFT
+- label:
+    id: battery_detail_price_middle
+    x: 175
+    y: 397
+    text: --:--
+    text_font: montserrat_10
+    text_color: 11122862
+    width: 138
+    long_mode: DOT
+    text_align: CENTER
+- label:
+    id: battery_detail_price_end
+    x: 321
+    y: 397
+    text: --:--
+    text_font: montserrat_10
+    text_color: 11122862
+    width: 125
+    long_mode: DOT
+    text_align: RIGHT
+- label:
+    id: battery_detail_power_start
+    x: 42
+    y: 621
+    text: --:--
+    text_font: montserrat_10
+    text_color: 11122862
+    width: 125
+    long_mode: DOT
+    text_align: LEFT
+- label:
+    id: battery_detail_power_middle
+    x: 175
+    y: 621
+    text: --:--
+    text_font: montserrat_10
+    text_color: 11122862
+    width: 138
+    long_mode: DOT
+    text_align: CENTER
+- label:
+    id: battery_detail_power_end
+    x: 321
+    y: 621
+    text: --:--
+    text_font: montserrat_10
+    text_color: 11122862
+    width: 125
+    long_mode: DOT
+    text_align: RIGHT
+- label:
+    id: battery_detail_power_title
+    x: 42
+    y: 440
+    text: ${battery_detail_power}
+    text_font: montserrat_14
+    text_color: 11122862
+    width: 250
+    long_mode: DOT
+- label:
+    id: battery_detail_power_unit
+    x: 300
+    y: 442
+    text: kW
+    text_font: montserrat_10
+    text_color: 11122862
+    width: 146
+    long_mode: DOT
+    text_align: RIGHT
+- label:
+    id: battery_detail_power_high
+    x: 4
+    y: 470
+    text: '+2.5'
+    text_font: montserrat_10
+    text_color: 11122862
+    width: 34
+    long_mode: DOT
+    text_align: RIGHT
+- label:
+    id: battery_detail_power_zero
+    x: 4
+    y: 537
+    text: '0'
+    text_font: montserrat_10
+    text_color: 11122862
+    width: 34
+    long_mode: DOT
+    text_align: RIGHT
+- label:
+    id: battery_detail_power_low
+    x: 4
+    y: 602
+    text: '-2.5'
+    text_font: montserrat_10
+    text_color: 11122862
+    width: 34
+    long_mode: DOT
+    text_align: RIGHT
+- obj:
+    id: battery_detail_sun_plot
+    x: 42
+    y: 461
+    width: 404
+    height: 6
+    bg_opa: TRANSP
+    border_width: 0
+    pad_all: 0
+    radius: 0
+    scrollable: false
+    clickable: false
+- label:
+    id: battery_detail_legend
+    x: 42
+    y: 644
+    text: ${battery_detail_legend}
+    text_font: montserrat_10
+    text_color: 11122862
+    width: 404
+    long_mode: DOT
+- slider:
+    id: battery_detail_slider
+    x: 42
+    y: 674
+    width: 404
+    height: 12
+    min_value: 0
+    max_value: 144
+    value: 0
+    on_release:
+    - lambda: "auto &p = id(battery_plan);\nif (p.version == 2 && p.interval_count)\
+        \ {\n  const int index = std::max(0, std::min(static_cast<int>(p.interval_count)\
+        \ - 1, int(lv_slider_get_value(id(battery_detail_slider)))));\n  id(battery_detail_selected)\
+        \ = p.intervals[index].from;\n}"
+    - script.execute: render_battery_detail
+- label:
+    id: battery_detail_chosen
+    x: 28
+    y: 706
+    text: --
+    text_font: montserrat_14
+    text_color: 11122862
+    width: 420
+    long_mode: DOT
+- label:
+    id: battery_detail_predicted
+    x: 28
+    y: 730
+    text: --
+    text_font: montserrat_12
+    text_color: 11122862
+    width: 420
+    long_mode: DOT
+- label:
+    id: battery_detail_live
+    x: 28
+    y: 759
+    text: --
+    text_font: montserrat_10
+    text_color: 11122862
+    width: 420
+    long_mode: DOT

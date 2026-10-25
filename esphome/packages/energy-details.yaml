@@ -62,7 +62,7 @@ script:
   - id: close_detail_page
     then:
       - lambda: |-
-          id(detail_tab) = id(detail_page_open) == 2 ? 2 : 0;
+          if (id(detail_page_open) != 3) id(detail_tab) = id(detail_page_open) == 2 ? 2 : 0;
           id(detail_page_open) = 0;
           lv_obj_set_parent(id(shared_weather_card), id(energydeck_main_page)->obj);
           lv_obj_set_parent(id(shared_weather_attribution), id(energydeck_main_page)->obj);

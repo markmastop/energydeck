@@ -1,6 +1,6 @@
 // Cache only the public application shell. Private APIs and artwork never enter CacheStorage.
-const CACHE = 'energydeck-shell-v30';
-const SHELL = ['/', '/app.js', '/details.js', '/charts.js', '/display.js', '/battery-plan.js', '/battery-forward.js', '/sunshine.js', '/live.js', '/fonts/Montserrat-Medium.ttf', '/styles.css', '/details.css', '/translations.json', '/icon.svg', '/manifest.webmanifest', '/icon-192.png', '/icon-512.png', '/apple-touch-icon.png', '/favicon.ico'];
+const CACHE = 'energydeck-shell-v31';
+const SHELL = ['/', '/app.js', '/details.js', '/charts.js', '/display.js', '/battery-plan.js', '/battery-forward.js', '/battery-detail.js', '/sunshine.js', '/live.js', '/fonts/Montserrat-Medium.ttf', '/styles.css', '/details.css', '/translations.json', '/icon.svg', '/manifest.webmanifest', '/icon-192.png', '/icon-512.png', '/apple-touch-icon.png', '/favicon.ico'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL)).then(() => self.skipWaiting()));
 });

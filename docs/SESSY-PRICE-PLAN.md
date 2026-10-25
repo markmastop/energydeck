@@ -198,8 +198,9 @@ fresh, so manual control cannot leave a shadow plan looking current. Existing
 The forward card retains measured SoC, stored energy and power. Its next-transition
 label and UTC timeline span the published horizon; subsequent dates are printed
 explicitly. Blue is charging, orange household discharge and grey holding. Yellow
-sunshine marks are separate, with unknown coverage left empty. The web card expands
-to aligned prices, predicted SoC and action/EV blocks. The EV controls remain intact.
+sunshine marks are separate, with unknown coverage left empty. Tapping the battery card opens a dedicated detail page on display and web.
+The price and signed battery-power plots use exactly the same UTC axis; selection
+shows price, action, watts and expected SoC. The EV controls remain intact.
 
 **Calibration still required before active control:** no household history or site
 phase-headroom model is installed yet. Shadow proposals explicitly use provisional
@@ -264,3 +265,28 @@ A native regression covers five consecutive refreshes plus cleared-state recover
 the exact YAML parser was also replayed against a live 133-quarter Homey response.
 The web reader is stateless and unaffected; its seven plan-contract tests pass.
 Simulator and both target firmware builds pass.
+
+## Battery detail page
+
+Implemented locally; not yet rolled out to physical displays or the public web app.
+
+One tap anywhere on the home battery card opens its dedicated page on both clients.
+The existing shared header remains present, and the back action returns to overview.
+Opening the page does not select another home card, start charging or trigger a Flow.
+Detail pages remain protected from automatic card changes and the idle return policy.
+
+The upper plot shows quarter prices in ct/kWh. The lower plot shows proposed
+battery power on the same UTC axis, fixed at -2.5 to +2.5 kW: blue negative bars
+charge, orange positive bars discharge and grey zero bars hold. Yellow marks show
+sunshine independently of battery power. A white selection cursor appears in both
+plots; a slider or plot tap selects an interval and displays its price, action,
+power and expected ending SoC. Partial quarters and following-day date labels use
+elapsed UTC time rather than equally spaced local-hour labels.
+
+The current measured SoC/power remain separate. Only a white measured-power point
+at now is drawn; no historical actual line is fabricated from future proposals.
+The page explicitly labels shadow proposals and provisional inputs, and renders
+an unavailable state when v2 data is missing or expires. No Homey write or new
+forecast request is performed by opening the page. Native aligned-axis/selection
+tests, web model/navigation tests, existing card navigation tests and simulator/
+target builds cover the change; local LVGL and responsive web previews use test data.

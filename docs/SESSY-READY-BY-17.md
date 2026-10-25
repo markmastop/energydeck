@@ -117,8 +117,9 @@ target time, solar-first/active-top-up/full-reserve/normal/off status, and a
 top-up window, and a white marker the current Amsterdam clock time. These are
 planning windows, not measured energy-source histories or a guarantee of full
 charge. The start stays fixed once top-up begins rather than sliding forward
-as SoC rises. The EV controls retain their existing behavior next to the more
-detailed battery card; the lower cards and shared header stay in place.
+as SoC rises. The battery card spans the combined former battery/EV area. EV status,
+charging details and the existing charge/stop button remain available in its
+compact bottom strip; the lower cards and shared header stay in place.
 
 The controller publishes version 1 JSON with `day`, epoch-seconds `updatedAt`,
 `enabled`, `phase`, `capacityKwh`, `topUpW`, `targetPercent`, `reserveMinute`,

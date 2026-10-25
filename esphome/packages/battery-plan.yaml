@@ -99,11 +99,12 @@ script:
             else lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
           }
           if (!known || !p.enabled) return;
-          const int x = std::isfinite(p.start) ? p.position(p.start, 268) : 268;
+          const int width = lv_obj_get_width(id(battery_plan_track));
+          const int x = std::isfinite(p.start) ? p.position(p.start, width) : width;
           lv_obj_set_width(id(battery_plan_solar), x);
           lv_obj_set_x(id(battery_plan_topup), 12 + x);
-          lv_obj_set_width(id(battery_plan_topup), 268 - x);
-          lv_obj_set_x(id(battery_plan_now), 12 + p.position(time.hour * 60 + time.minute, 268));
+          lv_obj_set_width(id(battery_plan_topup), width - x);
+          lv_obj_set_x(id(battery_plan_now), 12 + p.position(time.hour * 60 + time.minute, width));
           set_text(id(battery_plan_reserve_label), reserve);
           set_text(id(battery_plan_start_label), std::isfinite(p.start) ? start : "");
           set_text(id(battery_plan_deadline_label), deadline);

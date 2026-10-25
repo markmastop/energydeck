@@ -43,6 +43,8 @@ esphome:
             condition:
               lambda: return id(energydeck_time).now().is_valid();
             timeout: 90s
+        # Device boot actions replace package hooks: explicitly fetch the plan too.
+        - script.execute: refresh_battery_plan
         - script.execute: refresh_rain
         - script.wait: refresh_rain
         - delay: 500ms
@@ -168,6 +170,7 @@ time:
         # time, which would otherwise select the 00:00 price interval.
         - script.execute: refresh_homey_prices
         - script.execute: update_display_backlight
+        - script.execute: refresh_battery_plan
 
 display:
   # The ST7262 panel is driven directly over its 16-bit RGB interface.

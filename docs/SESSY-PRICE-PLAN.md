@@ -282,6 +282,23 @@ It does not establish the cause of the reported missing plan: the physical scree
 and touch behavior still need confirmation. No charging Flow was triggered and
 the planner remains in shadow mode.
 
+The user subsequently confirmed that the 5-inch still shows "Laadplan niet
+beschikbaar" while its clock continues to update. The target's boot list replaces
+the package hook, so the target now explicitly requests the plan after waiting
+for time and on SNTP synchronization. This fixes the missing initial request,
+but a further on-device check still reported unavailable; do not treat this as
+the full resolution. The regular 60-second poll remains unchanged. The web app
+already requests its initial snapshot and has no ESP boot/SNTP hook to change.
+
+A temporary diagnostic image is currently on the 5-inch and shows a
+"Plancontrole" stage/code when the plan is unavailable. It sends only status,
+lengths and timestamps to the developer's LAN diagnostic receiver; it never
+sends credentials or plan bodies. Diagnostic sources are retained under ignored
+`build/qa/battery-plan-device-diagnostics/`, outside production source. The stage
+visible on the physical display is still needed to distinguish request, parsing
+and freshness failures. Replace this temporary image with normal firmware after
+diagnosis; normal source contains no diagnostic sender.
+
 One tap anywhere on the home battery card opens its dedicated page on both clients.
 The existing shared header remains present, and the back action returns to overview.
 Opening the page does not select another home card, start charging or trigger a Flow.

@@ -17,6 +17,12 @@ interval:
       - script.execute: refresh_rain
 
 globals:
+  - id: rain_outlook
+    type: std::string
+    initial_value: '"${weather_rain_unknown}"'
+  - id: rain_has_rain
+    type: bool
+    initial_value: 'false'
   - id: rain_bar_times
     type: std::array<uint32_t, 24>
     initial_value: 'std::array<uint32_t, 24>{}'
@@ -33,16 +39,22 @@ script:
           // Report sunshine even when rain is dry/unavailable; zero is not missing.
           const float sun = now.is_valid() ?
             id(weather_sunshine).fraction(now.timestamp, now.timestamp + 7200, now.timestamp) : NAN;
-          if (!std::isfinite(sun)) {
-            esphome::ui_performance::set_text(id(weather_sunshine_label), "${weather_sunshine_unknown}");
-          } else if (sun <= 0) {
-            esphome::ui_performance::set_text(id(weather_sunshine_label), "${weather_sunshine_none}");
-          } else {
-            const int minutes = std::max(1, int(std::round(sun * 120)));
-            esphome::ui_performance::set_text_fmt(id(weather_sunshine_label), "${weather_sunshine_minutes}", minutes);
-          }
-          esphome::ui_performance::set_style_text_color(id(weather_sunshine_label),
-            lv_color_hex(std::isfinite(sun) ? 0xFFD35A : 0x82958A), LV_PART_MAIN);
+          char sunshine[40];
+          if (!std::isfinite(sun)) snprintf(sunshine, sizeof(sunshine), "${weather_sun_short_unknown}");
+          else if (sun <= 0) snprintf(sunshine, sizeof(sunshine), "${weather_sun_short_none}");
+          else snprintf(sunshine, sizeof(sunshine), "${weather_sun_short_minutes}",
+            std::max(1, int(std::round(sun * 120))));
+          char outlook[100];
+          // ASCII separator: the bundled Montserrat font lacks the middle dot.
+          snprintf(outlook, sizeof(outlook), "%s | %s", id(rain_outlook).c_str(), sunshine);
+          // Prefer the larger type, but keep long Dutch/English forecasts on one line.
+          lv_point_t size;
+          lv_text_get_size(&size, outlook, &lv_font_montserrat_12, 0, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
+          lv_obj_set_style_text_font(id(weather_rain_label),
+            size.x <= 232 ? &lv_font_montserrat_12 : &lv_font_montserrat_10, LV_PART_MAIN);
+          esphome::ui_performance::set_text(id(weather_rain_label), outlook);
+          esphome::ui_performance::set_style_text_color(id(weather_rain_label),
+            lv_color_hex(id(rain_has_rain) ? 0x3AA7D8 : sun > 0 ? 0xFFD35A : 0xA9B8AE), LV_PART_MAIN);
           for (uint32_t i = 0; i < lv_obj_get_child_count(plot); i++) {
             auto *bar = lv_obj_get_child(plot, i);
             auto *cap = lv_obj_get_child(bar, 0);
@@ -54,7 +66,8 @@ script:
             const float fraction = id(weather_sunshine).fraction(from, from + 300, now.timestamp);
             if (!std::isfinite(fraction) || fraction <= 0) continue;
             // A minimum 2 px mark makes brief sunshine visible without changing rain height.
-            lv_obj_set_size(cap, std::max(2, int(std::round(6 * fraction))), 2);
+            const int width = ((i + 1) * 232 / 24) - (i * 232 / 24) - 1;
+            lv_obj_set_size(cap, std::max(2, int(std::round(width * fraction))), 2);
             lv_obj_clear_flag(cap, LV_OBJ_FLAG_HIDDEN);
           }
 
@@ -62,10 +75,10 @@ script:
     then:
       - lambda: |-
           id(rain_bar_count) = 0;
-          lv_obj_add_flag(id(rain_plot), LV_OBJ_FLAG_HIDDEN);
-          esphome::ui_performance::set_text(id(weather_rain_label), "${weather_rain_unknown}");
-          esphome::ui_performance::set_style_text_color(id(weather_rain_label), lv_color_hex(0x82958A), LV_PART_MAIN);
-          esphome::ui_performance::set_text(id(rain_scale), "");
+          lv_obj_add_flag(id(rain_chart), LV_OBJ_FLAG_HIDDEN);
+          id(rain_outlook) = "${weather_rain_unknown}";
+          id(rain_has_rain) = false;
+          id(render_rain_sunshine).execute();
           esphome::ui_performance::set_text(id(rain_times), "--:--");
           esphome::ui_performance::set_text(id(rain_end_time), "--:--");
           esphome::ui_performance::set_text(id(rain_mid_time), "--:--");
@@ -183,19 +196,20 @@ script:
                       value < 7.5f ? 1.0f + (value - 2.5f) / 5.0f :
                       2.0f + std::min(1.0f, (value - 7.5f) / 12.5f);
                     const int height = value < 0.1f ? 1 :
-                      std::max(2, std::min(28, (int)roundf(level * (28.0f / 3))));
-                    esphome::ui_performance::set_pos(bar, i * 7, 28 - height);
-                    esphome::ui_performance::set_size(bar, 6, height + 2);
+                      std::max(2, std::min(24, (int)roundf(level * 8)));
+                    // 24 samples fill the wider plot; retain a one-pixel gap.
+                    const int x = i * 232 / 24;
+                    const int width = (i + 1) * 232 / 24 - x - 1;
+                    esphome::ui_performance::set_pos(bar, x, 24 - height);
+                    esphome::ui_performance::set_size(bar, width, height + 2);
                     auto *rain = lv_obj_get_child(bar, 1);
-                    esphome::ui_performance::set_size(rain, 6, height);
+                    esphome::ui_performance::set_size(rain, width, height);
                     esphome::ui_performance::set_style_bg_color(rain, lv_color_hex(values[i] >= 0.1f ? 0x3AA7D8 : 0x344F48), LV_PART_MAIN);
                   }
                   id(rain_bar_count) = visible;
                   const int64_t first_epoch = int64_t(now.timestamp) - now.second + (delta + first * 5) * 60;
                   for (int i = 0; i < visible; ++i) id(rain_bar_times)[i] = first_epoch + i * 300;
-                  id(render_rain_sunshine).execute();
-                  lv_obj_remove_flag(plot, LV_OBJ_FLAG_HIDDEN);
-                  esphome::ui_performance::set_text(id(rain_scale), "${rain_intensity_scale}");
+                  lv_obj_remove_flag(id(rain_chart), LV_OBJ_FLAG_HIDDEN);
                   const int finish = (minutes[visible - 1] + 5) % 1440;
                   const int middle = (minutes[0] + ((finish - minutes[0] + 1440) % 1440) / 2) % 1440;
                   esphome::ui_performance::set_text_fmt(id(rain_mid_time), "%02d:%02d", middle / 60, middle % 60);
@@ -203,10 +217,13 @@ script:
                   // start time into the middle, making future rain look historical.
                   esphome::ui_performance::set_text_fmt(id(rain_times), "%02d:%02d", minutes[0] / 60, minutes[0] % 60);
                   esphome::ui_performance::set_text_fmt(id(rain_end_time), "%02d:%02d", finish / 60, finish % 60);
-                  if (first_rain < 0) esphome::ui_performance::set_text(id(weather_rain_label), "${rain_dry_visible}");
-                  else if (first_rain == 0) esphome::ui_performance::set_text(id(weather_rain_label), "${rain_now}");
-                  else esphome::ui_performance::set_text_fmt(id(weather_rain_label), "${rain_at}",
-                    minutes[first_rain] / 60, minutes[first_rain] % 60);
-                  esphome::ui_performance::set_style_text_color(id(weather_rain_label),
-                    lv_color_hex(first_rain < 0 ? 0x62D98A : 0x3AA7D8), LV_PART_MAIN);
+                  id(rain_has_rain) = first_rain >= 0;
+                  if (first_rain < 0) id(rain_outlook) = "${rain_dry_visible}";
+                  else if (first_rain == 0) id(rain_outlook) = "${rain_now}";
+                  else {
+                    char text[40];
+                    snprintf(text, sizeof(text), "${rain_at}", minutes[first_rain] / 60, minutes[first_rain] % 60);
+                    id(rain_outlook) = text;
+                  }
+                  id(render_rain_sunshine).execute();
                   ESP_LOGI("rain", "Loaded %d five-minute samples; peak %.2f mm/h", count, maximum);

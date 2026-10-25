@@ -1134,8 +1134,9 @@ script:
                     const bool current_rain = current_icon.find("rain") != std::string::npos ||
                       current_icon.find("thunder") != std::string::npos;
                     const bool current_snow = current_icon.find("snow") != std::string::npos;
+                    const bool current_fog = current_icon.find("fog") != std::string::npos;
                     const bool current_cloud = current_icon.find("cloud") != std::string::npos ||
-                      current_rain || current_snow;
+                      current_rain || current_snow || current_fog;
                     const bool current_night = current_icon.find("night") != std::string::npos;
 
                     const char *condition = "${weather_unknown}";
@@ -1172,6 +1173,14 @@ script:
                     }
                     esphome::ui_performance::set_style_bg_color(id(weather_sun_icon),
                       lv_color_hex(current_night ? 0xCBD5CE : 0xF1C75B), LV_PART_MAIN);
+                    // The current-weather icon follows Homey, not future sunshine.
+                    // A cloudy/rainy sky must not always retain the decorative sun.
+                    const bool partly_cloudy = current_icon.find("partly") != std::string::npos ||
+                      current_icon.find("partially") != std::string::npos;
+                    const bool show_sun = !current_rain && !current_snow && !current_fog &&
+                      (current_icon.find("clear") != std::string::npos || partly_cloudy);
+                    if (show_sun) lv_obj_remove_flag(id(weather_sun_icon), LV_OBJ_FLAG_HIDDEN);
+                    else lv_obj_add_flag(id(weather_sun_icon), LV_OBJ_FLAG_HIDDEN);
                     lv_obj_t *drops[3] = {
                       id(weather_rain_drop_1), id(weather_rain_drop_2), id(weather_rain_drop_3)
                     };

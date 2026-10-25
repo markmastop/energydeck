@@ -2601,17 +2601,18 @@ lvgl:
             widgets:
               - obj:
                   id: weather_sun_icon
-                  x: 17
-                  y: 9
+                  x: 12
+                  y: 14
                   width: 18
                   height: 18
                   radius: 9
                   bg_color: 0xF1C75B
                   border_width: 0
+                  hidden: true
               - obj:
                   id: weather_cloud_bump
-                  x: 28
-                  y: 19
+                  x: 23
+                  y: 24
                   width: 19
                   height: 19
                   radius: 10
@@ -2619,110 +2620,136 @@ lvgl:
                   border_width: 0
               - obj:
                   id: weather_cloud_icon
-                  x: 19
-                  y: 27
-                  width: 39
+                  x: 14
+                  y: 32
+                  width: 34
                   height: 15
                   radius: 8
                   bg_color: 0xA9B8AE
                   border_width: 0
               - obj:
                   id: weather_rain_drop_1
-                  x: 25
-                  y: 44
+                  x: 20
+                  y: 48
                   width: 3
-                  height: 8
+                  height: 5
                   radius: 2
                   bg_color: 0x3AA7D8
                   border_width: 0
                   hidden: true
               - obj:
                   id: weather_rain_drop_2
-                  x: 36
-                  y: 44
+                  x: 30
+                  y: 48
                   width: 3
-                  height: 8
+                  height: 5
                   radius: 2
                   bg_color: 0x3AA7D8
                   border_width: 0
                   hidden: true
               - obj:
                   id: weather_rain_drop_3
-                  x: 47
-                  y: 44
+                  x: 40
+                  y: 48
                   width: 3
-                  height: 8
+                  height: 5
                   radius: 2
                   bg_color: 0x3AA7D8
                   border_width: 0
                   hidden: true
               - label:
                   id: weather_now_label
-                  x: 70
-                  y: 3
-                  width: 165
+                  x: 56
+                  y: 5
+                  width: 144
                   text: "${weather_loading}"
                   text_font: montserrat_16
                   text_color: 0xEEF6F0
               - label:
                   id: temperature_trend_label
-                  x: 70
-                  y: 22
-                  width: 165
+                  x: 56
+                  y: 24
+                  width: 144
                   text: "${temperature_trend_unknown}"
                   text_font: montserrat_10
                   text_color: 0xA9B8AE
               - label:
                   id: weather_tomorrow_label
-                  x: 70
-                  y: 34
-                  width: 165
+                  x: 56
+                  y: 37
+                  width: 144
                   text: "${weather_tomorrow_loading}"
-                  text_font: montserrat_12
+                  text_font: montserrat_10
                   text_color: 0xA9B8AE
               - label:
-                  id: weather_sunshine_label
-                  x: 70
-                  y: 48
-                  width: 190
-                  text: "${weather_sunshine_unknown}"
-                  text_font: montserrat_10
+                  id: weather_horizon_label
+                  x: 56
+                  y: 51
+                  width: 144
+                  text: "${weather_horizon}"
+                  text_font: montserrat_8
                   text_color: 0x82958A
               - label:
                   id: weather_rain_label
-                  x: 244
+                  x: 208
                   y: 3
-                  width: 194
-                  text_align: RIGHT
+                  width: 232
+                  text_align: LEFT
                   text: "${weather_rain_unknown}"
-                  text_font: montserrat_10
+                  text_font: montserrat_12
                   text_color: 0x3AA7D8
               - obj:
-                  id: rain_plot
-                  x: 270
-                  y: 14
-                  width: 168
-                  height: 30
+                  id: rain_chart
+                  x: 208
+                  y: 20
+                  width: 232
+                  height: 26
                   pad_all: 0
                   border_width: 0
                   radius: 0
                   bg_opa: TRANSP
                   scrollable: false
                   hidden: true
-              - label:
-                  id: rain_scale
-                  x: 228
-                  y: 15
-                  width: 40
-                  text_line_space: 2
-                  text: ""
-                  text_align: RIGHT
-                  text_font: montserrat_8
-                  text_color: 0x82958A
+                  widgets:
+                    - obj:
+                        x: 0
+                        y: 8
+                        width: 232
+                        height: 1
+                        bg_color: 0x26362D
+                        border_width: 0
+                        pad_all: 0
+                    - obj:
+                        x: 0
+                        y: 16
+                        width: 232
+                        height: 1
+                        bg_color: 0x26362D
+                        border_width: 0
+                        pad_all: 0
+                    - obj:
+                        x: 0
+                        y: 25
+                        width: 232
+                        height: 1
+                        bg_color: 0x26362D
+                        border_width: 0
+                        pad_all: 0
+                    - obj:
+                        id: rain_plot
+                        x: 0
+                        y: 0
+                        width: 232
+                        height: 26
+                        pad_all: 0
+                        border_width: 0
+                        radius: 0
+                        bg_opa: TRANSP
+                        scrollable: false
               - label:
                   id: rain_times
-                  x: 270
-                  y: 44
+                  x: 208
+                  y: 48
                   width: 45
                   text: "--:--"
                   text_align: LEFT
@@ -2730,8 +2757,8 @@ lvgl:
                   text_color: 0x82958A
               - label:
                   id: rain_mid_time
-                  x: 331
-                  y: 44
+                  x: 301
+                  y: 48
                   width: 46
                   text: "--:--"
                   text_align: CENTER
@@ -2739,8 +2766,8 @@ lvgl:
                   text_color: 0x82958A
               - label:
                   id: rain_end_time
-                  x: 393
-                  y: 44
+                  x: 395
+                  y: 48
                   width: 45
                   text: "--:--"
                   text_align: RIGHT
@@ -2753,7 +2780,7 @@ lvgl:
             width: 452
             text: "Buienradar.nl / Open-Meteo"
             text_align: CENTER
-            text_font: montserrat_10
+            text_font: montserrat_8
             text_color: 0x82958A
     - !include sonos-page.yaml
 

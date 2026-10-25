@@ -857,3 +857,9 @@ home/detail rendering, including the play icon's contrast on a transparent
 background. All 82 web tests, Sonos control/navigation regressions, native
 room/queue widget checks and nine card navigation combinations passed. Physical
 displays were not flashed during this presentation change.
+
+### Compact volume icon size (2026-10-25)
+
+Home-card volume icons use 18 px instead of 24 px, while the ESP buttons retain
+their 62×30 hit areas and the web buttons retain their existing dimensions. Detail
+page icons stay 24 px. Only the glyph/SVG size changes; actions and spacing stay.

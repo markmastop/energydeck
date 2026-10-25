@@ -84,6 +84,7 @@ main { padding-bottom: 100px; }
 .compact-layout .track-album { display: none; }
 .compact-layout .room-heading { font-size: 11px; min-height: 30px; }
 .compact-layout .player-controls { justify-content: flex-start; gap: 8px; }
+.compact-layout .volume-row svg { width: 18px; height: 18px; }
 .compact-layout .transport { background: transparent; box-shadow: none; min-width: 40px; height: 40px; font-size: 20px; }
 .compact-layout .play-button { color: var(--text); width: 42px; height: 42px; }
 .favorites-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-top: 22px; }

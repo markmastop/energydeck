@@ -2173,7 +2173,7 @@ lvgl:
                   bg_opa: TRANSP
                   border_width: 0
                   shadow_width: 0
-                  text_font: montserrat_24
+                  text_font: montserrat_18
                   text: "\uF027"
                   on_click:
                     - script.execute:
@@ -2190,7 +2190,7 @@ lvgl:
                   bg_opa: TRANSP
                   border_width: 0
                   shadow_width: 0
-                  text_font: montserrat_24
+                  text_font: montserrat_18
                   text: "\uF028"
                   on_click:
                     - script.execute:

@@ -131,6 +131,9 @@ This information is used to enable the final ESPHome integration.
 
 ### Sessy live data
 
+For the existing Flow's solar-first top-up and evening reserve, see
+[Sessy full by 17:00](SESSY-READY-BY-17.md).
+
 EnergyDeck reads the Sessy device through Homey's local Devices API every 10
 seconds. It uses `measure_battery` for state of charge and
 `measure_power.battery`, with `measure_power` as a fallback, for live power.

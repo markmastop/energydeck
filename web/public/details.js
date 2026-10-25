@@ -444,6 +444,7 @@ export function initializeDetails({ api, t, format, time, svgNode, onUnauthorize
     if (charger.fault || charger.connected === false) chargeUntil = 0;
     const pending = chargeUntil > Date.now();
     $('charge-button').disabled = chargeBusy || pending || !charger.canStart || charger.connected !== true || typeof charger.charging !== 'boolean' || charger.fault !== false;
+    $('charge-button').classList.toggle('charge-stop', charger.charging === true);
     text('charge-button', t(charger.charging ? 'stopCharge' : 'startCharge'));
     text('charge-message', pending ? t('chargePending') : !charger.canStart ? t('chargeUnconfigured') : chargeMessage);
   }

@@ -1861,17 +1861,17 @@ lvgl:
                 height: 30
                 text_font: montserrat_12
                 long_mode: WRAP
-            # Continue the Gas/Sonos/Climate column at the same 50 px rhythm.
+            # Keep the shared button column, with extra breathing room above Gas.
             - button:
                 id: force_charge_button
                 pad_all: 0
                 x: 0
-                y: 89
+                y: 83
                 width: 124
                 height: 34
                 radius: 6
                 bg_color: 0x346DDB
-                border_color: 0x3B65A2
+                border_color: 0x6C9EFF
                 border_width: 1
                 text_color: 0xFFFFFF
                 text_font: montserrat_12

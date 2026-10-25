@@ -670,7 +670,7 @@ script:
                     }
                     lv_obj_t *button = id(force_charge_button);
                     lv_obj_t *label = lv_obj_get_child(button, 0);
-                    const bool complete_style = color == 0x2E7D4F;
+                    const bool start_style = color == 0x346DDB;
                     const bool stop_style = color == 0xB94343;
                     lv_obj_clear_state(button, LV_STATE_DISABLED);
                     if (enabled) {
@@ -683,14 +683,14 @@ script:
                     lv_obj_set_style_bg_color(button, lv_color_hex(color), LV_PART_MAIN);
                     lv_obj_set_style_border_color(
                       button,
-                      lv_color_hex(stop_style ? 0xE86A65 : (complete_style ? 0x48BD70 : (enabled ? 0x3B65A2 : 0x34463C))),
+                      lv_color_hex(stop_style ? 0xE86A65 : (start_style ? 0x6C9EFF : (enabled ? 0x3B65A2 : 0x34463C))),
                       LV_PART_MAIN
                     );
                     lv_obj_set_style_border_width(button, 1, LV_PART_MAIN);
                     if (label != nullptr) {
                       esphome::ui_performance::set_style_text_color(
                         label,
-                        lv_color_hex((enabled || complete_style) ? 0xFFFFFF : 0xA9B8AE),
+                        lv_color_hex((enabled || start_style) ? 0xFFFFFF : 0xA9B8AE),
                         LV_PART_MAIN
                       );
                     }
@@ -751,7 +751,8 @@ script:
                     } else if (complete) {
                       esphome::ui_performance::set_text(id(ev_status_label), "${car_complete}");
                       esphome::ui_performance::set_text(id(ev_detail_label), "${car_complete_detail}");
-                      set_button(true, "${charge_complete}", 0x2E7D4F);
+                      // Keep the available start action blue even after a completed session.
+                      set_button(true, "${charge_complete}", 0x346DDB);
                     } else {
                       esphome::ui_performance::set_text(id(ev_status_label), "${car_ready}");
                       esphome::ui_performance::set_text(id(ev_detail_label), "${car_waiting}");

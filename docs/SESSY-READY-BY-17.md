@@ -159,7 +159,7 @@ future intervals appear. Outside that horizon the strip is absent, not a zero-su
 prediction. This is weather data, not measured solar power or predicted battery kWh.
 The battery uses the original large-percentage card with the EV card to its
 right. The EV area has no outer border; its charge button shares the exact
-left edge, width, height and 50-pixel vertical rhythm of Gas/Sonos/Climate.
+left edge, width and height of Gas/Sonos/Climate, with extra space above Gas.
 Vehicle status, charging details and the existing charge/stop button
 remain available; the lower cards and shared header stay in place.
 
@@ -268,3 +268,11 @@ forecast. The original translucent row was difficult to see on the photographed
 panel. Both clients now use opaque yellow marks for positive sunshine, with a
 3–6 px height and grey 2 px zero-sun marks. Outside the forecast stays empty.
 No forecast values or charging policy changed.
+
+### Higher blue charge action (2026-10-25)
+
+The charge action moves 6 px upward to x=322, y=523, retaining its 124×34 hit area.
+Available start actions stay blue, including after a completed charging session;
+the live renderer no longer turns that same action green. Stop remains red and
+pending/unavailable states retain their existing guards. The web action uses the
+same blue start/red stop distinction. No charging command is needed for this UI change.

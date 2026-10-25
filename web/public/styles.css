@@ -872,5 +872,8 @@ footer {
 /* Match the display's unframed EV controls and align the action to its column. */
 .charger-panel { border:0; background:transparent; box-shadow:none; }
 .charger-panel .card-foot { border-top:0; flex-direction:column; align-items:stretch; }
-.charger-panel #charge-button { width:100%; }
+.charger-panel #charge-button { width:100%; background:#346DDB; border-color:#6C9EFF; color:#fff; }
+.charger-panel #charge-button:hover:not(:disabled) { background:#427CE8; }
+.charger-panel #charge-button.charge-stop { background:#B94343; border-color:#E86A65; }
+.charger-panel #charge-button.charge-stop:hover:not(:disabled) { background:#C85050; }
 .charger-panel .card-foot>span { max-width:none; text-align:left; }

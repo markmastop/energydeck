@@ -1830,20 +1830,20 @@ lvgl:
                 long_mode: DOT
                 text_align: RIGHT
         - obj:
-            x: 318
+            id: ev_card
+            x: 322
             y: 440
-            width: 148
+            width: 124
             height: 126
-            radius: 8
-            bg_color: 0x0F1712
-            border_color: 0x343A37
-            border_width: 1
+            radius: 0
+            bg_opa: TRANSP
+            border_width: 0
             pad_all: 0
             scrollable: false
             widgets:
             - label:
                 id: ev_status_label
-                x: 12
+                x: 0
                 y: 10
                 text: ${car_checking}
                 text_color: 0xF0F5FF
@@ -1853,7 +1853,7 @@ lvgl:
                 long_mode: WRAP
             - label:
                 id: ev_detail_label
-                x: 12
+                x: 0
                 y: 43
                 text: ${car_try_again}
                 text_color: 0xB7C7DD
@@ -1861,11 +1861,12 @@ lvgl:
                 height: 30
                 text_font: montserrat_12
                 long_mode: WRAP
+            # Continue the Gas/Sonos/Climate column at the same 50 px rhythm.
             - button:
                 id: force_charge_button
                 pad_all: 0
-                x: 12
-                y: 81
+                x: 0
+                y: 89
                 width: 124
                 height: 34
                 radius: 6
@@ -1873,6 +1874,7 @@ lvgl:
                 border_color: 0x3B65A2
                 border_width: 1
                 text_color: 0xFFFFFF
+                text_font: montserrat_12
                 text: ${force_charge}
                 on_click:
                 - lambda: 'id(charge_pending) = true;

@@ -156,7 +156,9 @@ within that quarter; dim yellow means little or no sunshine. Only forecast-cover
 future intervals appear. Outside that horizon the strip is absent, not a zero-sun
 prediction. This is weather data, not measured solar power or predicted battery kWh.
 The battery uses the original large-percentage card with the EV card to its
-right. Vehicle status, charging details and the existing charge/stop button
+right. The EV area has no outer border; its charge button shares the exact
+left edge, width, height and 50-pixel vertical rhythm of Gas/Sonos/Climate.
+Vehicle status, charging details and the existing charge/stop button
 remain available; the lower cards and shared header stay in place.
 
 The controller publishes version 1 JSON with `day`, epoch-seconds `updatedAt`,
@@ -247,3 +249,12 @@ Native Sonos state-machine regressions and diff checks passed. This build-option
 repair is ESP32-specific; the already implemented web sunshine row needs no
 matching source change. No physical touch or photograph inspection was performed,
 and the 5-inch panel was not updated in this rollout.
+
+### Unframed EV controls verified on 2026-10-25
+
+The ESP EV container is transparent and borderless. Its 124×34 charge button
+starts at x=322, y=529, matching Gas/Sonos/Climate at y=579/629/679. Status and
+charging details keep their existing controls and handlers. The web equivalent
+removes the outer frame and aligns the action across the column. Simulator build,
+native LVGL capture, mobile demo inspection, all 82 web tests and nine navigation
+checks passed. No charging command was issued and physical panels were not flashed.

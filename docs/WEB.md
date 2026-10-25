@@ -206,8 +206,9 @@ card. Valid local sunshine forecasts add expected sunshine minutes and the
 remaining forecast window to the plan status. A separate yellow row follows the
 same time axis: each quarter becomes brighter as its predicted sunshine fraction
 increases. It covers only the available future forecast, independently of the
-green solar-first and blue grid-top-up windows. The EV card stays beside it with the existing charge/stop button,
-readiness checks and status messages available. Stored kWh is an estimate from SoC and configured capacity. Missing/stale
+green solar-first and blue grid-top-up windows. The EV controls stay beside it
+without an outer frame, with a full-column charge/stop button, readiness checks
+and status messages available. Stored kWh is an estimate from SoC and configured capacity. Missing/stale
 plans never replace live battery measurements. See [the snapshot contract and
 installation](SESSY-READY-BY-17.md).
 

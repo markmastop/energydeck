@@ -123,7 +123,7 @@ def main():
     flag = lookup(ENABLED, "boolean")
     state = lookup(STATE, "string")
     print("Flow:", original["name"], "| normal calculation:", key)
-    print("5 kWh, max 2200 W charging, 09:00–17:00 reserve, 45 min finish margin (Amsterdam)")
+    print("5 kWh, 1000 W grid top-up / up to 2200 W solar, 09:00–17:00 reserve, 45 min finish margin (Amsterdam)")
     print("Existing device commands/guards retained; script error -> zero target -> existing stop command")
     if not args.apply:
         print("Read-only preview. Use --apply to install and enable.")

@@ -34,16 +34,23 @@ async function run(local, options = {}) {
   assert.equal((await run(at('08:59'))).result.targetW, 600, 'Night/morning control is retained');
   assert.equal((await run(at('09:00'))).result.targetW, 0, 'Reserve starts at 09:00');
   assert.equal((await run(at('12:00'), {demand: -1800})).result.targetW, -200, 'Solar still charges');
-  assert.equal((await run(at('13:40'), {soc: 0})).result.reason, 'solar-and-reserve');
-  const empty = await run(at('13:44'), {soc: 0});
-  assert.equal(empty.result.targetW, -2200, 'Empty battery gets a 3h16m planning window');
+  assert.equal((await run(at('10:40'), {soc: 0})).result.reason, 'solar-and-reserve');
+  const empty = await run(at('10:42'), {soc: 0});
+  assert.equal(empty.result.targetW, -1000, 'Empty battery gets a 6h19m planning window');
   assert.ok(empty.writes.indexOf('state') < empty.writes.indexOf('target'));
-  assert.equal((await run(at('14:58'), {soc: 50})).result.reason, 'solar-and-reserve');
-  assert.equal((await run(at('15:00'), {soc: 50})).result.targetW, -2200);
-  assert.equal((await run(at('15:10'), {soc: 80})).result.reason, 'solar-and-reserve',
+  assert.equal((await run(at('13:28'), {soc: 50})).result.reason, 'solar-and-reserve');
+  assert.equal((await run(at('13:29'), {soc: 50})).result.targetW, -1000);
+  assert.equal((await run(at('15:08'), {soc: 80})).result.reason, 'solar-and-reserve',
     'A solar-filled battery postpones grid top-up');
-  const latched = await run(at('15:01'), {soc: 55, vars: (await run(at('15:00'))).vars});
-  assert.equal(latched.result.targetW, -2200, 'SoC increments must not cycle the top-up');
+  assert.equal((await run(at('15:09'), {soc: 80})).result.targetW, -1000);
+  const latched = await run(at('13:30'), {soc: 55, vars: (await run(at('13:29'))).vars});
+  assert.equal(latched.result.targetW, -1000, 'SoC increments must not cycle the top-up');
+  assert.equal((await run(at('15:00'), {demand: -1800})).result.targetW, -1800,
+    'Existing solar surplus remains available above the grid top-up rate');
+  assert.equal((await run(at('15:00'), {demand: -5000})).result.targetW, -2200);
+  assert.equal((await run(at('15:00'), {demand: -1800, limit: 1500})).result.targetW, -1500);
+  assert.equal((await run(at('15:00'), {demand: 3000})).result.targetW, -1000,
+    'Grid top-up must remain at 1 kW even with high household demand');
   const full = await run(at('15:02'), {soc: 100, vars: latched.vars});
   assert.equal(full.result.targetW, 0);
   assert.equal(full.result.reason, 'full-reserve');
@@ -55,9 +62,9 @@ async function run(local, options = {}) {
   const nextDay = await run('2026-10-26T12:00:00+01:00', {vars: latched.vars});
   assert.equal(nextDay.result.reason, 'solar-and-reserve', 'Yesterday cannot latch a new day');
   assert.equal(nextDay.result.targetW, 0, 'A missed stop cannot carry forced charging into tomorrow');
-  assert.equal((await run('2026-03-29T15:00:00+02:00')).result.targetW, -2200, 'Spring DST uses local time');
-  assert.equal((await run('2026-10-24T15:00:00+02:00')).result.targetW, -2200, 'Summer uses local time');
-  for (const options of [{soc: -1}, {soc: 101}, {soc: '50'}, {fault: true}, {available: false}, {failDevice: true}, {limit: 1500}]) {
+  assert.equal((await run('2026-03-29T15:00:00+02:00')).result.targetW, -1000, 'Spring DST uses local time');
+  assert.equal((await run('2026-10-24T15:00:00+02:00')).result.targetW, -1000, 'Summer uses local time');
+  for (const options of [{soc: -1}, {soc: 101}, {soc: '50'}, {fault: true}, {available: false}, {failDevice: true}, {limit: 900}]) {
     await assert.rejects(() => run(at('16:00'), options));
   }
   // A no-sun day with 90% charging efficiency and 500 W taper for the final 5%.
@@ -69,6 +76,7 @@ async function run(local, options = {}) {
       const r = await run(at(time), {soc: Math.floor(soc + 1e-8), vars});
       vars = r.vars;
       assert.ok(r.result.targetW <= 0, 'The day reserve must not discharge');
+      assert.ok(r.result.targetW >= -1000, 'No-sun top-up must never exceed 1 kW');
       if (r.result.targetW < 0) {
         firstCharge ??= minute;
         const input = Math.min(-r.result.targetW, soc >= 95 ? 500 : 2200);
@@ -76,7 +84,7 @@ async function run(local, options = {}) {
       }
     }
     assert.equal(soc, 100, `${initial}% starting SoC must reach full without sunlight`);
-    if (initial < 100) assert.ok(firstCharge > 13 * 60, 'Leave the morning available for solar');
+    if (initial < 100) assert.ok(firstCharge >= 10 * 60 + 42, 'Start in time for a 1 kW winter top-up');
     else assert.equal(firstCharge, null, 'A full battery must not be grid-charged');
   }
   console.log('PASS: Sessy solar priority, reserve, deadline, latch, full stop, disable, errors, DST, and five no-sun/taper day simulations');

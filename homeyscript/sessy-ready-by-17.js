@@ -6,6 +6,7 @@
 const DEVICE_ID = '__SESSY_DEVICE_ID__';
 const CAPACITY_KWH = 5;
 const MAX_CHARGE_W = 2200;
+const TOP_UP_W = 1000; // Earlier, gentler grid charging; solar may still use the device limit.
 const MAX_DISCHARGE_W = 1800;
 const CHARGE_EFFICIENCY = 0.90; // Conservative planning allowance, not a measured efficiency.
 const RESERVE_FROM_MINUTE = 9 * 60;
@@ -42,6 +43,7 @@ let toppingUp = false;
 let reason = enabled.value === true ? 'normal' : 'disabled';
 let soc = null;
 let latestStartMinute = null;
+let chargeLimitW = MAX_CHARGE_W;
 
 if (enabled.value === true && minute >= RESERVE_FROM_MINUTE && minute < DEADLINE_MINUTE) {
   const device = await Homey.devices.getDevice({id: DEVICE_ID});
@@ -52,16 +54,20 @@ if (enabled.value === true && minute >= RESERVE_FROM_MINUTE && minute < DEADLINE
     throw new Error('Sessy unavailable, faulted, or state of charge invalid');
   }
   const configuredLimit = device.settings?.power_max_charge;
-  if (typeof configuredLimit === 'number' && configuredLimit < MAX_CHARGE_W) {
+  if (typeof configuredLimit === 'number' && configuredLimit < TOP_UP_W) {
     throw new Error('Sessy charge limit is lower than the planner setting');
   }
+  if (Number.isFinite(configuredLimit)) chargeLimitW = Math.min(MAX_CHARGE_W, configuredLimit);
   const inputKwh = CAPACITY_KWH * (100 - soc) / 100 / CHARGE_EFFICIENCY;
-  latestStartMinute = DEADLINE_MINUTE - FINISH_MARGIN_MINUTES - inputKwh / (MAX_CHARGE_W / 1000) * 60;
+  latestStartMinute = DEADLINE_MINUTE - FINISH_MARGIN_MINUTES - inputKwh / (TOP_UP_W / 1000) * 60;
   toppingUp = soc < 100 && (latchedToday || minute >= latestStartMinute);
   if (toppingUp) {
     // Negative target watts mean charging. The latch avoids cycling whenever
     // the integer SoC rises and moves the recalculated latest start forward.
-    watts = -MAX_CHARGE_W;
+    // Household demand already excludes battery power. A larger negative
+    // value is available solar surplus, which should not be exported just
+    // because grid top-up is limited to 1 kW.
+    watts = Math.min(-TOP_UP_W, demand.value);
     reason = 'grid-top-up';
   } else {
     watts = soc >= 100 ? 0 : Math.min(0, watts);
@@ -69,7 +75,7 @@ if (enabled.value === true && minute >= RESERVE_FROM_MINUTE && minute < DEADLINE
   }
 }
 
-watts = Math.round(Math.max(-MAX_CHARGE_W, Math.min(MAX_DISCHARGE_W, watts)));
+watts = Math.round(Math.max(-chargeLimitW, Math.min(MAX_DISCHARGE_W, watts)));
 // Persist the latch before the target. A failed write must stop this Flow path;
 // its error branch sets a zero target and uses the normal stop command.
 const state = JSON.stringify({day, toppingUp});

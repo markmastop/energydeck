@@ -1,7 +1,8 @@
 # Sessy evening reserve: full by 17:00
 
 The user-confirmed battery capacity is **5 kWh**. The existing Homey device
-charge limit is **2200 W**. `homeyscript/sessy-ready-by-17.js` extends the normal
+charge limit is **2200 W**; automatic grid top-up uses **1000 W** and plans its
+start at that lower power. `homeyscript/sessy-ready-by-17.js` extends the normal
 target calculation inside the existing `Sessy - Run` Advanced Flow; it is not
 a second independently scheduled controller.
 
@@ -10,7 +11,11 @@ a second independently scheduled controller.
 - From **09:00 to 17:00 Europe/Amsterdam**, solar surplus still charges the
   battery, but normal discharge is held at zero to preserve the evening reserve.
 - Grid top-up starts when the time remaining reaches the estimated time needed
-  to reach 100%, plus **45 minutes** for tapering/control interruptions.
+  at **1 kW** to reach 100%, plus **45 minutes** for tapering/control interruptions.
+- During top-up, available solar surplus above 1 kW can still charge the battery
+  up to its configured limit (at most 2.2 kW). The 1 kW limit is for automatic
+  battery top-up, not a cap on total household grid import. Manual force-charge
+  retains its existing power setting.
 - Planning assumes 5 kWh usable capacity and a conservative **90% charging
   efficiency**. This is a planning allowance, not measured battery efficiency.
 - Once started, top-up stays latched until 100% or 17:00. Integer SoC changes
@@ -20,8 +25,8 @@ a second independently scheduled controller.
   target is removed from the smoothing history. A new calendar day clears the
   top-up latch. Winter/summer time follows Amsterdam local clock time.
 
-With no further solar, approximate latest starts are **13:44 at 0%**, **15:00 at
-50%**, and **15:45 at 80%**. Solar charging before these points reduces the
+With no further solar, approximate latest starts are **10:42 at 0%**, **13:29 at
+50%**, and **15:09 at 80%**. Solar charging before these points reduces the
 remaining deficit and postpones grid charging. This is a solar-first deadline
 strategy; it does not select the cheapest grid-price quarters. Deadline top-up
 may therefore import at an expensive price.
@@ -112,3 +117,12 @@ sent a target of -1663 W, matching the live device setpoint/power, at 30% SoC
 with solar surplus. No manual charging test was triggered. The first real
 deadline completion and behavior without sunlight have not yet been observed;
 those scenarios were verified in isolated simulations only.
+
+The same day, grid top-up and deadline planning were reduced to 1000 W at the
+user's request, while retaining solar charging up to 2200 W. The updated live
+Flow was installed and read-back verified with no additional cards or changes
+to existing guards. The scheduled loop remained enabled and healthy. Five
+no-sun/taper day simulations still reached full before 17:00 and never requested
+more than 1000 W without solar; separate checks cover surplus charging above
+1000 W and a lower configured device limit. Real deadline completion remains
+unverified.

@@ -305,8 +305,8 @@ Simulator and both target firmware builds pass.
 ## Battery detail page
 
 Implemented in `ce25245`. Normal firmware containing this page was OTA-uploaded
-to both displays on 25 October 2026 after the startup stack fix below. The public
-web app has not yet received the detail-page code; its plan card remains compatible.
+to both displays on 25 October 2026 after the startup stack fix below. The web
+detail page was published with the percentage-line rollout recorded below.
 
 ### Display startup stack fix: 25 October 2026
 
@@ -380,8 +380,23 @@ SoC; subsequent points use each interval's ending SoC at its UTC end time. This
 is independent of the signed-watt scale on the left. Both ESP sizes and the web
 detail page use the same points and legend; stale data hides the line along with
 the proposal. LVGL retains the point buffer in the static chart object rather
-than allocating a large temporary on the task stack. This addition is built and
-previewed locally, not yet deployed to either display or the public web app.
+than allocating a large temporary on the task stack.
+
+### Percentage-line rollout: 25 October 2026
+
+Pushed `4222f08` and its preceding local commits to `origin/main`. OTA to both
+identity-checked displays succeeded; the 5-inch and 7-inch remained reachable
+114 and 75 seconds after their respective uploads. Both generated startup
+frames remain 2,720 bytes. This confirms transfer/restart recovery, not direct
+inspection of the percentage line or physical touch behavior on either screen.
+
+The automatic web deployment serves `battery-detail.js`, `translations.json`
+and `sw.js` byte-for-byte equal to the pushed files, including cache version
+`energydeck-shell-v32`. The public asset responses were HTTP 200 with a normal
+browser User-Agent. Authenticated production-page rendering was not inspected;
+the native LVGL preview, simulator/target builds and web tests were completed
+before rollout. No Homey/device command or charging Flow was triggered for this
+presentation change.
 
 The current measured SoC/power remain separate. Only a white measured-power point
 at now is drawn; no historical actual line is fabricated from future proposals.

@@ -20,7 +20,7 @@ Both versions connect directly over your local network to Homey and Sonos. They 
 - **Energy History:** Five-minute electricity power and gas-rate lines for today from Homey Insights, with missing-data gaps and independent refresh. See [setup and calculation](docs/ENERGY-HISTORY.md).
 - **Solar & Net Power:** Live solar generation, net grid import/export power with direction indicators, and daily solar peak and total yield.
 - **Home Battery (Sessy):** Live state of charge (SoC %), charge/discharge power, and operational status.
-- **Sessy evening reserve:** Optional [solar-first top-up to 100% by 17:00](docs/SESSY-READY-BY-17.md) in the existing Homey Flow, with local sunshine-aware start planning, target time and estimated stored kWh on both display and web battery cards.
+- **Sessy price control:** [Active rolling charge/hold/discharge planning](docs/SESSY-PRICE-PLAN.md#active-measured-control-25-october-2026) in the existing Homey Flow, using measured household/EV history, current battery and P1 readings, a confirmed phase limit, EV protection and 1 kW grid top-up. Both displays and web distinguish measured SoC, expected strategy and control deviations. The former [17:00 reserve controller](docs/SESSY-READY-BY-17.md) remains available through exact rollback.
 - **Forward battery plan (shadow):** Optional [price-aware charge/hold/discharge proposals](docs/SESSY-PRICE-PLAN.md#implemented-shadow-rollout) across evening and morning peaks, with EV protection and a separate yellow sunshine forecast up to 36 hours. The home price chart shows one strategy timeline with measured Homey Insights SoC before now and a dashed SoC forecast after now, on its own percentage scale, aligned to the displayed price window, with a short color legend. Battery cards summarise the next transition instead of repeating the timeline. Both clients retain measured SoC; tapping the home battery card opens aligned price and planned battery-power charts with time selection on display and web. Provisional demand/headroom assumptions are labelled, and the existing controller remains active until calibration and reviewed activation.
 - **EV Smart Charging:** Real-time go-eCharger connection and charging status, with one-touch button to trigger your Homey smart charging Flow.
 - **Direct Local Sonos Player:** Zero-cloud UPnP control on port 1400 directly to Sonos speakers. Features both a compact dashboard card and a full-screen player page with embedded high-resolution station artwork (e.g. Joe, Qmusic, Sky Radio, Radio 538, NPO Radio 2), volume controls, household room grouping, and a 4-row favorites grid.
@@ -173,9 +173,9 @@ ENERGYDECK_WIFI_PASSWORD=your-wifi-password
 
 6. **Sync dynamic energy prices:** In the Homey Web App, go to **HomeyScript**, create a new script named `EnergyDeck Prices`, and paste the contents of [`homeyscript/energydeck-prices.js`](homeyscript/energydeck-prices.js). Create a Flow that runs this script every hour or when electricity prices update.
 
-The optional Sessy controller/price proposal can be installed as **Sessy - Laadplan**,
-with a safe manual **Run** preview and the existing Flow as the only actuator path.
-See [named-script installation and testing](docs/SESSY-PRICE-PLAN.md#visible-and-testable-homeyscript).
+The optional Sessy controller is installed as **Sessy - Laadplan**, with a read-only
+manual **Run** preview and the existing Flow as the only actuator path. See
+[active measured control and rollback](docs/SESSY-PRICE-PLAN.md#active-measured-control-25-october-2026).
 
 ### Step 4: Configure Sonos (Optional)
 

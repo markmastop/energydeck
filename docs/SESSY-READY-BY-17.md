@@ -1,5 +1,7 @@
 # Sessy evening reserve: full by 17:00
 
+**Historical controller:** replaced by [active measured price control](SESSY-PRICE-PLAN.md#active-measured-control-25-october-2026) on 25 October 2026. This document describes the retained rollback implementation.
+
 The user-confirmed battery capacity is **5 kWh**. The existing Homey device
 charge limit is **2200 W**; automatic grid top-up uses **1000 W** and plans its
 start at that lower power. `homeyscript/sessy-ready-by-17.js` extends the normal

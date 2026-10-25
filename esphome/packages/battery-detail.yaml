@@ -93,6 +93,7 @@ script:
           set_text(id(battery_detail_status), p.shadow ? "${battery_detail_assumptions}" : "${battery_forward_active}");
           if (q.ev != 0) set_text(id(battery_detail_status), "${battery_forward_ev}");
           if (p.at_risk) set_text(id(battery_detail_status), "${battery_forward_risk}");
+          if (p.execution_known) set_text(id(battery_detail_status), id(battery_control_message).c_str());
           lv_slider_set_range(id(battery_detail_slider), 0, p.interval_count - 1);
           if (!lv_obj_has_state(id(battery_detail_slider), LV_STATE_PRESSED)) lv_slider_set_value(id(battery_detail_slider), index, LV_ANIM_OFF);
           const auto from = g.from, until = g.until;

@@ -23,6 +23,7 @@ export function initializeBatteryDetail({t,format}) {
     const clock=epoch=>forwardClock(epoch,now,document.documentElement.lang||'nl');
     $('battery-detail-live').textContent=`${t('batteryMeasuredNow')}: ${format(battery?.percentage,0)}% · ${format(live===null?null:live/1000)} kW`;
     $('battery-detail-status').textContent=m?t(m.plan.mode==='shadow'?'batteryShadow':'batteryActivePlan'):t('batteryPlanUnavailable');
+    if(m?.plan.execution) $('battery-detail-status').textContent+=` · ${t('batteryControl'+m.plan.execution.reason)}`;
     slider.disabled=!m;
     if(!m){svg.replaceChildren();$('battery-detail-selected').textContent=t('batteryPlanUnavailable');$('battery-detail-note').textContent='';return;}
     slider.max=m.plan.intervals.length-1;slider.value=m.index;

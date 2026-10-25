@@ -3,6 +3,12 @@
 #include <iostream>
 int main() {
   energydeck::BatteryPlan p;
+  p.set_execution("active", "phase-limit", -350, 1792931400, 1792931400);
+  assert(p.execution_known && !p.execution_paused && p.execution_watts == -350);
+  p.set_execution("active", "untrusted-message", -350, 1792931400, 1792931400);
+  assert(!p.execution_known);
+  p.set_execution("paused", "ev-unknown", 0, 1792931400, 1792931581);
+  assert(!p.execution_known);
   assert(p.set(1, "2026-10-25", 1792931400, true, "solar-and-reserve", 5, 1000, 100, 540, 1020, 809, 100));
   assert(p.valid(180100, 1792931580, "2026-10-25"));
   assert(!p.valid(180101, 1792931580, "2026-10-25"));

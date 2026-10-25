@@ -1,9 +1,13 @@
 # Forward-looking Sessy charge and discharge plan
 
-Status: planner, shadow integration, ESP/web readers and offline tests implemented.
-**Deployed in shadow mode on 25 October 2026; active price control is not enabled.**
-The current ready-by-17 controller remains authoritative. This document supersedes
-neither its running configuration nor any manual override.
+Status: **active Homey price control enabled on 25 October 2026**. The existing
+`Sessy - Run` ten-second loop executes `Sessy - Laadplan` and remains the only
+writer of battery device commands. The 17:00 deadline has been replaced by rolling
+price optimisation. Manual force/discharge/sleep paths remain in the Flow.
+
+The older shadow rollout below is retained as implementation history. See
+[active measured control](#active-measured-control-25-october-2026) for the running
+input model, limits, failure behavior and rollback.
 
 ## Objective, agreed constraints and proposed reserves
 
@@ -238,21 +242,11 @@ sunshine marks are separate, with unknown coverage left empty. Tapping the batte
 The price and signed battery-power plots use exactly the same UTC axis; selection
 shows price, action, watts and expected SoC. The EV controls remain intact.
 
-**Calibration still required before active control:** no household history or site
-phase-headroom model is installed yet. Shadow proposals explicitly use provisional
-350 W baseline / 700 W evening / 900 W morning demand, 00:00–06:00 predicted EV
-charging and 1 kW assumed spare headroom. The first EV interval uses the actual
-charger state; unknown EV state blocks discharge. These assumptions never authorise
-actuation. Optional fresh `sessy_price_inputs` v1 periods may replace these estimates
-(`updatedAt`, `validUntil`, `periods` with UTC `from/until`, `houseW`, `pvW`, `ev`,
-`headroomW`); proposals remain marked provisional. Missing sunshine is not zero sun.
-No sunshine-to-PV-energy conversion is made. The operating/end reserves and loss/
-throughput assumptions remain those listed above.
-
-The next activation step needs measured household/EV history, confirmed site/phase
-headroom, shadow replay over complete cycles, removal of the redundant legacy price
-gate and an explicitly reviewed activation/rollback. The implementation commit did not install those active-control changes or flash
-physical displays; the separate shadow deployment is recorded below.
+**Historical shadow-stage limitation:** that version used provisional house/EV
+profiles and assumed spare headroom. It did not authorise actuator writes. Those
+inputs have now been replaced by the measured-profile and live phase guard
+recorded in the activation section below. Forecasts remain estimates, and the
+charging/discharging efficiency and wear allowance remain explicit assumptions.
 
 Checks: `node scripts/test-sessy-price-plan.mjs`, existing ready-by-17 and installer
 checks, native `scripts/test-battery-plan.cpp`, web tests and ESP simulator build.
@@ -557,3 +551,135 @@ both OTA ports recovered after restart. Public `app.js`, `battery-plan.js`,
 Both firmware builds and the simulator passed; setup frames remain 2672 B on
 both targets. This verifies the corrective upload and network recovery, not a
 physical visual/touch inspection. No charging Flow was invoked.
+
+
+## Active measured control: 25 October 2026
+
+The user confirmed **3×25 A, Sessy on L3**. `sessy_price_config` records that site
+configuration with a 2 A phase margin. The new installer is
+`scripts/install-sessy-price-control.py`; its default invocation is read-only.
+`--apply --main-fuse-amps 25 --sessy-phase 3` installs and enables real control.
+The active flag is `sessy_price_plan_enabled`, separate from the old reserve flag.
+
+### Measured inputs and forecasts
+
+The controller fetches the [Homey Insights read-only log entries](https://athombv.github.io/node-homey-api/HomeyAPIV3Local.ManagerInsights.html#getLogEntries)
+for the last seven days. Five hourly series are aligned by exact UTC timestamp:
+grid `energy_power`, battery AC `energy_power`, PV `energy_power`, EV
+`energy_power`, and P1 `measure_power.l3`. The raw EV `measure_power` log contains
+only gaps on this installation; the aggregate energy log contains actual values.
+No missing value is substituted with zero.
+
+Gross household power excluding the EV is reconstructed as:
+`grid - battery AC + max(0, PV) - EV`. Battery AC is positive when charging and
+negative when discharging. This avoids training on suppressed net import or
+counting the car twice. At least 72 aligned, completed hourly measurements are
+required, with recent coverage and at least two samples for every local hour.
+Weekday/weekend hour medians are used where two matching samples exist;
+otherwise the available week-wide hour samples are used. EV loading is an hourly
+historical mean, not a declared car schedule. The three-phase EV contribution is
+removed from the L3 baseline; the charger currently reports three-phase operation.
+DST hours retain their UTC identity and are grouped by Amsterdam local hour.
+
+The compact profile is cached in `sessy_price_profile`, normally refreshed hourly
+and rejected when stale. The activated preview/first loop accepted **169**
+aligned hourly samples. Source metadata accompanies the plan. The wire-contract
+quality name `calibrated` means the measured-history/site prerequisites passed;
+it is not a claim of validated forecast accuracy. UI calls it a forecast based
+on measured household demand. A single measured week cannot prove future demand.
+
+PV energy forecasts remain unknown (`pvForecast: unknown`): the model makes no
+sunshine-to-kWh conversion and conservatively reserves capacity without predicted
+PV energy. Actual solar surplus is still used immediately. Open-Meteo sunshine
+fractions remain visible separately in the strategy and weather cards. Fixed
+5 kWh capacity, 90%/95% charge/discharge efficiencies, a 3 ct/kWh throughput
+allowance, 10% operating reserve and 20% terminal reserve remain model settings.
+
+### Execution and deviations
+
+The normal Flow reevaluates every ten seconds. It reads battery AC and P1 power,
+actual SoC, configured battery limits, EV state and L3 voltage/current/power.
+Battery power/frequency/P1-voltage and grid power/L3-voltage provide independent
+freshness heartbeats; at least one per device must be at most 60 seconds old.
+This preserves a legitimate unchanged 0 W battery reading during a long hold.
+An EV voltage heartbeat must be at most 60 seconds old; unchanged zero power and
+false charging flags can legitimately have older change timestamps. Missing or
+stale readings stop automatic targets. No measurement freshness is inferred from
+an unchanged capability's age alone.
+
+L3 spare power uses the larger of measured absolute real power and apparent
+power (current × voltage). Remove the battery's current AC contribution before
+applying a new target, and retain a 2 A margin below the confirmed 25 A fuse.
+Automatic grid charging is capped at 1 kW and actual available phase room; solar
+charging may use up to the configured 2.2 kW limit but also passes the phase guard.
+Actual EV charging or unknown EV state blocks discharge. Household discharge is
+capped by actual net house demand, configured discharge limit and 1.8 kW. Manual
+mode, fault, reserve and stale-plan guards remain. There is no trailing target
+smoothing after these guards. Polling limits response speed; this is software
+coordination, not replacement electrical protection or an EV load balancer.
+
+The planner jointly allocates the published price horizon, up to 36 hours. It
+replans at least every five minutes and on integer SoC, actual EV, price, profile,
+site configuration or sunshine-source changes. Current phase headroom is checked
+on every execution, even when the forecast is cached. The current quarter is
+executed through the original Flow device-command cards.
+
+The installer bypasses only the verified legacy `kwh_prijs_categorie contains C`
+condition by connecting its one incoming permission-success edge to the original
+non-C continuation. It preserves all other manual, EV, SoC, error-stop, trigger
+and actuator cards. This avoids a second price policy contradicting the optimiser.
+If prices, profile or other inputs fail, the active controller publishes a reason
+and requests zero; it does not silently resume the previous 17:00 policy.
+
+The shared snapshot now contains `execution` metadata: requested signed watts,
+reason, timestamp and the last read device setpoint. Measured battery watts stay
+separate. ESP and web show an active plan, its requested action, next transition
+and deviations such as EV protection, L3 limitation or missing readings. The
+historical SoC is measured and the future line remains an estimate.
+
+### Installation, verification and rollback
+
+Before activation the installer saves a private, mode-0600 backup of the complete
+Flow, named script and previous active flag under ignored `build/homey-backups/`.
+It verifies the saved script and runs `preview-active` through the same preview
+facade: candidate activation is simulated and **no Logic/device writes occur**.
+Only after a valid measured plan and exact Flow readback does it enable control.
+The existing timer performs execution; no real charging Flow is manually triggered
+as a test. Manual/default script Run remains a read-only preview. `preview-active`
+can also test the candidate while the real enable flag is false.
+
+Rollback uses the exact backup, not just the flag:
+
+```sh
+python3 scripts/install-sessy-price-control.py --apply --restore build/homey-backups/FILE.json
+```
+
+This disables the active flag, restores the previous script/Flow and verifies
+readback. Simply disabling the new flag pauses automatic targets; it does not
+restore the old deadline controller or its removed legacy price filter.
+
+Offline validation covers actual source bundling, zero-write previews, measured
+reconstruction, independent samples, missing history, timezone grouping, EV
+heartbeat/transition protection, phase VA and removal of the current battery load,
+solar priority, reserve/fault/manual/stale guards, exact price-gate topology,
+canonical tariffs and the existing price/energy-balance cases. The installer’s
+live preview succeeded, then the normal loop published an active 113-quarter plan.
+Read-only device verification confirmed requested and device setpoints of **0 W**
+for the current hold action; measured AC settled near standby. This proves active
+hold execution, not a complete overnight charge/morning-discharge cycle.
+
+
+Activation verification also caught the unchanged-zero timestamp case: after
+several minutes of holding, battery AC power had an old change timestamp while
+frequency and voltage still updated. The independent-heartbeat regression now
+covers that case and genuinely stale devices. The corrected exact controller was
+installed through the same zero-write-preview/readback procedure.
+
+Simulator, both target builds, 97 web tests, native plan/parser tests, actual
+compiled LVGL/HTTP priority checks and the active/legacy installer/planner tests
+pass. Both generated setup frames remain 2,672 bytes. A production-LVGL fixture
+render was visually checked for active-plan and L3-limit label fit. OTA uploads
+to the 5-inch and 7-inch passed. USB on the 5-inch confirmed all workers starting,
+v2 plan parsing/rendering, 251 measured history points and a successful boot
+marker; both displays remained reachable after restart. Physical touch and the
+7-inch pixels were not directly inspected in this rollout.

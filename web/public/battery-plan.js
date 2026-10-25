@@ -13,7 +13,7 @@ export function batteryPlan(raw, now = new Date()) {
   if (value?.version === 1 && value.forwardPlan && value.day === day &&
       finite(value.updatedAt, now.getTime()/1000 - 180, now.getTime()/1000 + 30)) {
     const forward = forwardBatteryPlan(value.forwardPlan, now);
-    if (forward) return {...forward,controllerUpdatedAt:value.updatedAt};
+    if (forward) return {...forward,controllerUpdatedAt:value.updatedAt,execution:batteryExecution(value.execution,now)};
   }
   if (value?.version === 2) return forwardBatteryPlan(value, now);
   if (!value || value.version !== 1 || value.day !== day || typeof value.enabled !== 'boolean' ||
@@ -34,7 +34,19 @@ export function batteryPlan(raw, now = new Date()) {
     sunPeriods, sunMinutes: sunValid ? value.sunMinutes : null, sunWindowMinutes: sunValid ? value.sunWindowMinutes : null,
     sunAdvanceMinutes: sunValid && finite(value.sunAdvanceMinutes, 0, 60) ? value.sunAdvanceMinutes : 0,
     capacityKwh: value.capacityKwh, topUpW: value.topUpW, targetPercent: value.targetPercent,
-    reserveMinute: value.reserveMinute, deadlineMinute: value.deadlineMinute, startMinute: value.startMinute};
+    reserveMinute: value.reserveMinute, deadlineMinute: value.deadlineMinute, startMinute: value.startMinute,
+    execution:batteryExecution(value.execution,now)};
+}
+
+// Requested target and device-command readback remain separate from measured W.
+export function batteryExecution(e,now=new Date()) {
+  const epoch=now.getTime()/1000;
+  const reasons=['following','solar-surplus','ev-charging','ev-unknown','phase-limit','reserve','battery-unavailable',
+    'stale-readings','prices-unavailable','history-unavailable','disabled','manual-mode','inputs-unavailable','site-unconfirmed','plan-unavailable'];
+  if(!e||!['active','paused'].includes(e.mode)||!reasons.includes(e.reason)||
+    !Number.isFinite(e.updatedAt)||e.updatedAt<epoch-180||e.updatedAt>epoch+30||
+    !Number.isFinite(e.targetW)||e.targetW< -2200||e.targetW>1800) return null;
+  return {mode:e.mode,reason:e.reason,targetW:e.targetW,updatedAt:e.updatedAt};
 }
 
 export function planClock(minute) {
@@ -91,7 +103,7 @@ export function forwardBatteryPlan(p, now = new Date()) {
   if (!intervals.some(q=>q.from<=epoch && q.until>epoch)) return null;
   return {version:2,enabled:true,mode:p.mode,inputQuality:p.inputQuality,atRisk:p.atRisk,
     updatedAt:p.updatedAt,validUntil:p.validUntil,...(p.controllerUpdatedAt!==undefined?{controllerUpdatedAt:p.controllerUpdatedAt}:{}),capacityKwh:p.capacityKwh,reservePercent:p.reservePercent,
-    endReservePercent:p.endReservePercent,topUpW:p.topUpW,intervals};
+    endReservePercent:p.endReservePercent,topUpW:p.topUpW,intervals,execution:batteryExecution(p.execution,now)};
 }
 
 export function forwardClock(epoch, now = new Date(), locale='nl') {

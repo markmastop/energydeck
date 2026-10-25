@@ -1,5 +1,7 @@
 # Read-only controller snapshot. Missing/stale plan data never hides live SoC.
 globals:
+  - id: battery_control_message
+    type: std::string
   - id: battery_price_from
     type: int64_t
     initial_value: "0"
@@ -105,6 +107,12 @@ script:
                               proposal.controller_updated_at = p["updatedAt"].as<uint32_t>();
                               if (ok && proposal.valid(millis(), clock.timestamp, "")) id(battery_plan) = proposal;
                             }
+                            if (valid && p["execution"].is<JsonObject>()) {
+                              auto e = p["execution"].as<JsonObject>();
+                              const auto clock = id(energydeck_time).now();
+                              if (clock.is_valid() && e["targetW"].is<float>() && e["updatedAt"].is<uint32_t>())
+                                id(battery_plan).set_execution(e["mode"] | "", e["reason"] | "", e["targetW"].as<float>(), e["updatedAt"].as<uint32_t>(), clock.timestamp);
+                            }
                             return valid;
                           });
                         });
@@ -159,6 +167,25 @@ script:
           }
           if (known && live) set_text_fmt(id(battery_energy_label), "${battery_energy_format}", s.battery.value * p.capacity / 100, p.capacity);
           else set_text(id(battery_energy_label), "-- / -- kWh");
+          auto reason_text = [](const std::string &reason) -> const char * {
+            if (reason == "following") return "${battery_control_following}";
+            if (reason == "solar-surplus") return "${battery_control_solar_surplus}";
+            if (reason == "ev-charging") return "${battery_control_ev_charging}";
+            if (reason == "ev-unknown") return "${battery_control_ev_unknown}";
+            if (reason == "phase-limit") return "${battery_control_phase_limit}";
+            if (reason == "reserve") return "${battery_control_reserve}";
+            if (reason == "battery-unavailable") return "${battery_control_battery_unavailable}";
+            if (reason == "stale-readings") return "${battery_control_stale_readings}";
+            if (reason == "prices-unavailable") return "${battery_control_prices_unavailable}";
+            if (reason == "history-unavailable") return "${battery_control_history_unavailable}";
+            if (reason == "disabled") return "${battery_control_disabled}";
+            if (reason == "manual-mode") return "${battery_control_manual_mode}";
+            if (reason == "inputs-unavailable") return "${battery_control_inputs_unavailable}";
+            if (reason == "site-unconfirmed") return "${battery_control_site_unconfirmed}";
+            if (reason == "plan-unavailable") return "${battery_control_plan_unavailable}";
+            return "";
+          };
+          id(battery_control_message) = known && p.execution_known ? reason_text(p.execution_reason) : "";
           if (known && p.version == 2) {
             const int index = p.current(time.timestamp);
             const auto &current = p.intervals[index];
@@ -173,15 +200,24 @@ script:
               return std::string(label);
             };
             std::string state = p.shadow ? "${battery_forward_shadow}" : "${battery_forward_active}";
-            state += " | "; state += action_text(current.action);
-            set_text(id(battery_goal_label), p.at_risk ? "${battery_forward_risk}" : current.ev != 0 ? "${battery_forward_ev}" : state.c_str());
+            const int actual_action = p.execution_known ? (p.execution_watts < 0 ? 1 : p.execution_watts > 0 ? 2 : 0) : current.action;
+            state += " | "; state += action_text(actual_action);
+            set_text(id(battery_goal_label), p.execution_known && p.execution_paused ? "${battery_control_paused}" : state.c_str());
             set_style_text_color(id(battery_goal_label), lv_color_hex(p.at_risk ? 0xEA665F : 0xA9B8AE), LV_PART_MAIN);
-            if (next) {
+            if (p.execution_known && p.execution_reason != "following") set_text(id(battery_plan_label), id(battery_control_message).c_str());
+            else if (p.at_risk) set_text(id(battery_plan_label), "${battery_forward_risk}");
+            else if (next) {
               std::string label = action_text(next->action); label += " ${battery_strategy_from} "; label += stamp(next->from, true);
               set_text(id(battery_plan_label), label.c_str());
             } else set_text(id(battery_plan_label), "${battery_forward_no_next}");
             return;
           }
+          if (known && p.execution_known) {
+            set_text(id(battery_goal_label), "${battery_control_paused}");
+            set_text(id(battery_plan_label), id(battery_control_message).c_str());
+            return;
+          }
+
           set_style_text_color(id(battery_goal_label), lv_color_hex(0x48BD70), LV_PART_MAIN);
           char deadline[6], start[6];
           snprintf(deadline, sizeof(deadline), "%02d:%02d", p.deadline / 60, p.deadline % 60);

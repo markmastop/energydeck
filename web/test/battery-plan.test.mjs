@@ -15,6 +15,18 @@ const forward={version:2,mode:'shadow',inputQuality:'provisional',updatedAt:epoc
   intervals:[{from:epoch,until:epoch+900,action:'charge',powerW:-1000,price:15,socFrom:50,socTo:54.5,ev:true,sun:.5},
     {from:epoch+900,until:epoch+1800,action:'discharge',powerW:500,price:50,socFrom:54.5,socTo:52,ev:false,sun:null}]};
 
+test('active execution metadata remains distinct from the proposed quarter and rejects stale/free text',()=>{
+  const active={...forward,mode:'active',inputQuality:'calibrated'};
+  const execution={mode:'active',reason:'phase-limit',targetW:-250,updatedAt:epoch};
+  const parsed=batteryPlan({...plan,forwardPlan:active,execution},now);
+  assert.equal(parsed.execution.targetW,-250);assert.equal(parsed.intervals[0].powerW,-1000);
+  assert.equal(batteryPlan(parsed,now).execution.reason,'phase-limit');
+  for(const invalid of [{...execution,reason:'untrusted text'},{...execution,targetW:-3000},{...execution,updatedAt:epoch-181}])
+    assert.equal(batteryPlan({...plan,forwardPlan:active,execution:invalid},now).execution,null);
+  const paused=batteryPlan({...plan,execution:{...execution,mode:'paused',reason:'history-unavailable',targetW:0}},now);
+  assert.equal(paused.version,1);assert.equal(paused.execution.mode,'paused');
+});
+
 test('forward proposal keeps sunshine separate, next action and measured-vs-predicted data explicit',()=>{
   const parsed=batteryPlan({...plan,forwardPlan:forward},now);
   assert.equal(parsed.version,2);assert.equal(parsed.mode,'shadow');assert.equal(parsed.inputQuality,'provisional');

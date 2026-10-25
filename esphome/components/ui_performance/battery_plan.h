@@ -19,6 +19,9 @@ struct BatteryPlan {
   float reserve_percent{10}, end_reserve_percent{20};
   bool shadow{true}, provisional{true}, at_risk{false};
   bool known{false}, enabled{false};
+  bool execution_known{false}, execution_paused{false};
+  float execution_watts{0};
+  std::string execution_reason;
   std::string day, phase;
   uint32_t updated_at{0}, received_at{0};
   float capacity{NAN}, top_up_w{NAN}, start{NAN};
@@ -27,11 +30,21 @@ struct BatteryPlan {
   std::array<SunPeriod, 16> sun_periods{};
   size_t sun_count{0};
   int reserve{0}, deadline{0};
-  void clear() { known = false; }
+  void clear() { known = false; execution_known = false; }
+  void set_execution(const std::string &mode, const std::string &reason, float watts, uint32_t stamp, uint32_t epoch) {
+    execution_known = false;
+    if ((mode != "active" && mode != "paused") || !std::isfinite(watts) || watts < -2200 || watts > 1800 ||
+        int64_t(epoch)-stamp > 180 || int64_t(stamp)-epoch > 30) return;
+    const char *reasons[] = {"following","solar-surplus","ev-charging","ev-unknown","phase-limit","reserve","battery-unavailable",
+      "stale-readings","prices-unavailable","history-unavailable","disabled","manual-mode","inputs-unavailable","site-unconfirmed","plan-unavailable"};
+    for (auto *allowed : reasons) if (reason == allowed) {
+      execution_known = true; execution_paused = mode == "paused"; execution_reason = reason; execution_watts = watts; return;
+    }
+  }
   bool begin_forward(uint32_t updated, uint32_t expiry, float kwh, float watts,
                      float minimum, float terminal, bool is_shadow, bool assumptions,
                      bool risk, uint32_t received) {
-    known = false; interval_count = 0; version = 2; controller_updated_at = 0;
+    known = false; execution_known = false; interval_count = 0; version = 2; controller_updated_at = 0;
     if (expiry <= updated || expiry - updated > 600 || !std::isfinite(kwh) || kwh < 1 || kwh > 100 ||
         !std::isfinite(watts) || watts < 0 || watts > 1000 || !std::isfinite(minimum) || minimum < 0 || minimum > 50 ||
         !std::isfinite(terminal) || terminal < minimum || terminal > 100 || (!is_shadow && assumptions)) return false;
@@ -75,7 +88,7 @@ struct BatteryPlan {
     // Each refresh starts with the legacy envelope, even after a v2 proposal.
     // Reset the member before freshness checks; a shadowing argument left v2
     // selected with zero intervals and hid the plan on its second HTTP refresh.
-    version = 1; interval_count = 0; controller_updated_at = 0;
+    version = 1; execution_known = false; interval_count = 0; controller_updated_at = 0;
     day = date; updated_at = updated; enabled = on; phase = state;
     capacity = kwh; top_up_w = watts; reserve = static_cast<int>(from);
     deadline = static_cast<int>(until); start = beginning; received_at = received;

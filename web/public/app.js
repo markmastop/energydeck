@@ -146,6 +146,11 @@ function render() {
     text('battery-goal', plan?.enabled ? `${t('batteryGoal')} ${planClock(plan.deadlineMinute)}` : '—');
     text('battery-plan-status', `${t(view.label).replace('{time}', planClock(plan?.deadlineMinute ?? null))}${view.label === 'batteryPlanSolar' && plan?.startMinute !== null ? ` ${planClock(plan.startMinute)}` : ''}`);
     text('battery-plan-rate', plan?.enabled ? `${t('batteryPlanRate')} ${format(plan.topUpW / 1000)} kW` : '');
+    if(plan?.execution) {
+      text('battery-goal',t('batteryControlPaused'));
+      text('battery-plan-status',t('batteryControl'+plan.execution.reason));
+      text('battery-plan-rate',`${t('batteryRequested')} ${format(plan.execution.targetW,0)} W`);
+    }
   }
   const charger = data.charger;
   const chargeState = charger.connected === false ? 'disconnected' : charger.fault === true ? 'fault' :

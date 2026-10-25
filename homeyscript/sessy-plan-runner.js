@@ -4,7 +4,7 @@
  * The installer embeds the same controller/planner source used by offline tests.
  */
 const mode = typeof args === 'undefined' || args.length === 0 ? 'preview' : args[0];
-if (!['preview', 'control'].includes(mode) || (typeof args !== 'undefined' && args.length > 1)) {
+if (!['preview', 'preview-active', 'control'].includes(mode) || (typeof args !== 'undefined' && args.length > 1)) {
   throw new Error('Use no argument (preview), "preview", or "control".');
 }
 const applyWrites = mode === 'control';
@@ -19,11 +19,13 @@ const controllerHomey = {
       const found = await Homey.logic.getVariables();
       names = Object.fromEntries(Object.values(found).map(v => [v.id, v.name]));
       previousSnapshot = Object.values(found).find(v => v.name === 'sessy_ready_by_17_plan')?.value;
-      return found;
+      // Installer-only dry run: exercise activation while the real flag stays off.
+      return mode === 'preview-active' ? Object.fromEntries(Object.entries(found).map(([id,v]) =>
+        [id, v.name === 'sessy_price_plan_enabled' ? {...v,value:true} : v])) : found;
     },
     async updateVariable(change) {
       const name = names[change.id];
-      if (!['sessy_ready_by_17_state', 'sessy_doel_vermogen', 'sessy_ready_by_17_plan'].includes(name)) {
+      if (!['sessy_ready_by_17_state', 'sessy_doel_vermogen', 'sessy_ready_by_17_plan', 'sessy_price_profile'].includes(name)) {
         throw new Error('Unexpected controller output');
       }
       pending.push({name, value: change.variable.value});
@@ -31,6 +33,7 @@ const controllerHomey = {
     },
   },
   devices: {getDevice: query => Homey.devices.getDevice(query)},
+  insights: {getLogEntries: query => Homey.insights.getLogEntries(query)},
 };
 const result = await (async function(Homey) {
 /* __SESSY_CONTROLLER_SOURCE__ */

@@ -232,3 +232,18 @@ a separate yellow forecast row with shared 0–1 brightness mapping. Native LVGL
 and mobile demo previews were visually inspected, the simulator built, all 82 web
 tests passed, and controller, native validation, installer and nine navigation
 checks passed. This presentation revision has not been flashed to physical panels.
+
+### 7-inch sunshine-row rollout on 2026-10-25
+
+The user requested the sunshine-row revision on the physical 7-inch panel.
+The device resolved as `energydeck-7.local` / `192.168.1.100` and its ARP identity
+matched `[device MAC redacted]`. Firmware based on `50077de`, with the Xtensa literal
+placement repair documented in PERFORMANCE.md, built successfully at
+`2026-10-25 11:22:39 +0100` (`config_hash=0x60516aaf`). ESPHome acknowledged
+`OTA successful` and `Successfully uploaded program` for the 2,042,032-byte image.
+The OTA endpoint responded immediately and again 59 seconds after upload.
+
+Native Sonos state-machine regressions and diff checks passed. This build-option
+repair is ESP32-specific; the already implemented web sunshine row needs no
+matching source change. No physical touch or photograph inspection was performed,
+and the 5-inch panel was not updated in this rollout.

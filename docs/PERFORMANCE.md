@@ -207,3 +207,11 @@ response dispatcher uses a function-local GCC size optimization and is kept
 out of line on Xtensa. The rest of the display retains its speed optimization;
 host/simulator builds and Sonos control behavior are unchanged. The native
 Sonos state-machine regression suite covers the dispatcher behavior.
+
+The next UI expansion showed that reducing the dispatcher alone was insufficient:
+final literal-section placement still depended on the generated UI size. Both
+physical CrowPanel targets therefore also use `-Wa,--text-section-literals,--auto-litpools`, keeping
+literal pools next to their code. This flag is limited to the shared ESP32-S3
+configuration; the native simulator and web app need no equivalent change.
+The assembler spelling is intentional: this ESPHome native ESP-IDF generator
+forwards `-Wa` options but filters general `-m` build flags.

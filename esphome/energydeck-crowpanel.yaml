@@ -2,6 +2,11 @@ esphome:
   name: energydeck
   friendly_name: EnergyDeck
   min_version: 2026.8.0
+  build_flags:
+    # Keep Xtensa literal pools beside their functions as the generated UI grows.
+    # Separate literal sections can exceed l32r's range at final link time.
+    # The native ESP-IDF generator forwards -Wa flags, but filters -m flags.
+    - -Wa,--text-section-literals,--auto-litpools
   on_boot:
     # Run only after the I2C bus and its backlight controller are initialized.
     - priority: -100

@@ -548,3 +548,12 @@ paths. The exact response lambda, linked against the simulator's actual ESPHome
 clock/timezone objects, accepted 239 real Homey points on the 25-hour DST day.
 The native history tests and 95 web tests pass. An LVGL fixture preview confirms
 the overlapping bands and percentage line; no charging Flow is exercised.
+
+
+Correction rollout: `b9906eb` was pushed and both normal production displays
+reported successful OTA uploads. Device hostname/MAC identity was rechecked;
+both OTA ports recovered after restart. Public `app.js`, `battery-plan.js`,
+`battery-detail.js` and `sw.js` returned HTTP 200 and matched the committed files.
+Both firmware builds and the simulator passed; setup frames remain 2672 B on
+both targets. This verifies the corrective upload and network recovery, not a
+physical visual/touch inspection. No charging Flow was invoked.

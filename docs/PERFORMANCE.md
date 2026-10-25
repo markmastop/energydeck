@@ -198,3 +198,12 @@ Serial logs confirmed:
 - I2C backlight controller (0x30) and GT911 touchscreen (0x5D) initialized.
 - Live data verified: Solar (3490 W), Sessy battery (38%), EV charger (charging at 1503 W), and Sonos (9 playable favorites loaded).
 - The user confirmed noticeably improved responsiveness during physical interaction.
+
+## Xtensa response-dispatcher build limit
+
+The 2026-10-25 battery-card rollout exposed an Xtensa linker `l32r: literal
+target out of range` error in `energydeck_sonos::State::accept`. This large
+response dispatcher uses a function-local GCC size optimization and is kept
+out of line on Xtensa. The rest of the display retains its speed optimization;
+host/simulator builds and Sonos control behavior are unchanged. The native
+Sonos state-machine regression suite covers the dispatcher behavior.

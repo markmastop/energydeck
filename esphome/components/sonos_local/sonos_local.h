@@ -576,6 +576,11 @@ class State {
     requests_.push_back({r.host, "RenderingControl", "GetMute", "<InstanceID>0</InstanceID><Channel>Master</Channel>", selected});
     queue_group_volumes();
   }
+#if defined(__XTENSA__) && defined(__GNUC__)
+  // Keep this large response dispatcher within Xtensa's literal-load range.
+  // Other code retains the display's execution-speed optimization setting.
+  __attribute__((optimize("Os"), noinline))
+#endif
   void accept(int status, const std::string &body) {
     if (!has_request()) return;
     const auto req = request();

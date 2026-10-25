@@ -208,6 +208,9 @@ readiness checks and status messages available. Stored kWh is an estimate from S
 plans never replace live battery measurements. See [the snapshot contract and
 installation](SESSY-READY-BY-17.md).
 
+Docker/Coolify also needs `HOMEY_BATTERY_PLAN_VARIABLE_ID` in its runtime
+environment; `compose.yaml` forwards this optional setting to the container.
+
 Prices come only from the configured HomeyScript bridge. Each price day must match the Amsterdam date and contain exactly the calendar day's 92, 96 or 100 finite numeric values. Arrays preserve actual UTC quarter order; none are stretched or truncated. The current-quarter marker and period use elapsed UTC time, and transition-day periods/tooltips include the GMT offset. Per-day source and cached status are retained, including tomorrow used as today's matching date after midnight. The server invalidates cache at a date rollover and the browser expires old dates. The visible price window determines min/mean/max and the cheapest consecutive three hours, including elapsed hours.
 
 ```text

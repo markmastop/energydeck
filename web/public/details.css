@@ -77,10 +77,10 @@ main { padding-bottom: 100px; }
 .transport { border: 0; background: #20382a; color: var(--text); border-radius: 12px; min-width: 48px; height: 48px; font-size: 23px; }
 .play-button { background: #66d58e; color: #0b2413; width: 62px; height: 62px; border-radius: 50%; font-size: 25px; }
 .volume-value { color: var(--muted); font-size: 13px; min-width: 34px; text-align: center; }
-.compact-layout { grid-template-columns: 100px 1fr; gap: 20px; margin: 18px 0 8px; }
+.compact-layout { grid-template-columns: 100px 1fr; gap: 20px; align-items: start; margin: 10px 0 8px; }
 .compact-cover .cover-fallback { font-size: 30px; }
-.compact-layout .track-details h3 { font-size: 20px; margin: 4px 0 8px; }
-.compact-layout .track-artist { font-size: 12px; margin: 0 0 10px; }
+.compact-layout .track-details h3 { font-size: 20px; margin: 0 0 4px; }
+.compact-layout .track-artist { font-size: 12px; margin: 0 0 6px; }
 .compact-layout .track-album { display: none; }
 .compact-layout .room-heading { font-size: 11px; min-height: 30px; }
 .compact-layout .player-controls { justify-content: flex-start; gap: 8px; }
@@ -137,7 +137,7 @@ dialog p { font-size: 14px; line-height: 1.6; color: var(--muted); }
   .favorites-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
   .favorite { padding: 9px; gap: 9px; }
   .favorite > span { font-size: 10px; }
-  .compact-layout { grid-template-columns: 90px 1fr; gap: 14px; }
+  .compact-layout { grid-template-columns: 90px 1fr; gap: 14px; margin: 10px 0 8px; }
   .compact-layout .track-details, .compact-layout .room-heading { text-align: left; }
   .compact-layout .track-details h3 { font-size: 17px; }
   .compact-layout .player-controls { gap: 5px; }

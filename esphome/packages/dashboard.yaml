@@ -2051,7 +2051,7 @@ lvgl:
               - label:
                   id: small_music_status
                   x: 114
-                  y: 73
+                  y: 65
                   width: 170
                   height: 14
                   text_align: LEFT
@@ -2062,7 +2062,7 @@ lvgl:
               - label:
                   id: small_music_title
                   x: 114
-                  y: 38
+                  y: 30
                   width: 170
                   # A fixed two-line box keeps long titles above artist/volume.
                   height: 34
@@ -2073,7 +2073,7 @@ lvgl:
               - label:
                   id: small_music_artist
                   x: 114
-                  y: 73
+                  y: 65
                   width: 170
                   height: 14
                   long_mode: DOT
@@ -2083,7 +2083,7 @@ lvgl:
               - label:
                   id: small_music_volume
                   x: 114
-                  y: 88
+                  y: 80
                   width: 170
                   height: 14
                   long_mode: DOT
@@ -2149,7 +2149,7 @@ lvgl:
               - button:
                   id: small_music_room_select
                   x: 114
-                  y: 6
+                  y: 0
                   width: 170
                   height: 28
                   radius: 6

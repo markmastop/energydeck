@@ -829,3 +829,16 @@ track changes. Top/bottom space allows centering the first and last rows too.
 Unchanged polls preserve manual scrolling. Active gestures defer rendering and
 following; on web a short scroll-idle delay finishes the gesture before a pending
 track change is centered. Only the queue card scrolls, never the whole web page.
+
+## Compact text spacing (2026-10-25)
+
+The overview player's room heading moves up by 6 px, and its title plus dynamic
+artist/status and group-volume rows move up by 8 px. The title retains its fixed
+two-line limit and the empty secondary row still collapses. Cover, transport
+controls and the paused favorites view keep their existing positions and actions.
+The responsive web compact player uses top alignment and smaller title/artist
+margins; the full player remains unchanged.
+
+Verification: display simulator build, production LVGL text-layout preview,
+82 web tests, native room/queue widget regressions and nine navigation checks
+passed. No speaker command was sent and no physical display was flashed.

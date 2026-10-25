@@ -755,7 +755,7 @@ script:
             else lv_obj_clear_flag(widget, LV_OBJ_FLAG_HIDDEN);
           }
           if (compact_favorites) lv_obj_add_flag(id(small_music_cover_widget), LV_OBJ_FLAG_HIDDEN);
-          lv_obj_set_pos(id(small_music_room_select), compact_favorites ? 10 : 114, compact_favorites ? 3 : 6);
+          lv_obj_set_pos(id(small_music_room_select), compact_favorites ? 10 : 114, compact_favorites ? 3 : 0);
           lv_obj_set_size(id(small_music_room_select), compact_favorites ? 274 : 170, compact_favorites ? 30 : 28);
           auto *room_label = lv_obj_get_child(id(small_music_room_select), 0);
           lv_obj_set_size(room_label, compact_favorites ? 274 : 170, compact_favorites ? 16 : 28);
@@ -781,7 +781,7 @@ script:
           lv_point_t title_size;
           lv_text_get_size(&title_size, lv_label_get_text(id(small_music_title)), &lv_font_montserrat_14,
             0, 0, 170, LV_TEXT_FLAG_NONE);
-          const int secondary_y = 38 + std::min(32, int(title_size.y)) + 2;
+          const int secondary_y = 30 + std::min(32, int(title_size.y)) + 2;
           lv_obj_set_y(id(small_music_artist), secondary_y);
           lv_obj_set_y(id(small_music_status), secondary_y);
           const bool secondary_text = status[0] != '\0' || (playing && !room.artist.empty());

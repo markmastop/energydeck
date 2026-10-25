@@ -276,3 +276,9 @@ Available start actions stay blue, including after a completed charging session;
 the live renderer no longer turns that same action green. Stop remains red and
 pending/unavailable states retain their existing guards. The web action uses the
 same blue start/red stop distinction. No charging command is needed for this UI change.
+
+## Proposed next step: prices across evening, night and morning
+
+See [the forward-looking price-plan proposal](SESSY-PRICE-PLAN.md) for joint
+charging/discharging optimisation, EV protection and the v2 timeline design.
+It is a design and offline example; it is not enabled in the running controller.

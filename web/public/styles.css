@@ -480,9 +480,9 @@ h2 {
 .battery-plan-heading { min-height:24px; flex-wrap:wrap; }
 #battery-plan-rate { white-space:nowrap; }
 .battery-timeline { margin-top:6px; }
-.battery-sunshine { height:4px; position:relative; margin-bottom:3px; }
+.battery-sunshine { height:6px; position:relative; margin-bottom:3px; }
 .battery-sunshine:empty { display:none; }
-.battery-sunshine>span { position:absolute; height:4px; background:#F3C654; border-radius:1px; border-right:1px solid var(--panel); box-sizing:border-box; }
+.battery-sunshine>span { position:absolute; bottom:0; height:6px; background:#FFD35A; border-radius:1px; border-right:1px solid var(--panel); box-sizing:border-box; }
 .battery-timeline-track { height:6px; position:relative; border-radius:4px; background:var(--border); }
 .battery-timeline-track>span { position:absolute; top:0; height:6px; border-radius:4px; }
 #battery-solar-window { left:0; background:var(--green); opacity:.65; }

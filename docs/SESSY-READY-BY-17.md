@@ -151,8 +151,10 @@ planning windows, not measured energy-source histories or a guarantee of full
 charge. The start stays fixed once top-up begins rather than sliding forward
 as SoC rises. Valid forecasts add compact sunshine minutes/window information.
 A separate yellow strip above the charging timeline shows each forecast quarter
-at its actual clock position. Brighter yellow means a larger sunshine fraction
-within that quarter; dim yellow means little or no sunshine. Only forecast-covered
+at its actual clock position. Solid yellow marks mean sunshine is expected; taller marks mean a larger
+sunshine fraction within that quarter. Zero-sun quarters use a thin grey mark.
+Brief sunny intervals retain a visible minimum height of 3 px; the text shows
+the quantitative total in minutes and forecast-window hours. Only forecast-covered
 future intervals appear. Outside that horizon the strip is absent, not a zero-sun
 prediction. This is weather data, not measured solar power or predicted battery kWh.
 The battery uses the original large-percentage card with the EV card to its
@@ -258,3 +260,11 @@ charging details keep their existing controls and handlers. The web equivalent
 removes the outer frame and aligns the action across the column. Simulator build,
 native LVGL capture, mobile demo inspection, all 82 web tests and nine navigation
 checks passed. No charging command was issued and physical panels were not flashed.
+
+### Sunshine contrast correction (2026-10-25)
+
+Read-only Homey data confirmed just 3 sunshine minutes in a 152-minute remaining
+forecast. The original translucent row was difficult to see on the photographed
+panel. Both clients now use opaque yellow marks for positive sunshine, with a
+3–6 px height and grey 2 px zero-sun marks. Outside the forecast stays empty.
+No forecast values or charging policy changed.

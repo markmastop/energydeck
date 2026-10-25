@@ -1551,7 +1551,7 @@ lvgl:
             - label:
                 id: battery_plan_label
                 x: 12
-                y: 77
+                y: 75
                 text: ${battery_plan_unavailable}
                 text_font: montserrat_10
                 text_color: 0xA9B8AE
@@ -2170,10 +2170,11 @@ lvgl:
                   height: 30
                   pad_all: 0
                   radius: 6
-                  bg_color: 0x244434
-                  border_color: 0x42634E
-                  border_width: 1
-                  text: "-"
+                  bg_opa: TRANSP
+                  border_width: 0
+                  shadow_width: 0
+                  text_font: montserrat_24
+                  text: "\uF027"
                   on_click:
                     - script.execute:
                         id: music_control
@@ -2186,10 +2187,11 @@ lvgl:
                   height: 30
                   pad_all: 0
                   radius: 6
-                  bg_color: 0x244434
-                  border_color: 0x42634E
-                  border_width: 1
-                  text: "+"
+                  bg_opa: TRANSP
+                  border_width: 0
+                  shadow_width: 0
+                  text_font: montserrat_24
+                  text: "\uF028"
                   on_click:
                     - script.execute:
                         id: music_control
@@ -2202,9 +2204,9 @@ lvgl:
                   height: 30
                   pad_all: 0
                   radius: 6
-                  bg_color: 0x244434
-                  border_color: 0x42634E
-                  border_width: 1
+                  bg_opa: TRANSP
+                  border_width: 0
+                  shadow_width: 0
                   text_font: montserrat_12
                   text: "${music_resume}"
                   on_click:

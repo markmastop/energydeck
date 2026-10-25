@@ -117,7 +117,7 @@ script:
             if (known && p.enabled) lv_obj_clear_flag(o, LV_OBJ_FLAG_HIDDEN);
             else lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
           }
-          // A separate yellow row encodes quarter-hour sunshine, independently
+          // A separate high-contrast row encodes quarter-hour sunshine, independently
           // of the green/blue charging windows. Empty/expired data hides the row.
           lv_obj_t *sun_segments[] = {id(battery_sun_00), id(battery_sun_01), id(battery_sun_02), id(battery_sun_03), id(battery_sun_04), id(battery_sun_05), id(battery_sun_06), id(battery_sun_07), id(battery_sun_08), id(battery_sun_09), id(battery_sun_10), id(battery_sun_11), id(battery_sun_12), id(battery_sun_13), id(battery_sun_14), id(battery_sun_15)};
           const float current = time.hour * 60 + time.minute + time.second / 60.0f;
@@ -131,7 +131,13 @@ script:
             if (right <= left) continue;
             lv_obj_set_x(o, 12 + left);
             lv_obj_set_width(o, std::max(1, right - left - 1));
-            lv_obj_set_style_bg_opa(o, static_cast<lv_opa_t>(45 + part.fraction * 210), LV_PART_MAIN);
+            // A fully opaque minimum mark keeps brief sunshine visible in daylight;
+            // zero-sun quarters remain grey, and uncovered time has no mark.
+            const int height = part.fraction > 0 ? std::max(3, static_cast<int>(std::round(part.fraction * 6))) : 2;
+            lv_obj_set_y(o, 94 - height);
+            lv_obj_set_height(o, height);
+            lv_obj_set_style_bg_color(o, lv_color_hex(part.fraction > 0 ? 0xFFD35A : 0x617064), LV_PART_MAIN);
+            lv_obj_set_style_bg_opa(o, LV_OPA_COVER, LV_PART_MAIN);
             lv_obj_clear_flag(o, LV_OBJ_FLAG_HIDDEN);
           }
           if (!known || !p.enabled) return;

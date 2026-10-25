@@ -74,7 +74,7 @@ main { padding-bottom: 100px; }
 .room-heading { padding: 0; min-height: 44px; text-align: left; line-height: 1.5; color: var(--green); background: none; border: 0; overflow-wrap: anywhere; }
 .player-controls { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; }
 .transport-row, .volume-row { display: flex; align-items: center; justify-content: center; gap: 12px; }
-.transport { border: 0; background: #20382a; color: var(--text); border-radius: 12px; min-width: 48px; height: 48px; font-size: 23px; }
+.transport { border: 0; background: transparent; color: var(--text); border-radius: 12px; min-width: 48px; height: 48px; font-size: 23px; }
 .play-button { background: #66d58e; color: #0b2413; width: 62px; height: 62px; border-radius: 50%; font-size: 25px; }
 .volume-value { color: var(--muted); font-size: 13px; min-width: 34px; text-align: center; }
 .compact-layout { grid-template-columns: 100px 1fr; gap: 20px; align-items: start; margin: 10px 0 8px; }
@@ -84,8 +84,8 @@ main { padding-bottom: 100px; }
 .compact-layout .track-album { display: none; }
 .compact-layout .room-heading { font-size: 11px; min-height: 30px; }
 .compact-layout .player-controls { justify-content: flex-start; gap: 8px; }
-.compact-layout .transport { min-width: 40px; height: 40px; font-size: 20px; }
-.compact-layout .play-button { width: 42px; height: 42px; }
+.compact-layout .transport { background: transparent; box-shadow: none; min-width: 40px; height: 40px; font-size: 20px; }
+.compact-layout .play-button { color: var(--text); width: 42px; height: 42px; }
 .favorites-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-top: 22px; }
 .favorites-grid > .favorites-grid { grid-column: 1 / -1; margin: 0; }
 .favorite { border: 1px solid var(--border); border-radius: 12px; padding: 12px; color: var(--text); background: #182b1e; display: flex; flex-direction: column; gap: 12px; text-align: left; min-width: 0; }

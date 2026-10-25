@@ -203,7 +203,7 @@ widgets:
       bg_color: 0x18231E
       border_color: 0x34463C
       border_width: 0
-      text: "-"
+      text: "\uF027"
       text_font: montserrat_24
       on_click:
         - script.execute:
@@ -239,7 +239,7 @@ widgets:
       bg_color: 0x18231E
       border_color: 0x34463C
       border_width: 0
-      text: "+"
+      text: "\uF028"
       text_font: montserrat_24
       on_click:
         - script.execute:

@@ -204,8 +204,8 @@ The battery card can also read `HOMEY_BATTERY_PLAN_VARIABLE_ID`. It visualizes
 the controller's current start/target times and top-up limit, matching the ESP
 card. Valid local sunshine forecasts add expected sunshine minutes and the
 remaining forecast window to the plan status. A separate yellow row follows the
-same time axis: each quarter becomes brighter as its predicted sunshine fraction
-increases. It covers only the available future forecast, independently of the
+same time axis: each quarter with predicted sunshine has an opaque yellow mark that grows
+taller with its sunshine fraction; zero-sun quarters have a thin grey mark. It covers only the available future forecast, independently of the
 green solar-first and blue grid-top-up windows. The EV controls stay beside it
 without an outer frame, with a full-column charge/stop button, readiness checks
 and status messages available. Stored kWh is an estimate from SoC and configured capacity. Missing/stale

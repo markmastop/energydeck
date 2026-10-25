@@ -677,6 +677,8 @@ script:
             playing ? "${music_playing}" : "${music_ready}");
           esphome::ui_performance::set_text(id(music_artist), playing && !room.tv ? room.artist.c_str() : "");
           esphome::ui_performance::set_text(id(music_cover_fallback), room.tv ? "${music_tv}" : LV_SYMBOL_AUDIO);
+          esphome::ui_performance::set_text(lv_obj_get_child(id(music_minus), 0), LV_SYMBOL_VOLUME_MID);
+          esphome::ui_performance::set_text(lv_obj_get_child(id(music_plus), 0), LV_SYMBOL_VOLUME_MAX);
           const std::string selected_volume = known && room.volume >= 0 ? std::to_string(room.volume) + "%" : "--";
           esphome::ui_performance::set_text(lv_obj_get_child(id(music_play), 0),
             waiting ? LV_SYMBOL_REFRESH : room.tv ? "${music_tv}" : playing ? LV_SYMBOL_PAUSE : LV_SYMBOL_PLAY);
@@ -811,7 +813,7 @@ script:
           // from reintroducing filled rectangles around secondary controls.
           const lv_state_t plain_states[] = {LV_STATE_DEFAULT, LV_STATE_DISABLED, LV_STATE_FOCUSED, LV_STATE_PRESSED,
             static_cast<lv_state_t>(LV_STATE_DISABLED | LV_STATE_FOCUSED)};
-          for (auto *button : {id(small_music_room_select), id(music_back), id(music_previous), id(music_next), id(music_minus), id(music_plus), id(music_mute)}) {
+          for (auto *button : {id(small_music_minus), id(small_music_plus), id(small_music_play), id(small_music_room_select), id(music_back), id(music_previous), id(music_next), id(music_minus), id(music_plus), id(music_mute)}) {
             const bool disabled = lv_obj_has_state(button, LV_STATE_DISABLED);
             for (auto state : plain_states) {
               lv_obj_set_style_bg_opa(button, LV_OPA_TRANSP, state);

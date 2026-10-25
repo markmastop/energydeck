@@ -244,4 +244,4 @@ battery_plan_normal: "Normal operation"
 battery_energy_format: "%.1f / %.1f kWh"
 battery_goal_format: "100%% by %s"
 
-battery_sun_forecast_format: " | sun %.0fm/%.1fh"
+battery_sun_forecast_format: " | sun %.0f min / %.1f h"

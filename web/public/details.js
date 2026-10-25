@@ -274,12 +274,18 @@ export function initializeDetails({ api, t, format, time, svgNode, onUnauthorize
     const playing = player.state === 'PLAYING';
     control(playing ? 'Ⅱ' : '▶', playing ? 'pause' : 'play', playing ? 'pause' : 'play', {}, player.tv || !actions.includes(playing ? 'Pause' : 'Play'));
     if (!compact) control('⏭', 'next', 'next', {}, player.tv || !actions.includes('Next'));
-    control('−', 'volumeDown', 'volume', { delta: -2 }, volumeUnavailable);
+    const volumeIcon = high => {
+      const icon = svgNode('svg', {width:24, height:24, viewBox:'0 0 24 24', fill:'none', stroke:'currentColor', 'stroke-width':1.8, 'aria-hidden':'true'});
+      icon.append(svgNode('path', {d:'M11 4 6 8H3v8h3l5 4Z', 'stroke-linejoin':'round'}));
+      icon.append(svgNode('path', {d:high ? 'M15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14' : 'M15 8a6 6 0 0 1 0 8', 'stroke-linecap':'round'}));
+      return icon;
+    };
+    control('', 'volumeDown', 'volume', { delta: -2 }, volumeUnavailable).append(volumeIcon(false));
     const roomVolume = page === 'sonos' && view === 'rooms';
     const values = roomVolume ? [player.volume] : (player.volumeValues || [{ value: player.volume }]).map(item => item.value);
     const displayed = values.some(value => value === null) ? '—' : `${Math.min(...values)}%`;
     volumeRow.append(node('span', 'volume-value', `${t(roomVolume ? 'roomVolume' : 'groupVolume')} ${displayed}`));
-    control('+', 'volumeUp', 'volume', { delta: 2 }, volumeUnavailable);
+    control('', 'volumeUp', 'volume', { delta: 2 }, volumeUnavailable).append(volumeIcon(true));
     if (!compact) {
       const mute = control('', player.mute ? 'unmute' : 'mute', 'mute', { mute: !player.mute }, player.mute === null);
       mute.setAttribute('aria-pressed', String(Boolean(player.mute)));

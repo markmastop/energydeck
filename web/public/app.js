@@ -133,7 +133,8 @@ function render() {
     const segment = document.createElement('span');
     segment.style.left = `${period.left}%`;
     segment.style.width = `${period.width}%`;
-    segment.style.opacity = String((45 + period.fraction * 210) / 255);
+    segment.style.height = `${period.fraction > 0 ? Math.max(3, Math.round(period.fraction * 6)) : 2}px`;
+    segment.style.background = period.fraction > 0 ? '#FFD35A' : '#617064';
     return segment;
   }));
   $('battery-timeline').hidden = !plan?.enabled;

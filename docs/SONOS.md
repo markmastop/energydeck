@@ -842,3 +842,18 @@ margins; the full player remains unchanged.
 Verification: display simulator build, production LVGL text-layout preview,
 82 web tests, native room/queue widget regressions and nine navigation checks
 passed. No speaker command was sent and no physical display was flashed.
+
+## Borderless compact controls and volume icons (2026-10-25)
+
+Compact volume and play/pause buttons use transparent backgrounds with no border
+or shadow, including disabled/focused/pressed LVGL states. Home and detail volume
+buttons use speaker icons with fewer/more sound waves (LVGL built-in volume
+symbols, code-native SVG on web). Translated accessible web labels remain. The
+existing group/room scope, two-percentage-point changes and command guards are
+unchanged. No speaker commands are needed to verify this presentation.
+
+Verified the display simulator build, native compact preview and mobile web
+home/detail rendering, including the play icon's contrast on a transparent
+background. All 82 web tests, Sonos control/navigation regressions, native
+room/queue widget checks and nine card navigation combinations passed. Physical
+displays were not flashed during this presentation change.

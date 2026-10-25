@@ -19,6 +19,7 @@ from homey_discover import HomeyClient, load_env, values
 ROOT = Path(__file__).resolve().parents[1]
 ENABLED = "sessy_ready_by_17_enabled"
 STATE = "sessy_ready_by_17_state"
+PLAN = "sessy_ready_by_17_plan"
 ERROR_NODE = "21d27afb-a34c-45f4-baa6-1b3aa6eefce7"
 MARKER = "const DEVICE_ID = '__SESSY_DEVICE_ID__';"
 
@@ -76,6 +77,7 @@ def patch_flow(flow, source, device_id):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--apply", action="store_true", help="Install and enable (changes real charging behavior)")
+    parser.add_argument("--configure-readers", action="store_true", help="Save only the plan variable ID in local .env")
     parser.add_argument("--restore", type=Path, help="Restore an exact Flow backup; requires --apply")
     args = parser.parse_args()
     load_env()
@@ -122,6 +124,7 @@ def main():
     patched, key = patch_flow(copy.deepcopy(original), source, os.environ["HOMEY_SESSY_DEVICE_ID"])
     flag = lookup(ENABLED, "boolean")
     state = lookup(STATE, "string")
+    plan = lookup(PLAN, "string")
     print("Flow:", original["name"], "| normal calculation:", key)
     print("5 kWh, 1000 W grid top-up / up to 2200 W solar, 09:00–17:00 reserve, 45 min finish margin (Amsterdam)")
     print("Existing device commands/guards retained; script error -> zero target -> existing stop command")
@@ -140,6 +143,8 @@ def main():
         flag = write("POST", "/api/manager/logic/variable", {"name": ENABLED, "type": "boolean", "value": False})
     if state is None:
         state = write("POST", "/api/manager/logic/variable", {"name": STATE, "type": "string", "value": "{}"})
+    if plan is None:
+        plan = write("POST", "/api/manager/logic/variable", {"name": PLAN, "type": "string", "value": "{}"})
     path = "/api/manager/flow/advancedflow/" + original["id"]
     # Abort if somebody edited the Flow since the initial read.
     if flow_body(client.get(path)) != flow_body(original):
@@ -153,6 +158,14 @@ def main():
     verify = client.get("/api/manager/logic/variable/" + flag["id"])
     if verify.get("value") is not True:
         raise RuntimeError("Flow installed but enable flag could not be verified")
+    if args.configure_readers:
+        env_path = ROOT / ".env"
+        lines = env_path.read_text().splitlines() if env_path.exists() else []
+        name = "HOMEY_BATTERY_PLAN_VARIABLE_ID"
+        lines = [line for line in lines if line.split("=", 1)[0].strip() != name]
+        lines.append(name + "=" + plan["id"])
+        env_path.write_text("\n".join(lines) + "\n")
+        print("Configured plan variable ID in local .env (no credentials changed).")
     print("Installed, read-back verified and enabled. No manual Flow/device test was triggered.")
 
 

@@ -200,6 +200,12 @@ read-only polling as fallback, and shares the interpretation of values.
 
 Net grid power is negative for export. Sessy battery power is negative while charging and positive while discharging. Gas rate is already m³/hour. History power is converted from W to kW. Calendar boundaries use Europe/Amsterdam and include 23/25-hour DST days; five-minute gaps remain gaps and line colors split exactly at zero. Future samples and stale tails older than 15 minutes are rejected. Daily summary values are whatever the configured Homey summary devices provide.
 
+The battery card can also read `HOMEY_BATTERY_PLAN_VARIABLE_ID`. It visualizes
+the controller's current start/target times and top-up limit, matching the ESP
+card. Stored kWh is an estimate from SoC and configured capacity. Missing/stale
+plans never replace live battery measurements. See [the snapshot contract and
+installation](SESSY-READY-BY-17.md).
+
 Prices come only from the configured HomeyScript bridge. Each price day must match the Amsterdam date and contain exactly the calendar day's 92, 96 or 100 finite numeric values. Arrays preserve actual UTC quarter order; none are stretched or truncated. The current-quarter marker and period use elapsed UTC time, and transition-day periods/tooltips include the GMT offset. Per-day source and cached status are retained, including tomorrow used as today's matching date after midnight. The server invalidates cache at a date rollover and the browser expires old dates. The visible price window determines min/mean/max and the cheapest consecutive three hours, including elapsed hours.
 
 ```text

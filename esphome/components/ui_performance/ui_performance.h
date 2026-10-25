@@ -8,6 +8,7 @@
 #include "portrait_rotation.h"
 #include "energy_state.h"
 #include "home_cards.h"
+#include "battery_plan.h"
 #include "energy_gauges.h"
 #include "energy_history.h"
 #include "price_day.h"

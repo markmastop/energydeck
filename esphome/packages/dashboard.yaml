@@ -1482,10 +1482,11 @@ lvgl:
                   text_color: 0x7FE0A2
 
         - obj:
+            id: battery_card
             x: 14
             y: 440
-            width: 452
-            height: 58
+            width: 294
+            height: 126
             radius: 8
             bg_color: 0x0F1712
             border_color: 0x343A37
@@ -1493,43 +1494,154 @@ lvgl:
             pad_all: 0
             scrollable: false
             widgets:
-              - label:
-                  x: 16
-                  y: 7
-                  text: "${battery_title}"
-                  text_font: montserrat_16
-                  text_color: 0xEEF6F0
-              - label:
-                  id: battery_status_label
-                  x: 238
-                  y: 8
-                  width: 194
-                  text_align: RIGHT
-                  text: "${battery_status}"
-                  text_color: 0x62D98A
-              - bar:
-                  id: battery_level_bar
-                  x: 12
-                  y: 35
-                  width: 355
-                  height: 12
-                  value: 0
-                  radius: 6
-                  indicator:
-                    bg_color: 0x48BD70
-              - label:
-                  id: battery_percentage_label
-                  x: 382
-                  y: 29
-                  text: "0%"
-                  text_font: montserrat_18
-                  text_color: 0xEEF6F0
-
+            - label:
+                id: battery_card_title
+                x: 12
+                y: 8
+                text: ${battery_title}
+                text_font: montserrat_14
+                text_color: 0xEEF6F0
+            - label:
+                id: battery_status_label
+                x: 120
+                y: 10
+                text: ${battery_status}
+                text_font: montserrat_10
+                text_color: 0x3AA7D8
+                width: 160
+                long_mode: DOT
+                text_align: RIGHT
+            - label:
+                id: battery_percentage_label
+                x: 12
+                y: 29
+                text: --%
+                text_font: montserrat_28
+                text_color: 0xEEF6F0
+            - label:
+                id: battery_energy_label
+                x: 107
+                y: 31
+                text: -- / -- kWh
+                text_font: montserrat_12
+                text_color: 0xA9B8AE
+                width: 174
+                long_mode: DOT
+                text_align: RIGHT
+            - label:
+                id: battery_goal_label
+                x: 107
+                y: 48
+                text: --
+                text_font: montserrat_10
+                text_color: 0x48BD70
+                width: 174
+                long_mode: DOT
+                text_align: RIGHT
+            - bar:
+                id: battery_level_bar
+                x: 12
+                y: 65
+                width: 268
+                height: 6
+                value: 0
+                radius: 3
+                indicator:
+                  bg_color: 0x48BD70
+            - label:
+                id: battery_plan_label
+                x: 12
+                y: 77
+                text: ${battery_plan_unavailable}
+                text_font: montserrat_10
+                text_color: 0xA9B8AE
+                width: 268
+                long_mode: DOT
+            - obj:
+                id: battery_plan_track
+                hidden: true
+                x: 12
+                y: 96
+                width: 268
+                height: 5
+                bg_color: 0x26362D
+                border_width: 0
+                radius: 2
+                pad_all: 0
+                scrollable: false
+            - obj:
+                id: battery_plan_solar
+                hidden: true
+                x: 12
+                y: 96
+                width: 134
+                height: 5
+                bg_color: 0x48BD70
+                border_width: 0
+                radius: 2
+                pad_all: 0
+                scrollable: false
+            - obj:
+                id: battery_plan_topup
+                hidden: true
+                x: 146
+                y: 96
+                width: 134
+                height: 5
+                bg_color: 0x3AA7D8
+                border_width: 0
+                radius: 2
+                pad_all: 0
+                scrollable: false
+            - obj:
+                id: battery_plan_now
+                hidden: true
+                x: 12
+                y: 93
+                width: 2
+                height: 11
+                bg_color: 0xEEF6F0
+                border_width: 0
+                radius: 2
+                pad_all: 0
+                scrollable: false
+            - label:
+                id: battery_plan_reserve_label
+                hidden: true
+                x: 12
+                y: 106
+                text: --:--
+                text_font: montserrat_10
+                text_color: 0xA9B8AE
+                width: 55
+                long_mode: DOT
+            - label:
+                id: battery_plan_start_label
+                hidden: true
+                x: 85
+                y: 106
+                text: --:--
+                text_font: montserrat_10
+                text_color: 0xA9B8AE
+                width: 110
+                long_mode: DOT
+                text_align: CENTER
+            - label:
+                id: battery_plan_deadline_label
+                hidden: true
+                x: 225
+                y: 106
+                text: --:--
+                text_font: montserrat_10
+                text_color: 0xA9B8AE
+                width: 55
+                long_mode: DOT
+                text_align: RIGHT
         - obj:
-            x: 14
-            y: 508
-            width: 452
-            height: 58
+            x: 318
+            y: 440
+            width: 148
+            height: 126
             radius: 8
             bg_color: 0x0F1712
             border_color: 0x343A37
@@ -1537,46 +1649,54 @@ lvgl:
             pad_all: 0
             scrollable: false
             widgets:
-              - label:
-                  id: ev_status_label
-                  x: 16
-                  y: 8
-                  text: "${car_checking}"
-                  text_color: 0xF0F5FF
-              - label:
-                  id: ev_detail_label
-                  x: 16
-                  y: 30
-                  text: "${car_try_again}"
-                  text_color: 0xB7C7DD
-              - button:
-                  id: force_charge_button
-                  pad_all: 0
-                  x: 308
-                  y: 11
-                  width: 124
-                  height: 34
-                  radius: 6
-                  bg_color: 0x346DDB
-                  border_color: 0x3B65A2
-                  border_width: 1
-                  text_color: 0xFFFFFF
-                  text: "${force_charge}"
-                  on_click:
-                    - lambda: |-
-                        id(charge_pending) = true;
-                        id(charge_target) = !id(charger_is_charging);
-                        esphome::ui_performance::set_text(id(ev_detail_label), "${charge_starting}");
-                    - script.execute: charge_wait_timeout
-                    - lvgl.button.update:
-                        id: force_charge_button
-                        text: "${charge_starting}"
-                        bg_color: 0x626A70
-                        state:
-                          disabled: true
-                    # Allow LVGL to paint the waiting state before the HTTP call.
-                    - delay: 100ms
-                    - script.execute: trigger_charge_advanced_flow
+            - label:
+                id: ev_status_label
+                x: 12
+                y: 10
+                text: ${car_checking}
+                text_color: 0xF0F5FF
+                width: 124
+                height: 30
+                text_font: montserrat_12
+                long_mode: WRAP
+            - label:
+                id: ev_detail_label
+                x: 12
+                y: 43
+                text: ${car_try_again}
+                text_color: 0xB7C7DD
+                width: 124
+                height: 30
+                text_font: montserrat_12
+                long_mode: WRAP
+            - button:
+                id: force_charge_button
+                pad_all: 0
+                x: 12
+                y: 81
+                width: 124
+                height: 34
+                radius: 6
+                bg_color: 0x346DDB
+                border_color: 0x3B65A2
+                border_width: 1
+                text_color: 0xFFFFFF
+                text: ${force_charge}
+                on_click:
+                - lambda: 'id(charge_pending) = true;
+
+                    id(charge_target) = !id(charger_is_charging);
+
+                    esphome::ui_performance::set_text(id(ev_detail_label), "${charge_starting}");'
+                - script.execute: charge_wait_timeout
+                - lvgl.button.update:
+                    id: force_charge_button
+                    text: ${charge_starting}
+                    bg_color: 0x626A70
+                    state:
+                      disabled: true
+                - delay: 100ms
+                - script.execute: trigger_charge_advanced_flow
 
         - obj:
             id: gas_card

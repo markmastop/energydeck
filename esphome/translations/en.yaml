@@ -233,3 +233,13 @@ music_queue_now: "Now"
 price_period_dst_format: "%02d:%02d-%02d:%02d UTC+%d"
 price_period_dst_cross_format: "%02d:%02d-%02d:%02d UTC+%d/+%d"
 cheapest_period_dst_format: "Cheapest 3 hours: %02d:%02d(+%d)-%02d:%02d(+%d)"
+
+# Battery charge-plan card.
+battery_plan_unavailable: "Charge plan unavailable"
+battery_plan_off: "Charge plan off"
+battery_plan_solar: "Solar first | top-up %s"
+battery_plan_topup: "Top-up | max. %.1f kW"
+battery_plan_reserve: "Full | hold until %s"
+battery_plan_normal: "Normal operation"
+battery_energy_format: "%.1f / %.1f kWh"
+battery_goal_format: "100%% by %s"

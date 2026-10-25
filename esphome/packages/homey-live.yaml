@@ -616,10 +616,10 @@ script:
                     // discharging as positive battery power.
                     if (power < -25.0f) {
                       esphome::ui_performance::set_text_fmt(id(battery_status_label), "${battery_charging_format}", watts);
-                      esphome::ui_performance::set_style_text_color(id(battery_status_label), lv_color_hex(0x62D98A), LV_PART_MAIN);
+                      esphome::ui_performance::set_style_text_color(id(battery_status_label), lv_color_hex(0x3AA7D8), LV_PART_MAIN);
                     } else if (power > 25.0f) {
                       esphome::ui_performance::set_text_fmt(id(battery_status_label), "${battery_discharging_format}", watts);
-                      esphome::ui_performance::set_style_text_color(id(battery_status_label), lv_color_hex(0xF1C75B), LV_PART_MAIN);
+                      esphome::ui_performance::set_style_text_color(id(battery_status_label), lv_color_hex(0x48BD70), LV_PART_MAIN);
                     } else {
                       esphome::ui_performance::set_text_fmt(id(battery_status_label), "${battery_standby_format}", watts);
                       esphome::ui_performance::set_style_text_color(id(battery_status_label), lv_color_hex(0xA9B8AE), LV_PART_MAIN);

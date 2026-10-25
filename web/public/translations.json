@@ -194,7 +194,17 @@
     "queueEmpty": "De wachtrij is leeg.",
     "queueShuffle": "Shuffle: de lijst toont de wachtrijvolgorde; het volgende nummer is niet bekend.",
     "queueLimited": "Er worden maximaal 40 nummers getoond. De badge telt de hele wachtrij.",
-    "queueEnd": "Hierna eindigt de wachtrij."
+    "queueEnd": "Hierna eindigt de wachtrij.",
+    "batteryGoal": "100% om",
+    "batteryPlanUnavailable": "Laadplan niet beschikbaar",
+    "batteryPlanOff": "Laadplan uit",
+    "batteryPlanTopup": "Bijladen actief",
+    "batteryPlanReserve": "Vol · bewaren tot {time}",
+    "batteryPlanNormal": "Normale regeling",
+    "batteryPlanSolar": "Eerst zon · bijladen vanaf",
+    "batteryPlanStart": "Start",
+    "batteryPlanRate": "max.",
+    "batteryPlanTimeline": "Laadplan: zon vanaf {reserve}, bijladen vanaf {start}, doel vol om {deadline}"
   },
   "en": {
     "logout": "Sign out",
@@ -391,6 +401,16 @@
     "queueEmpty": "The queue is empty.",
     "queueShuffle": "Shuffle: the list shows queue order; the next track is unknown.",
     "queueLimited": "Showing up to 40 tracks. The badge counts the full queue.",
-    "queueEnd": "The queue ends after this track."
+    "queueEnd": "The queue ends after this track.",
+    "batteryGoal": "100% by",
+    "batteryPlanUnavailable": "Charge plan unavailable",
+    "batteryPlanOff": "Charge plan off",
+    "batteryPlanTopup": "Top-up active",
+    "batteryPlanReserve": "Full · hold until {time}",
+    "batteryPlanNormal": "Normal operation",
+    "batteryPlanSolar": "Solar first · top-up from",
+    "batteryPlanStart": "Start",
+    "batteryPlanRate": "max.",
+    "batteryPlanTimeline": "Charge plan: solar from {reserve}, top-up from {start}, target full by {deadline}"
   }
 }

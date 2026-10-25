@@ -19,10 +19,11 @@ export function watchHomey(config, changed, createAPI = options => HomeyAPI.crea
         });
         if (stopped) return;
       }
-      if (config.prices && config.prices !== 'none') {
+      const logicIds = new Set([config.prices, config.batteryPlan].filter(id => id && id !== 'none'));
+      if (logicIds.size) {
         await api.subscribe('homey:manager:logic', {
           onEvent: (event, variable) => {
-            if (['variable.update', 'variable.delete'].includes(event) && variable?.id === config.prices) changed();
+            if (['variable.update', 'variable.delete'].includes(event) && logicIds.has(variable?.id)) changed();
           },
           onReconnect: changed,
         });

@@ -1,4 +1,5 @@
 import { priceDayBounds } from './public/charts.js';
+import { batteryPlan } from './public/battery-plan.js';
 
 // All Homey polling is server-side, read-only, and restricted to configured IDs.
 export function configuration(env = process.env) {
@@ -43,6 +44,7 @@ export function configuration(env = process.env) {
       ['gas', 'HOMEY_GAS_SUMMARY_DEVICE_ID'],
     ].map(([name, key]) => [name, env[key]?.trim() || ''])),
     prices: env.HOMEY_PRICES_VARIABLE_ID?.trim() || '',
+    batteryPlan: env.HOMEY_BATTERY_PLAN_VARIABLE_ID?.trim() || '',
     rooms: Array.from({ length: 9 }, (_, i) => ({
       id: env[`HOMEY_ROOM_THERMOSTAT_${i + 1}_ID`]?.trim() || '',
       name: env[`HOMEY_ROOM_THERMOSTAT_${i + 1}_NAME`] || '',
@@ -108,7 +110,7 @@ export function chargerState(device) {
     complete: typeof status === 'string' && /finished|complete/.test(status) };
 }
 
-export function normalize(devices, rooms, bridge, config, now = new Date()) {
+export function normalize(devices, rooms, bridge, config, now = new Date(), plan = null) {
   const [grid, electricity, solar, solarDay, battery, charger, gas] =
     ['grid', 'electricity', 'solar', 'solarDay', 'battery', 'charger', 'gas'].map(key => devices[key]);
   return {
@@ -120,6 +122,7 @@ export function normalize(devices, rooms, bridge, config, now = new Date()) {
       percentage: ranged(metric(battery, 'measure_battery'), 0, 100),
       // Sessy uses negative watts for charging and positive watts for discharge.
       power: metric(battery, 'measure_power.battery') ?? metric(battery, 'measure_power'),
+      plan: batteryPlan(plan, now),
     },
     charger: { ...chargerState(charger), canStart: !!config.chargeFlow && config.chargeFlow !== 'none' },
     gas: { today: metric(gas, 'meter_m3_this_day'), rate: metric(grid, 'measure_gas'),
@@ -161,6 +164,7 @@ export function createDataService(config, fetcher = fetch, clock = () => new Dat
     const devices = {};
     const rooms = config.rooms.map(room => ({ name: room.name, device: null }));
     let bridge = null;
+    let plan = null;
     const jobs = [];
     const queue = (name, path, apply) => jobs.push(async () => {
       try { apply(await request(path)); } catch { errors.push(name); }
@@ -174,13 +178,16 @@ export function createDataService(config, fetcher = fetch, clock = () => new Dat
       if (config.prices && config.prices !== 'none') queue('prices', `/api/manager/logic/variable/${encodeURIComponent(config.prices)}`, d => {
         bridge = JSON.parse(d.value);
       });
+      if (config.batteryPlan && config.batteryPlan !== 'none') queue('batteryPlan', `/api/manager/logic/variable/${encodeURIComponent(config.batteryPlan)}`, d => {
+        plan = d.value;
+      });
     }
     const configured = jobs.length > 0;
     // Three workers cap load on Homey, regardless of how many phones are open.
     await Promise.all(Array.from({ length: Math.min(3, jobs.length) }, async () => {
       while (jobs.length) await jobs.shift()();
     }));
-    return { ...normalize(devices, rooms, bridge, config, now), demo: false,
+    return { ...normalize(devices, rooms, bridge, config, now, plan), demo: false,
       status: !configured ? 'unconfigured' : errors.length ? 'partial' : 'online',
       errors: [...new Set(errors)], updatedAt: now.toISOString(), day: localDay(now) };
   }
@@ -220,6 +227,8 @@ function demoData(config, now) {
     solarDay: device({ meter_kwh_this_day: 14.2, meter_kwh_this_month: 238.4, meter_kwh_this_year: 3124.8, measure_watt_max: 4210 }), battery: device({ measure_battery: 74, 'measure_power.battery': -860 }),
     charger: device({ measure_power: config.demoState?.charging ? 7300 : 0, is_connected: true, is_charging: config.demoState?.charging === true, alarm_device: false }),
     gas: device({ meter_m3_this_day: .83, meter_m3_last_day: 1.2, meter_m3_this_month: 24.8, meter_m3_this_year: 382.6 }),
-    controller: { ...device({ honeywell_thermostat_mode: 'Auto' }), driverId: 'homey:app:com.honeywell:thermostat' } }, rooms, { today: day(0), tomorrow: day(1) }, config, now),
+    controller: { ...device({ honeywell_thermostat_mode: 'Auto' }), driverId: 'homey:app:com.honeywell:thermostat' } }, rooms, { today: day(0), tomorrow: day(1) }, config, now, {version: 1, day: localDay(now), updatedAt: Math.floor(now.getTime()/1000),
+      enabled: true, phase: 'solar-and-reserve', capacityKwh: 5, topUpW: 1000, targetPercent: 100,
+      reserveMinute: 540, deadlineMinute: 1020, startMinute: 888}),
     demo: true, status: 'demo', errors: [], updatedAt: now.toISOString(), day: localDay(now) };
 }

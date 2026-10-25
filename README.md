@@ -20,7 +20,7 @@ Both versions connect directly over your local network to Homey and Sonos. They 
 - **Energy History:** Five-minute electricity power and gas-rate lines for today from Homey Insights, with missing-data gaps and independent refresh. See [setup and calculation](docs/ENERGY-HISTORY.md).
 - **Solar & Net Power:** Live solar generation, net grid import/export power with direction indicators, and daily solar peak and total yield.
 - **Home Battery (Sessy):** Live state of charge (SoC %), charge/discharge power, and operational status.
-- **Sessy evening reserve:** Optional [solar-first top-up to 100% by 17:00](docs/SESSY-READY-BY-17.md) in the existing Homey Flow.
+- **Sessy evening reserve:** Optional [solar-first top-up to 100% by 17:00](docs/SESSY-READY-BY-17.md) in the existing Homey Flow, with a live charge-plan timeline, target time and estimated stored kWh on both display and web battery cards.
 - **EV Smart Charging:** Real-time go-eCharger connection and charging status, with one-touch button to trigger your Homey smart charging Flow.
 - **Direct Local Sonos Player:** Zero-cloud UPnP control on port 1400 directly to Sonos speakers. Features both a compact dashboard card and a full-screen player page with embedded high-resolution station artwork (e.g. Joe, Qmusic, Sky Radio, Radio 538, NPO Radio 2), volume controls, household room grouping, and a 4-row favorites grid.
 - **Automatic Overview Cards:** Sonos during playback, otherwise Climate during Evohome heat demand, otherwise Gas. Manual selections remain usable until this automatic priority changes or five minutes pass without input.

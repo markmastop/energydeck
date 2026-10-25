@@ -53,12 +53,13 @@ charging below 3%; the normal loop reevaluates every ten seconds. Existing
 price restrictions on evening discharge also remain, so full at 17:00 does
 not imply forced discharge starting exactly at 17:00.
 
-Two Logic variables control the feature:
+Three Logic variables control/publish the feature:
 
 | Variable | Type | Purpose |
 | --- | --- | --- |
 | `sessy_ready_by_17_enabled` | Boolean | Set false to restore normal target calculation |
 | `sessy_ready_by_17_state` | String | Date and top-up latch; managed by the script |
+| `sessy_ready_by_17_plan` | String | Read-only controller snapshot for the display and web card |
 
 Disabling the feature clears the latch on the next normal loop and removes
 the forced charging target. The controller does not change price scripts,
@@ -73,7 +74,13 @@ Advanced Flows. The installer does not expand permissions or change the key.
 ```sh
 python3 scripts/install-sessy-ready-by-17.py          # read-only preview
 python3 scripts/install-sessy-ready-by-17.py --apply  # install and enable
+python3 scripts/install-sessy-ready-by-17.py --apply --configure-readers
 ```
+
+The last command also saves `HOMEY_BATTERY_PLAN_VARIABLE_ID` in the local `.env`
+without changing credentials. Restart the web server to load it. Rebuild the
+display firmware with that configuration; a simulator build does not update
+physical displays.
 
 Installation verifies the existing target calculation and battery identity,
 creates missing variables (initially disabled), stores a private exact Flow
@@ -103,9 +110,29 @@ with 500 W tapering during the final 5%, DST, latching, full stop, disable,
 rollover, errors, and preservation of existing Flow guards/manual commands.
 Simulation results do not establish real battery completion at 17:00.
 
-The ESP and web app already display the same real Homey SoC and battery power;
-there is no new display control or layout. Both continue showing the resulting
-charging/discharging state. No firmware flash or display UI change is needed.
+The ESP and web app show the same read-only charge-plan card: measured SoC and
+battery power, estimated stored energy (`SoC × configured capacity`), the 100%
+target time, solar-first/active-top-up/full-reserve/normal/off status, and a
+09:00–17:00 timeline. Green indicates the solar-first window, blue the planned
+top-up window, and a white marker the current Amsterdam clock time. These are
+planning windows, not measured energy-source histories or a guarantee of full
+charge. The start stays fixed once top-up begins rather than sliding forward
+as SoC rises. The EV controls retain their existing behavior next to the more
+detailed battery card; the lower cards and shared header stay in place.
+
+The controller publishes version 1 JSON with `day`, epoch-seconds `updatedAt`,
+`enabled`, `phase`, `capacityKwh`, `topUpW`, `targetPercent`, `reserveMinute`,
+`deadlineMinute` and nullable `startMinute`. Consumers validate the schema, the
+Amsterdam date and a maximum age of three minutes (up to 30 seconds clock skew).
+The ESP polls the configured variable every minute. The web server reads it
+through its existing bounded, authenticated Homey worker pool and subscribes
+to its Logic updates. Credentials and device IDs are never sent to browsers.
+
+Missing, invalid, stale or previous-day plans show “plan unavailable” and hide
+the timeline, while live battery measurements remain independent. Manual
+overrides can pause normal control and therefore expire its last plan. A fresh
+off snapshot shows “plan off”. Neither client sends battery commands. Rebuild
+and explicitly flash physical displays separately when requested.
 
 ### Installation verified on 2026-10-25
 
@@ -126,3 +153,13 @@ no-sun/taper day simulations still reached full before 17:00 and never requested
 more than 1000 W without solar; separate checks cover surplus charging above
 1000 W and a lower configured device limit. Real deadline completion remains
 unverified.
+
+### Charge-plan card verification
+
+The controller snapshot publication was installed in the existing live Flow;
+its real 5 kWh / 1000 W / 17:00 payload was checked read-only. The simulator was
+built and its production battery/EV widgets and render lambda inspected through
+a native LVGL capture. The web card was inspected in a mobile browser with demo
+data. All 80 web tests passed, alongside the HomeyScript simulations, offline
+Flow migration tests, native plan validation/expiry/geometry checks and all
+nine compact-card navigation combinations. Physical displays were not flashed.

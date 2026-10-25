@@ -23,6 +23,7 @@ const target = variable('sessy_doel_vermogen', 'number');
 const demand = variable('sessy_werkelijk_vermogen', 'number');
 const enabled = variable('sessy_ready_by_17_enabled', 'boolean');
 const saved = variable('sessy_ready_by_17_state', 'string');
+const published = variable('sessy_ready_by_17_plan', 'string');
 if (!Number.isFinite(target.value) || !Number.isFinite(demand.value)) {
   throw new Error('Invalid Sessy target or household demand');
 }
@@ -44,6 +45,7 @@ let reason = enabled.value === true ? 'normal' : 'disabled';
 let soc = null;
 let latestStartMinute = null;
 let chargeLimitW = MAX_CHARGE_W;
+let startedMinute = previous?.day === day && Number.isFinite(previous?.startedMinute) ? previous.startedMinute : null;
 
 if (enabled.value === true && minute >= RESERVE_FROM_MINUTE && minute < DEADLINE_MINUTE) {
   const device = await Homey.devices.getDevice({id: DEVICE_ID});
@@ -62,6 +64,7 @@ if (enabled.value === true && minute >= RESERVE_FROM_MINUTE && minute < DEADLINE
   latestStartMinute = DEADLINE_MINUTE - FINISH_MARGIN_MINUTES - inputKwh / (TOP_UP_W / 1000) * 60;
   toppingUp = soc < 100 && (latchedToday || minute >= latestStartMinute);
   if (toppingUp) {
+    if (!latchedToday || startedMinute === null) startedMinute = minute;
     // Negative target watts mean charging. The latch avoids cycling whenever
     // the integer SoC rises and moves the recalculated latest start forward.
     // Household demand already excludes battery power. A larger negative
@@ -78,7 +81,18 @@ if (enabled.value === true && minute >= RESERVE_FROM_MINUTE && minute < DEADLINE
 watts = Math.round(Math.max(-chargeLimitW, Math.min(MAX_DISCHARGE_W, watts)));
 // Persist the latch before the target. A failed write must stop this Flow path;
 // its error branch sets a zero target and uses the normal stop command.
-const state = JSON.stringify({day, toppingUp});
+const state = JSON.stringify({day, toppingUp, startedMinute});
 if (saved.value !== state) await Homey.logic.updateVariable({id: saved.id, variable: {value: state}});
 await Homey.logic.updateVariable({id: target.id, variable: {value: watts}});
+// Read-only clients share this controller snapshot instead of copying its
+// planning assumptions. A minute timestamp bounds writes and reveals stopped
+// normal control (for example a manual override) through snapshot expiry.
+const plan = JSON.stringify({version: 1, day, updatedAt: Math.floor(now.getTime() / 60000) * 60,
+  enabled: enabled.value === true, phase: reason, capacityKwh: CAPACITY_KWH,
+  topUpW: TOP_UP_W, targetPercent: 100, reserveMinute: RESERVE_FROM_MINUTE,
+  deadlineMinute: DEADLINE_MINUTE,
+  startMinute: toppingUp || reason === 'full-reserve' || reason === 'normal' ?
+    (startedMinute === null ? null : Math.floor(startedMinute)) :
+    latestStartMinute === null ? null : Math.ceil(Math.max(RESERVE_FROM_MINUTE, latestStartMinute))});
+if (published.value !== plan) await Homey.logic.updateVariable({id: published.id, variable: {value: plan}});
 return {reason, targetW: watts, soc, latestStartMinute, deadline: '17:00', timeZone: 'Europe/Amsterdam'};

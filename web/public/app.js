@@ -2,6 +2,7 @@ import { initializeDetails } from './details.js';
 import { priceWindow, priceQuarter, priceTime } from './charts.js';
 import { dayComparison } from './display.js';
 import { createLiveUpdates } from './live.js';
+import { batteryPlanView, planClock } from './battery-plan.js';
 
 const $ = id => document.getElementById(id);
 const translations = await fetch('/translations.json').then(response => response.json());
@@ -118,6 +119,23 @@ function render() {
   $('battery-progress').value = data.battery.percentage ?? 0;
   text('battery-power', data.battery.power === null ? '—' : `${format(Math.abs(data.battery.power), 0)} W`);
   text('battery-status', t(data.battery.power === null ? 'unavailable' : data.battery.power < -25 ? 'charging' : data.battery.power > 25 ? 'discharging' : 'standby'));
+  const view = batteryPlanView(data.battery.plan, now), plan = view.plan;
+  text('battery-energy', plan && data.battery.percentage !== null ? `${format(plan.capacityKwh * data.battery.percentage / 100)} / ${format(plan.capacityKwh)} kWh` : '—');
+  text('battery-goal', plan?.enabled ? `${t('batteryGoal')} ${planClock(plan.deadlineMinute)}` : '—');
+  text('battery-plan-status', `${t(view.label).replace('{time}', planClock(plan?.deadlineMinute ?? null))}${view.label === 'batteryPlanSolar' && plan?.startMinute !== null ? ` ${planClock(plan.startMinute)}` : ''}`);
+  text('battery-plan-rate', plan?.enabled ? `${t('batteryPlanRate')} ${format(plan.topUpW / 1000)} kW` : '');
+  $('battery-timeline').hidden = !plan?.enabled;
+  if (plan?.enabled) {
+    const start = view.start ?? 100;
+    $('battery-solar-window').style.width = `${start}%`;
+    $('battery-topup-window').style.left = `${start}%`;
+    $('battery-topup-window').style.width = `${100 - start}%`;
+    $('battery-now-marker').style.left = `${view.now}%`;
+    text('battery-reserve-time', planClock(plan.reserveMinute));
+    text('battery-start-time', plan.startMinute === null ? '' : `${t('batteryPlanStart')} ${planClock(plan.startMinute)}`);
+    text('battery-deadline-time', planClock(plan.deadlineMinute));
+    $('battery-timeline').setAttribute('aria-label', t('batteryPlanTimeline').replace('{reserve}', planClock(plan.reserveMinute)).replace('{start}', planClock(plan.startMinute)).replace('{deadline}', planClock(plan.deadlineMinute)));
+  }
   const charger = data.charger;
   const chargeState = charger.connected === false ? 'disconnected' : charger.fault === true ? 'fault' :
     charger.connected !== true || charger.charging === null || charger.fault !== false ? 'unavailable' : charger.charging ? 'charging' : charger.complete ? 'chargeComplete' : 'connected';

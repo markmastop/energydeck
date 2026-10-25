@@ -9,6 +9,7 @@ async function run(local, options = {}) {
     demand: {id: 'demand', name: 'sessy_werkelijk_vermogen', type: 'number', value: 600},
     enabled: {id: 'enabled', name: 'sessy_ready_by_17_enabled', type: 'boolean', value: true},
     state: {id: 'state', name: 'sessy_ready_by_17_state', type: 'string', value: '{}'},
+    plan: {id: 'plan', name: 'sessy_ready_by_17_plan', type: 'string', value: '{}'},
   });
   if ('enabled' in options) vars.enabled.value = options.enabled;
   if ('demand' in options) vars.demand.value = options.demand;
@@ -38,6 +39,11 @@ async function run(local, options = {}) {
   const empty = await run(at('10:42'), {soc: 0});
   assert.equal(empty.result.targetW, -1000, 'Empty battery gets a 6h19m planning window');
   assert.ok(empty.writes.indexOf('state') < empty.writes.indexOf('target'));
+  const snapshot = JSON.parse(empty.vars.plan.value);
+  assert.equal(snapshot.startMinute, 642);
+  assert.equal(snapshot.topUpW, 1000);
+  assert.equal(snapshot.deadlineMinute, 1020);
+  assert.equal(snapshot.phase, 'grid-top-up');
   assert.equal((await run(at('13:28'), {soc: 50})).result.reason, 'solar-and-reserve');
   assert.equal((await run(at('13:29'), {soc: 50})).result.targetW, -1000);
   assert.equal((await run(at('15:08'), {soc: 80})).result.reason, 'solar-and-reserve',

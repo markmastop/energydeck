@@ -1,0 +1,109 @@
+# Read-only controller snapshot. Missing/stale plan data never hides live SoC.
+globals:
+  - id: battery_plan
+    type: energydeck::BatteryPlan
+    initial_value: 'energydeck::BatteryPlan{}'
+
+esphome:
+  on_boot:
+    priority: -100
+    then:
+      - delay: 5s
+      - script.execute: refresh_battery_plan
+
+interval:
+  - interval: 60s
+    startup_delay: 45s
+    then:
+      - script.execute: refresh_battery_plan
+  - interval: 1s
+    then:
+      - script.execute: render_battery_plan
+
+script:
+  - id: refresh_battery_plan
+    mode: single
+    then:
+      - if:
+          condition:
+            lambda: return std::string("${homey_battery_plan_variable_id}") != "none" && std::string("${homey_battery_plan_variable_id}") != "";
+          then:
+            - background_http.get:
+                url: "${homey_address}/api/manager/logic/variable/${homey_battery_plan_variable_id}"
+                request_headers:
+                  Authorization: "Bearer ${homey_token}"
+                  Accept: "application/json"
+                capture_response: true
+                max_response_buffer_size: 4096
+                on_response:
+                  then:
+                    - lambda: |-
+                        id(battery_plan).clear();
+                        if (response->status_code != 200) return;
+                        json::parse_json(body, [](JsonObject variable) -> bool {
+                          if (!variable["value"].is<std::string>()) return false;
+                          return json::parse_json(variable["value"].as<std::string>(), [](JsonObject p) -> bool {
+                            if (!p["enabled"].is<bool>() || !p["updatedAt"].is<uint32_t>() ||
+                                !p["day"].is<std::string>() || !p["phase"].is<std::string>()) return false;
+                            for (const char *name : {"capacityKwh", "topUpW", "targetPercent", "reserveMinute", "deadlineMinute"})
+                              if (!p[name].is<float>()) return false;
+                            if (!p["startMinute"].isNull() && !p["startMinute"].is<float>()) return false;
+                            return id(battery_plan).set(p["version"] | 0, p["day"].as<std::string>(),
+                              p["updatedAt"].as<uint32_t>(), p["enabled"].as<bool>(), p["phase"].as<std::string>(),
+                              p["capacityKwh"].as<float>(), p["topUpW"].as<float>(), p["targetPercent"].as<float>(),
+                              p["reserveMinute"].as<float>(), p["deadlineMinute"].as<float>(),
+                              p["startMinute"].isNull() ? NAN : p["startMinute"].as<float>(), millis());
+                          });
+                        });
+                    - script.execute: render_battery_plan
+                on_error:
+                  then:
+                    - lambda: id(battery_plan).clear();
+                    - script.execute: render_battery_plan
+
+  - id: render_battery_plan
+    then:
+      - lambda: |-
+          using namespace esphome::ui_performance;
+          auto &p = id(battery_plan);
+          auto &s = id(energy_state);
+          const auto time = id(energydeck_time).now();
+          char date[11];
+          snprintf(date, sizeof(date), "%04d-%02d-%02d", time.year, time.month, time.day_of_month);
+          const bool known = time.is_valid() && p.valid(millis(), time.timestamp, date);
+          const bool live = s.battery.valid(millis());
+          if (!live) {
+            set_text(id(battery_percentage_label), "--%");
+            set_bar_value(id(battery_level_bar), 0, LV_ANIM_OFF);
+            set_text(id(battery_status_label), "${battery_unavailable}");
+            set_style_text_color(id(battery_status_label), lv_color_hex(0xEA665F), LV_PART_MAIN);
+          }
+          if (known && live) set_text_fmt(id(battery_energy_label), "${battery_energy_format}", s.battery.value * p.capacity / 100, p.capacity);
+          else set_text(id(battery_energy_label), "-- / -- kWh");
+          char deadline[6], start[6], reserve[6];
+          snprintf(deadline, sizeof(deadline), "%02d:%02d", p.deadline / 60, p.deadline % 60);
+          const int beginning = std::isfinite(p.start) ? static_cast<int>(p.start) : 0;
+          snprintf(start, sizeof(start), "%02d:%02d", beginning / 60, beginning % 60);
+          snprintf(reserve, sizeof(reserve), "%02d:%02d", p.reserve / 60, p.reserve % 60);
+          if (known && p.enabled) set_text_fmt(id(battery_goal_label), "${battery_goal_format}", deadline);
+          else set_text(id(battery_goal_label), "--");
+          if (!known) set_text(id(battery_plan_label), "${battery_plan_unavailable}");
+          else if (!p.enabled) set_text(id(battery_plan_label), "${battery_plan_off}");
+          else if (p.phase == "grid-top-up") set_text_fmt(id(battery_plan_label), "${battery_plan_topup}", p.top_up_w / 1000);
+          else if (p.phase == "full-reserve") set_text_fmt(id(battery_plan_label), "${battery_plan_reserve}", deadline);
+          else if (p.phase == "normal") set_text(id(battery_plan_label), "${battery_plan_normal}");
+          else set_text_fmt(id(battery_plan_label), "${battery_plan_solar}", std::isfinite(p.start) ? start : "--:--");
+          for (auto *o : {id(battery_plan_track), id(battery_plan_solar), id(battery_plan_topup), id(battery_plan_now),
+              id(battery_plan_reserve_label), id(battery_plan_start_label), id(battery_plan_deadline_label)}) {
+            if (known && p.enabled) lv_obj_clear_flag(o, LV_OBJ_FLAG_HIDDEN);
+            else lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
+          }
+          if (!known || !p.enabled) return;
+          const int x = std::isfinite(p.start) ? p.position(p.start, 268) : 268;
+          lv_obj_set_width(id(battery_plan_solar), x);
+          lv_obj_set_x(id(battery_plan_topup), 12 + x);
+          lv_obj_set_width(id(battery_plan_topup), 268 - x);
+          lv_obj_set_x(id(battery_plan_now), 12 + p.position(time.hour * 60 + time.minute, 268));
+          set_text(id(battery_plan_reserve_label), reserve);
+          set_text(id(battery_plan_start_label), std::isfinite(p.start) ? start : "");
+          set_text(id(battery_plan_deadline_label), deadline);

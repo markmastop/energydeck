@@ -233,3 +233,13 @@ music_queue_now: "Nu"
 price_period_dst_format: "%02d:%02d-%02d:%02d UTC+%d"
 price_period_dst_cross_format: "%02d:%02d-%02d:%02d UTC+%d/+%d"
 cheapest_period_dst_format: "Goedkoopste 3 uur: %02d:%02d(+%d)-%02d:%02d(+%d)"
+
+# Battery charge-plan card.
+battery_plan_unavailable: "Laadplan niet beschikbaar"
+battery_plan_off: "Laadplan uit"
+battery_plan_solar: "Zon eerst | bijladen %s"
+battery_plan_topup: "Bijladen | max. %.1f kW"
+battery_plan_reserve: "Vol | bewaren tot %s"
+battery_plan_normal: "Normale regeling"
+battery_energy_format: "%.1f / %.1f kWh"
+battery_goal_format: "100%% om %s"

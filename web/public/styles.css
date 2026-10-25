@@ -467,6 +467,25 @@ h2 {
 .battery-heading>span {
   font-size:11px;
 }
+.battery-energy,.battery-plan-heading,.battery-timeline-labels {
+  display:flex;
+  justify-content:space-between;
+  gap:8px;
+  font-size:10px;
+  color:var(--muted);
+}
+.battery-energy { margin-top:8px; }
+#battery-goal { color:var(--green); }
+.battery-plan { margin-top:18px; }
+.battery-plan-heading { min-height:24px; flex-wrap:wrap; }
+#battery-plan-rate { white-space:nowrap; }
+.battery-timeline { margin-top:6px; }
+.battery-timeline-track { height:6px; position:relative; border-radius:4px; background:var(--border); }
+.battery-timeline-track>span { position:absolute; top:0; height:6px; border-radius:4px; }
+#battery-solar-window { left:0; background:var(--green); opacity:.65; }
+#battery-topup-window { background:var(--blue); }
+#battery-now-marker { position:absolute; top:-4px; width:2px; height:14px; background:var(--text); transform:translateX(-1px); }
+.battery-timeline-labels { margin-top:9px; font-size:9px; }
 progress {
   width:100%;
   height:10px;

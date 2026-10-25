@@ -84,7 +84,9 @@ export function sessyTarget(plan, state, now) {
     return -Math.floor(Math.max(0, Math.min(1000, -q.powerW, state.headroomW)));
   }
   if (q.action === 'discharge' && state.ev === false && state.soc > plan.reservePercent) {
-    return Math.floor(Math.max(0, Math.min(1800, q.powerW, state.houseNetW)));
+    // The plan selects discharge periods; its forecast watts are not a live
+    // ceiling. Follow measured household demand and replan from actual SoC.
+    return Math.floor(Math.max(0, Math.min(1800, state.houseNetW)));
   }
   return 0;
 }

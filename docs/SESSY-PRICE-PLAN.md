@@ -613,8 +613,12 @@ applying a new target, and retain a 2 A margin below the confirmed 25 A fuse.
 Automatic grid charging is capped at 1 kW and actual available phase room; solar
 charging may use up to the configured 2.2 kW limit but also passes the phase guard.
 Actual EV charging or unknown EV state blocks discharge. Household discharge is
-capped by actual net house demand, configured discharge limit and 1.8 kW. Manual
-mode, fault, reserve and stale-plan guards remain. There is no trailing target
+capped by actual net house demand, configured discharge limit and 1.8 kW.
+The interval's predicted discharge watts are a forecast, not an execution cap:
+once discharge is selected, supply the live household demand up to those limits.
+For example, a 200 W forecast with 1,400 W measured demand requests 1,400 W.
+The next integer SoC change triggers replanning from the actual battery level.
+Manual mode, fault, reserve and stale-plan guards remain. There is no trailing target
 smoothing after these guards. Polling limits response speed; this is software
 coordination, not replacement electrical protection or an EV load balancer.
 

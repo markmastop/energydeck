@@ -61,6 +61,9 @@ assert.equal(sessyTarget(discharge,{...state,ev:true},now),0);
 assert.equal(sessyTarget(discharge,{...state,ev:null},now),0);
 assert.equal(sessyTarget(discharge,{...state,soc:10},now),0);
 assert.equal(sessyTarget(discharge,{...state,houseNetW:200},now),200);
+assert.equal(sessyTarget({...discharge,intervals:[{...discharge.intervals[0],powerW:200}]},
+  {...state,houseNetW:1400},now),1400,'Discharge follows live demand above the forecast');
+assert.equal(sessyTarget(discharge,{...state,houseNetW:4000},now),1800,'Physical discharge ceiling is retained');
 assert.equal(sessyTarget(discharge,{...state,houseNetW:-600},now),-600,'Actual surplus retains priority');
 const view=batteryPlanView(p,new Date(now*1000));assert.equal(view.phases.length,40);
 console.log('PASS: prices, overnight EV, morning/later peaks, losses, no cycling, unknown inputs, headroom, solar, negative prices, partial quarters, DST, energy balance and execution guards');

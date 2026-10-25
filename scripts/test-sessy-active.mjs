@@ -22,6 +22,9 @@ assert.equal(state.houseNetW,1000);assert.equal(state.headroomW,2490);assert.equ
 let plan={mode:'active',inputQuality:'calibrated',updatedAt:epoch,validUntil:epoch+600,reservePercent:10,
   intervals:[{from:epoch,until:epoch+900,action:'discharge',powerW:1500}]};
 assert.equal(executeSessyPlan(plan,state,epoch).targetW,1000,'No export and no smoothing overshoot');
+assert.equal(executeSessyPlan({...plan,intervals:[{...plan.intervals[0],powerW:200}]},state,epoch).targetW,1000,'Forecast power cannot cap household-following discharge');
+assert.equal(executeSessyPlan(plan,{...state,houseNetW:4000},epoch).targetW,1800);
+assert.equal(executeSessyPlan(plan,{...state,houseNetW:1600,dischargeLimitW:1200},epoch).targetW,1200);
 assert.equal(executeSessyPlan(plan,{...state,ev:true},epoch).targetW,0);
 assert.equal(executeSessyPlan(plan,{...state,ev:true},epoch).reason,'ev-charging');
 for(const changed of [{ev:null},{available:false},{fault:true},{manual:true},{soc:10}]) assert.equal(executeSessyPlan(plan,{...state,...changed},epoch).targetW,0);

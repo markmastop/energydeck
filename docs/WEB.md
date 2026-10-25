@@ -12,7 +12,7 @@ The web app reproduces EnergyDeck's household functions in a responsive interfac
 | Energy | Today's five-minute signed grid-power and gas-rate graphs from Homey Insights, gaps for missing samples, separate import/export colors, and available daily/monthly/yearly summary totals and peaks. Missing capabilities remain dashes. |
 | Sonos | Local discovery, visible rooms, current group, track/artist/album and cover, Play/Pause, Previous/Next when supported, room volume ±2 and mute, paged Sonos favorites, and explicit group editing. TV sources hide old music metadata and disable transport while retaining volume. |
 | Climate | All nine configured Evohome zones, measured/target temperature, inferred demand and controller programme, plus weather/rain. HeatingOff overrides demand; missing data cannot imply confirmed idle. Climate is read-only, like the display. |
-| Weather | Homey current weather and tomorrow's temperature range, a Buienradar two-hour five-minute rain chart, Open-Meteo's exactly interpolated three-hour temperature and sunrise/sunset. |
+| Weather | Homey current weather and tomorrow's temperature range, a Buienradar two-hour five-minute rain chart with simultaneous yellow Open-Meteo sunshine caps, Open-Meteo's exactly interpolated three-hour temperature and sunrise/sunset. |
 | Charging | Starts/stops charging through the configured Homey toggle Flow only after a user click and confirmation. Waits for the requested state to be reported by Homey. |
 | PWA | Manifest, favicon and phone icons, standalone launch, public-shell service worker for HTTPS/localhost. Private API readings, Sonos images, sessions and device commands are never cached by the worker. |
 

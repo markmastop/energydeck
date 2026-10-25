@@ -206,6 +206,7 @@
     "batteryPlanRate": "max.",
     "batteryPlanTimeline": "Laadplan: zon vanaf {reserve}, bijladen vanaf {start}, doel vol om {deadline}",
     "batterySunForecast": "zon {minutes} min / {hours} u",
+    "rainSunCap": "Zon verwacht gedurende {percent}% van dit tijdvak",
     "batterySunTimeline": "Geel: verwachte zon per kwartier; hoger betekent meer zon. Grijs: geen zon verwacht. Geen strook buiten de voorspelling."
   },
   "en": {
@@ -415,6 +416,7 @@
     "batteryPlanRate": "max.",
     "batteryPlanTimeline": "Charge plan: solar from {reserve}, top-up from {start}, target full by {deadline}",
     "batterySunForecast": "sun {minutes} min / {hours} h",
+    "rainSunCap": "Sunshine expected during {percent}% of this interval",
     "batterySunTimeline": "Yellow: sunshine forecast per quarter hour; taller means more sunshine. Grey: no sunshine expected. No strip beyond the forecast."
   }
 }

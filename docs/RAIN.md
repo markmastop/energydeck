@@ -16,4 +16,12 @@ The provider code is converted using `10^((code - 109) / 32)`; code zero is expl
 
 The line below the current weather shows the temperature expected three hours after the last refresh. It uses [Open-Meteo](https://open-meteo.com/) hourly temperature forecasts for the same configured coordinates, refreshed every 30 minutes. Six hourly points are requested; interpolation at the refresh UTC time plus three hours handles midnight and daylight-saving transitions. Missing or out-of-range data displays `--°`. Homey's current weather also refreshes every 30 minutes and remains separate from this model forecast. Coordinates are sent to Open-Meteo without Homey credentials.
 
-The display bands use 0–2.5, 2.5–7.5 and 7.5–20 mm/h, each occupying ten pixels. Values above 20 mm/h remain at the top of the heavy band; the graph never rescales. These are EnergyDeck display thresholds, not a reproduction of Buienradar's axis. Dry samples retain a muted baseline.
+The display bands use 0–2.5, 2.5–7.5 and 7.5–20 mm/h, with equal vertical space per band. Values above 20 mm/h remain at the top of the heavy band; the graph never rescales. Two pixels above the maximum rain height remain available for sunshine caps. These are EnergyDeck display thresholds, not a reproduction of Buienradar's axis. Dry samples retain a muted baseline.
+
+## Sunshine alongside rain
+
+Both the display and web weather charts retain the full blue rain column and add a thin yellow cap above it when sunshine is expected in that same interval. Cap width represents the expected sunny fraction, with a two-pixel minimum to keep brief sunshine visible. Sunshine and rain can appear together; one never replaces the other. Dry intervals can also have a yellow cap.
+
+The existing Open-Meteo temperature request also fetches `minutely_15=sunshine_duration`, avoiding an additional external request. According to the [Open-Meteo interval definitions](https://open-meteo.com/en/docs), these values are seconds over the **preceding** quarter hour. Each five-minute rain interval uses a weighted overlap, assuming sunshine is distributed uniformly within that quarter. UTC bounds keep the alignment continuous across midnight and clock changes; labels remain local.
+
+Missing, invalid or more than 45-minute-old sunshine hides only the yellow caps and leaves valid rain visible. Known zero sunshine also has no yellow cap. This weather forecast covers the full two-hour rain window and is independent of the battery planner's 17:00 deadline and Homey charging Flows.

@@ -1,3 +1,4 @@
+import { sunshineFraction } from './sunshine.js';
 import { lineSegments } from './charts.js';
 import { createDisplayState, powerArc, createHomeCards } from './display.js';
 
@@ -217,6 +218,12 @@ export function initializeDetails({ api, t, format, time, svgNode, onUnauthorize
         const height = point.value < .1 ? 2 : Math.max(3, level * 18);
         const rect = svgNode('rect', { x: 48 + i * step, y: 60 - height, width: Math.max(2, step - 3), height, rx: 3, class: point.value < .1 ? 'dry-bar' : 'rain-bar' });
         rect.append(svgNode('title', {}, `${time(point.time)} · ${format(point.value, 2)} mm/h`)); svg.append(rect);
+        const sun = sunshineFraction(data?.sunshine, point.time, point.time + 300000);
+        if (sun !== null && sun > 0) {
+          const cap = svgNode('rect', {x:48+i*step, y:Math.max(0,60-height-3), width:Math.max(2,(step-3)*sun), height:2, rx:1, class:'sunshine-cap'});
+          cap.append(svgNode('title', {}, t('rainSunCap').replace('{percent}',format(sun*100,0))));
+          svg.append(cap);
+        }
       });
       if (points.length) {
         svg.append(svgNode('text', { x: 48, y: 84 }, time(points[0].time)), svgNode('text', { x: chartWidth - 10, y: 84, 'text-anchor': 'end' }, time(points.at(-1).time + 300000)));

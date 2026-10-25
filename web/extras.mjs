@@ -1,5 +1,6 @@
 import { AppError, boundedFetch, singleFlight } from './net.mjs';
 import { localDay, chargerState } from './data.mjs';
+import { sunshineSeries } from './public/sunshine.js';
 
 const finite = value => typeof value === 'number' && Number.isFinite(value) ? value : null;
 const enabled = id => !!id && id !== 'none';
@@ -90,7 +91,7 @@ export function createExtrasService(config, fetcher = fetch, clock = () => new D
   const weather = singleFlight(async () => {
     const now = clock();
     if (config.demo) return demoWeather(now);
-    let summary = null, rain = null, temperature3h = null, sunrise = null, sunset = null;
+    let summary = null, rain = null, temperature3h = null, sunrise = null, sunset = null, sunshine = null;
     const jobs = [async () => {
       try {
         const raw = await homey('weather/weather');
@@ -109,9 +110,11 @@ export function createExtrasService(config, fetcher = fetch, clock = () => new D
       }, async () => {
         try {
           const query = new URLSearchParams({ latitude: String(config.latitude), longitude: String(config.longitude), hourly: 'temperature_2m',
+            minutely_15: 'sunshine_duration', forecast_minutely_15: '16', past_minutely_15: '1',
             daily: 'sunrise,sunset', forecast_days: '2', timeformat: 'unixtime', timezone: 'Europe/Amsterdam' });
           const { body } = await boundedFetch(`https://api.open-meteo.com/v1/forecast?${query}`, {}, fetcher, 65536);
           const raw = JSON.parse(body.toString());
+          sunshine = sunshineSeries(raw, now);
           temperature3h = temperatureInThreeHours(raw.hourly, now);
           const index = raw.daily?.time?.findIndex(time => localDay(new Date(time * 1000)) === localDay(now));
           if (index >= 0) {
@@ -122,7 +125,7 @@ export function createExtrasService(config, fetcher = fetch, clock = () => new D
       });
     }
     await Promise.all(jobs.map(job => job()));
-    return { summary, rain, temperature3h, sunrise, sunset, updatedAt: now.toISOString(), demo: false };
+    return { summary, rain, sunshine, temperature3h, sunrise, sunset, updatedAt: now.toISOString(), demo: false };
   }, 300000, () => clock().getTime(), () => localDay(clock()));
 
   let chargeBusy = false, lastCharge = 0, lastTarget = null;
@@ -174,6 +177,10 @@ function demoHistory(now, signed) {
 function demoWeather(now) {
   return { summary: { temperature: 15.8, condition: 'cloud', tomorrowMin: 11, tomorrowMax: 18, tomorrowCondition: 'rain' }, temperature3h: 14.2,
     sunrise: new Date(`${localDay(now)}T06:10:00Z`).getTime(), sunset: new Date(`${localDay(now)}T16:30:00Z`).getTime(),
+    sunshine: {updatedAt:now.getTime(),periods:Array.from({length:13},(_,i)=>({
+      from:Math.floor(now.getTime()/900000)*900000+i*900000,
+      until:Math.floor(now.getTime()/900000)*900000+(i+1)*900000,
+      fraction:i>=2 && i<=7 ? 0.6 : 0}))},
     rain: { points: Array.from({ length: 24 }, (_, i) => ({ time: Math.floor(now.getTime() / 300000) * 300000 + i * 300000, value: i > 5 && i < 15 ? Math.sin((i - 5) / 10 * Math.PI) * 3 : 0 })) },
     updatedAt: now.toISOString(), demo: true };
 }

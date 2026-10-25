@@ -256,6 +256,7 @@ test('static responses forbid framing, caching and third-party resources', async
   assert.match(response.headers.get('content-security-policy'), /frame-ancestors 'none'/);
   assert.match(await response.text(), /id="login"/);
   assert.equal((await request('/app.js')).status, 200);
+  assert.equal((await request('/sunshine.js')).status, 200);
 });
 
 test('Dutch and English translations cover all HTML keys and have matching keys', async () => {

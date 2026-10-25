@@ -8,15 +8,47 @@ esphome:
       - script.execute: refresh_rain
 
 interval:
+  - interval: 60s
+    then:
+      - script.execute: render_rain_sunshine
   - interval: 5min
     startup_delay: 325s
     then:
       - script.execute: refresh_rain
 
+globals:
+  - id: rain_bar_times
+    type: std::array<uint32_t, 24>
+    initial_value: 'std::array<uint32_t, 24>{}'
+  - id: rain_bar_count
+    type: int
+    initial_value: '0'
+
 script:
+  - id: render_rain_sunshine
+    then:
+      - lambda: |-
+          auto *plot = id(rain_plot);
+          const auto now = id(energydeck_time).now();
+          for (uint32_t i = 0; i < lv_obj_get_child_count(plot); i++) {
+            auto *bar = lv_obj_get_child(plot, i);
+            auto *cap = lv_obj_get_child(bar, 0);
+            if (!cap) continue;
+            lv_obj_add_flag(cap, LV_OBJ_FLAG_HIDDEN);
+            if (!now.is_valid() || i >= static_cast<uint32_t>(id(rain_bar_count))) continue;
+            const auto from = id(rain_bar_times)[i];
+            if (from + 300 <= now.timestamp) continue;
+            const float fraction = id(weather_sunshine).fraction(from, from + 300, now.timestamp);
+            if (!std::isfinite(fraction) || fraction <= 0) continue;
+            // A minimum 2 px mark makes brief sunshine visible without changing rain height.
+            lv_obj_set_size(cap, std::max(2, int(std::round(6 * fraction))), 2);
+            lv_obj_clear_flag(cap, LV_OBJ_FLAG_HIDDEN);
+          }
+
   - id: rain_unavailable
     then:
       - lambda: |-
+          id(rain_bar_count) = 0;
           lv_obj_add_flag(id(rain_plot), LV_OBJ_FLAG_HIDDEN);
           esphome::ui_performance::set_text(id(weather_rain_label), "${weather_rain_unknown}");
           esphome::ui_performance::set_style_text_color(id(weather_rain_label), lv_color_hex(0x82958A), LV_PART_MAIN);
@@ -106,8 +138,22 @@ script:
                       lv_obj_t *bar = lv_obj_create(plot);
                       lv_obj_remove_style_all(bar);
                       lv_obj_clear_flag(bar, LV_OBJ_FLAG_CLICKABLE);
-                      lv_obj_set_style_bg_opa(bar, LV_OPA_COVER, 0);
-                      lv_obj_set_style_radius(bar, 1, 0);
+                      lv_obj_set_style_pad_all(bar, 0, 0);
+                      lv_obj_clear_flag(bar, LV_OBJ_FLAG_SCROLLABLE);
+                      auto *cap = lv_obj_create(bar);
+                      lv_obj_remove_style_all(cap);
+                      lv_obj_clear_flag(cap, LV_OBJ_FLAG_CLICKABLE);
+                      lv_obj_set_style_bg_color(cap, lv_color_hex(0xFFD35A), 0);
+                      lv_obj_set_style_bg_opa(cap, LV_OPA_COVER, 0);
+                      lv_obj_add_flag(cap, LV_OBJ_FLAG_HIDDEN);
+                      // Keep both drawings inside their container: LVGL clips
+                      // negative child positions even with overflow enabled.
+                      auto *rain = lv_obj_create(bar);
+                      lv_obj_remove_style_all(rain);
+                      lv_obj_clear_flag(rain, LV_OBJ_FLAG_CLICKABLE);
+                      lv_obj_set_y(rain, 2);
+                      lv_obj_set_style_bg_opa(rain, LV_OPA_COVER, 0);
+                      lv_obj_set_style_radius(rain, 1, 0);
                     }
                   }
                   for (int i = 0; i < 24; i++) {
@@ -124,11 +170,17 @@ script:
                       value < 7.5f ? 1.0f + (value - 2.5f) / 5.0f :
                       2.0f + std::min(1.0f, (value - 7.5f) / 12.5f);
                     const int height = value < 0.1f ? 1 :
-                      std::max(2, std::min(30, (int)roundf(level * 10)));
-                    esphome::ui_performance::set_pos(bar, i * 7, 30 - height);
-                    esphome::ui_performance::set_size(bar, 6, height);
-                    esphome::ui_performance::set_style_bg_color(bar, lv_color_hex(values[i] >= 0.1f ? 0x3AA7D8 : 0x344F48), LV_PART_MAIN);
+                      std::max(2, std::min(28, (int)roundf(level * (28.0f / 3))));
+                    esphome::ui_performance::set_pos(bar, i * 7, 28 - height);
+                    esphome::ui_performance::set_size(bar, 6, height + 2);
+                    auto *rain = lv_obj_get_child(bar, 1);
+                    esphome::ui_performance::set_size(rain, 6, height);
+                    esphome::ui_performance::set_style_bg_color(rain, lv_color_hex(values[i] >= 0.1f ? 0x3AA7D8 : 0x344F48), LV_PART_MAIN);
                   }
+                  id(rain_bar_count) = visible;
+                  const int64_t first_epoch = int64_t(now.timestamp) - now.second + (delta + first * 5) * 60;
+                  for (int i = 0; i < visible; ++i) id(rain_bar_times)[i] = first_epoch + i * 300;
+                  id(render_rain_sunshine).execute();
                   lv_obj_remove_flag(plot, LV_OBJ_FLAG_HIDDEN);
                   esphome::ui_performance::set_text(id(rain_scale), "${rain_intensity_scale}");
                   const int finish = (minutes[visible - 1] + 5) % 1440;

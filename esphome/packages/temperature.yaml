@@ -12,22 +12,46 @@ interval:
     then:
       - script.execute: refresh_temperature_trend
 
+globals:
+  - id: weather_sunshine
+    type: energydeck::SunshineForecast
+    initial_value: 'energydeck::SunshineForecast{}'
+
 script:
   - id: refresh_temperature_trend
     mode: single
     then:
       - background_http.get:
-          url: "https://api.open-meteo.com/v1/forecast?latitude=${energydeck_latitude}&longitude=${energydeck_longitude}&hourly=temperature_2m&forecast_hours=6&timeformat=unixtime&timezone=UTC"
+          url: "https://api.open-meteo.com/v1/forecast?latitude=${energydeck_latitude}&longitude=${energydeck_longitude}&hourly=temperature_2m&forecast_hours=6&minutely_15=sunshine_duration&forecast_minutely_15=16&past_minutely_15=1&timeformat=unixtime&timezone=UTC"
           capture_response: true
-          max_response_buffer_size: 4096
+          max_response_buffer_size: 8192
           on_error:
             then:
+              - lambda: id(weather_sunshine).clear();
+              - script.execute: render_rain_sunshine
               - lvgl.label.update:
                   id: temperature_trend_label
                   text: "${temperature_trend_unknown}"
           on_response:
             then:
               - lambda: |-
+                  id(weather_sunshine).clear();
+                  // Sunshine fails independently of the hourly temperature outlook.
+                  if (response->status_code == 200) json::parse_json(body, [&](JsonObject root) -> bool {
+                    if (std::string(root["minutely_15_units"]["sunshine_duration"] | "") != "s") return false;
+                    auto times = root["minutely_15"]["time"].as<JsonArray>();
+                    auto seconds = root["minutely_15"]["sunshine_duration"].as<JsonArray>();
+                    if (times.size() != seconds.size() || times.size() > 32) return false;
+                    for (size_t i = 0; i < times.size(); i++) {
+                      if (!times[i].is<uint32_t>() || !seconds[i].is<float>() ||
+                          !id(weather_sunshine).add(times[i].as<uint32_t>(), seconds[i].as<float>())) {
+                        id(weather_sunshine).clear(); return false;
+                      }
+                    }
+                    id(weather_sunshine).updated = id(energydeck_time).now().timestamp;
+                    return true;
+                  });
+                  id(render_rain_sunshine).execute();
                   bool valid = false;
                   auto now = id(energydeck_time).now();
                   if (response->status_code == 200 && now.is_valid()) {

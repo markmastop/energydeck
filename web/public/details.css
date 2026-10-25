@@ -251,3 +251,5 @@ dialog p { font-size: 14px; line-height: 1.6; color: var(--muted); }
 
 /* The queue owns its scroll position, with room at either end to center a row. */
 #sonos-queue { position: relative; height: clamp(200px, 36vh, 320px); overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; overflow-anchor: none; }
+
+.sunshine-cap { fill:#FFD35A; pointer-events:auto; }

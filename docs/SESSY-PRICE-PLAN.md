@@ -374,6 +374,15 @@ plots; a slider or plot tap selects an interval and displays its price, action,
 power and expected ending SoC. Partial quarters and following-day date labels use
 elapsed UTC time rather than equally spaced local-hour labels.
 
+The lower plot also overlays a green predicted state-of-charge line, with its
+own green 0/50/100% scale on the right. The first point is the initial predicted
+SoC; subsequent points use each interval's ending SoC at its UTC end time. This
+is independent of the signed-watt scale on the left. Both ESP sizes and the web
+detail page use the same points and legend; stale data hides the line along with
+the proposal. LVGL retains the point buffer in the static chart object rather
+than allocating a large temporary on the task stack. This addition is built and
+previewed locally, not yet deployed to either display or the public web app.
+
 The current measured SoC/power remain separate. Only a white measured-power point
 at now is drawn; no historical actual line is fabricated from future proposals.
 The page explicitly labels shadow proposals and provisional inputs, and renders

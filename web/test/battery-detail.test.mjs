@@ -15,6 +15,8 @@ test('detail plots retain one UTC axis and selected prices, signed power and exp
   assert.equal(m.selected.price,50);assert.equal(m.selected.powerW,500);
   assert.equal(m.minimum,-10);assert.equal(m.maximum,50);
   assert.equal(m.powerMaximum,2500);assert.equal(m.sunshine[1].fraction,.5);
+  assert.deepEqual(m.socPoints,[{at:epoch,percentage:50},{at:epoch+60,percentage:50.3},{at:epoch+960,percentage:47.7}],
+    'Predicted charge includes the initial level and quarter ends, preserving partial-quarter UTC timing');
   assert.equal(batteryDetailModel(plan,now,epoch-1).index,0,'Out-of-horizon selection follows now');
   assert.equal(batteryDetailModel(plan,new Date((epoch+601)*1000)),null);
 });

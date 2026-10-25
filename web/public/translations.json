@@ -235,7 +235,7 @@
     "batteryMeasuredNow": "Gemeten nu",
     "batteryExpected": "verwacht",
     "batteryBehaviour": "Accuvermogen",
-    "batteryDetailLegend": "Blauw onder nul: laden · oranje boven nul: ontladen · geel: zonverwachting · wit punt: gemeten nu. Balken tonen het voorstel; er is hier geen gemeten historie.",
+    "batteryDetailLegend": "Blauw onder nul: laden · oranje boven nul: ontladen · groene lijn: verwachte accustand (0–100%) · geel: zonverwachting · wit punt: gemeten nu. Balken tonen het voorstel; er is hier geen gemeten historie.",
     "batteryOpen": "Open accuplan"
   },
   "en": {
@@ -474,7 +474,7 @@
     "batteryMeasuredNow": "Measured now",
     "batteryExpected": "predicted",
     "batteryBehaviour": "Battery power",
-    "batteryDetailLegend": "Blue below zero: charging · orange above zero: discharging · yellow: sunshine forecast · white point: measured now. Bars show the proposal; historical measurements are not shown here.",
+    "batteryDetailLegend": "Blue below zero: charging · orange above zero: discharging · green line: predicted charge (0–100%) · yellow: sunshine forecast · white point: measured now. Bars show the proposal; historical measurements are not shown here.",
     "batteryOpen": "Open battery plan"
   }
 }

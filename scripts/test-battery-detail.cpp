@@ -13,6 +13,9 @@ int main() {
   assert(g.price_y(-10, 144) == 143 && g.price_y(50, 144) == 0);
   assert(g.power_y(-1000, 144) > g.power_y(0, 144));
   assert(g.power_y(500, 144) < g.power_y(0, 144));
+  assert(g.soc_y(100, 144) == 0 && g.soc_y(0, 144) == 143);
+  assert(g.soc_y(50, 144) == 72 && g.soc_y(47.7, 144) > g.soc_y(50.3, 144));
+  assert(g.soc_y(101, 144) == 0 && g.soc_y(-1, 144) == 143);
   assert(g.selected(epoch + 70, epoch) == 1 && g.selected(0, epoch) == 0);
   assert(g.selected(epoch - 1, epoch) == 0);
   std::cout << "PASS: aligned UTC axes, partial quarters, negative prices, signed power and time selection\n";

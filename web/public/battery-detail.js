@@ -8,7 +8,8 @@ export function batteryDetailModel(raw, now = new Date(), selection = null) {
   const qs=view.plan.intervals;
   const chosen=selection===null?-1:qs.findIndex(q=>q.from<=selection && q.until>selection);
   const index=chosen<0?qs.indexOf(view.current):chosen;
-  return {...view,index,selected:qs[index],minimum:Math.min(0,...qs.map(q=>q.price)),maximum:Math.max(1,...qs.map(q=>q.price)),powerMaximum:2500};
+  const socPoints=[{at:qs[0].from,percentage:qs[0].socFrom},...qs.map(q=>({at:q.until,percentage:q.socTo}))];
+  return {...view,index,selected:qs[index],socPoints,minimum:Math.min(0,...qs.map(q=>q.price)),maximum:Math.max(1,...qs.map(q=>q.price)),powerMaximum:2500};
 }
 
 export function initializeBatteryDetail({t,format}) {
@@ -29,18 +30,18 @@ export function initializeBatteryDetail({t,format}) {
     slider.setAttribute('aria-valuetext',`${clock(q.from)} · ${action}`);
     $('battery-detail-selected').textContent=`${clock(q.from)} · ${format(q.price)} ct/kWh · ${action} ${format(Math.abs(q.powerW)/1000)} kW · ${t('batteryExpected')} ${format(q.socTo,0)}%`;
     $('battery-detail-note').textContent=[m.plan.inputQuality==='provisional'?t('batteryAssumptions'):t('batteryCalibrated'),m.plan.atRisk?t('batteryTargetRisk'):'',q.ev!==false?t('batteryEvProtected'):''].filter(Boolean).join(' · ');
-    const x=epoch=>62+(epoch-m.from)/(m.until-m.from)*638;
+    const x=epoch=>62+(epoch-m.from)/(m.until-m.from)*578;
     const py=price=>192-(price-m.minimum)/(m.maximum-m.minimum)*140;
     const wy=watts=>337-watts/m.powerMaximum*70;
     const marks=[];
     const label=(xx,yy,text,anchor='start',color='var(--muted)')=>marks.push(node('text',{x:xx,y:yy,'text-anchor':anchor,fill:color},text));
-    label(62,30,t('prices'));label(700,30,'ct/kWh','end');
-    label(62,255,t('batteryBehaviour'));label(700,255,'kW','end');
+    label(62,30,t('prices'));label(640,30,'ct/kWh','end');
+    label(62,255,t('batteryBehaviour'));label(640,255,'kW','end');
     for(const v of [m.minimum,(m.minimum+m.maximum)/2,m.maximum]){
-      marks.push(node('line',{x1:62,x2:700,y1:py(v),y2:py(v),stroke:'var(--border)'}));label(52,py(v)+7,format(v,0),'end');
+      marks.push(node('line',{x1:62,x2:640,y1:py(v),y2:py(v),stroke:'var(--border)'}));label(52,py(v)+7,format(v,0),'end');
     }
     for(const v of [-2500,0,2500]){
-      marks.push(node('line',{x1:62,x2:700,y1:wy(v),y2:wy(v),stroke:'var(--border)'}));label(52,wy(v)+7,format(v/1000),'end');
+      marks.push(node('line',{x1:62,x2:640,y1:wy(v),y2:wy(v),stroke:'var(--border)'}));label(52,wy(v)+7,format(v/1000),'end');
     }
     for(const part of m.plan.intervals){
       const left=x(part.from),width=Math.max(.5,x(part.until)-left-.7),color=part.action==='charge'?'var(--blue)':part.action==='discharge'?'#e7a052':'#617064';
@@ -48,6 +49,10 @@ export function initializeBatteryDetail({t,format}) {
       marks.push(node('rect',{x:left,y:Math.min(wy(part.powerW),wy(0)),width,height:Math.max(1,Math.abs(wy(part.powerW)-wy(0))),fill:color}));
       if(part.sun!==null)marks.push(node('rect',{x:left,y:261,width:part.sun>0?Math.max(.5,width*part.sun):width,height:3,fill:part.sun>0?'#FFD35A':'#617064'}));
     }
+    // Predicted SoC uses its own 0–100% scale, independently of signed watts.
+    const sy=percent=>407-percent/100*140;
+    for(const percent of [0,50,100])label(646,sy(percent)+7,`${percent}%`,'start','#48BD70');
+    marks.push(node('polyline',{points:m.socPoints.map(p=>`${x(p.at)},${sy(p.percentage)}`).join(' '),fill:'none',stroke:'#48BD70','stroke-width':2,'vector-effect':'non-scaling-stroke','aria-label':t('batteryExpectedSoc')}));
     for(const epoch of [m.from,(m.from+m.until)/2,m.until]){
       const anchor=epoch===m.from?'start':epoch===m.until?'end':'middle';
       for(const y of [220,440])label(x(epoch),y,clock(epoch),anchor);
@@ -67,7 +72,7 @@ export function initializeBatteryDetail({t,format}) {
   svg.addEventListener('click',event=>{
     const m=batteryDetailModel(last?.plan);if(!m)return;
     const x=(event.clientX-svg.getBoundingClientRect().left)/svg.getBoundingClientRect().width*720;
-    selected=Math.min(m.until-1,Math.max(m.from,m.from+(x-62)/638*(m.until-m.from)));render(last);
+    selected=Math.min(m.until-1,Math.max(m.from,m.from+(x-62)/578*(m.until-m.from)));render(last);
   });
   return {render,reset(){selected=null;last=null;svg.replaceChildren();}};
 }

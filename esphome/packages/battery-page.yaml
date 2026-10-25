@@ -210,6 +210,33 @@ widgets:
     long_mode: DOT
     text_align: RIGHT
 - label:
+    id: battery_detail_soc_high
+    x: 448
+    y: 470
+    text: '100%'
+    text_font: montserrat_10
+    text_color: 0x48BD70
+    width: 30
+    text_align: RIGHT
+- label:
+    id: battery_detail_soc_middle
+    x: 448
+    y: 537
+    text: '50%'
+    text_font: montserrat_10
+    text_color: 0x48BD70
+    width: 30
+    text_align: RIGHT
+- label:
+    id: battery_detail_soc_low
+    x: 448
+    y: 602
+    text: '0%'
+    text_font: montserrat_10
+    text_color: 0x48BD70
+    width: 30
+    text_align: RIGHT
+- label:
     id: battery_detail_power_high
     x: 4
     y: 470

@@ -1,9 +1,9 @@
 import {priceDayBounds} from './charts.js';
 
-// Presentation-only proposal: one three-elapsed-hour window per local day/night.
+// Presentation-only proposal: one six-elapsed-hour window per local day/night.
 // Incomplete edge periods use published prices only; unknown hours stay unknown.
 export function evChargingPlan(days) {
-  const slots=[];
+  const quarters=24,slots=[];
   const local=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Amsterdam',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',hourCycle:'h23'});
   for(const day of days) {
     if(!day?.date || !Array.isArray(day.values))continue;
@@ -19,8 +19,8 @@ export function evChargingPlan(days) {
   }
   slots.sort((a,b)=>a.from-b.from);
   const best=new Map();
-  for(let i=0;i<=slots.length-12;i++) {
-    const qs=slots.slice(i,i+12),first=qs[0];
+  for(let i=0;i<=slots.length-quarters;i++) {
+    const qs=slots.slice(i,i+quarters),first=qs[0];
     if(!qs.every((q,j)=>q.key===first.key&&q.from===first.from+j*900))continue;
     const cost=qs.reduce((sum,q)=>sum+q.price,0),previous=best.get(first.key);
     if(!previous || cost<previous.cost)best.set(first.key,{from:first.from,until:qs.at(-1).until,cost,period:first.period});

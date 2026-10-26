@@ -7,7 +7,7 @@ charging, completion and fault state remain separate from this proposal.
 
 ## Initial policy
 
-- Select the cheapest consecutive twelve quarters (three elapsed hours) separately
+- Select the cheapest consecutive twenty-four quarters (six elapsed hours) separately
   for each local daytime period (08:00–20:00) and night (20:00–08:00).
 - A night belongs to its evening date and can span two published price days.
   Never select two windows for the same night just because midnight occurs.
@@ -15,16 +15,16 @@ charging, completion and fault state remain separate from this proposal.
   supplier adjustments preserve window ordering; the ESP may rank the underlying
   prices before its existing all-in conversion.
 - Use only validated published days. At the edge of available data, select within
-  the published portion if it contains at least three consecutive hours. This is
+  the published portion if it contains at least six consecutive hours. This is
   a provisional opportunity, not a claim about the unknown remaining hours.
 - Preserve Amsterdam civil period boundaries across DST. A window always contains
-  three actual hours, even when the clock repeats or skips an hour. Ties choose
+  six actual hours, even when the clock repeats or skips an hour. Ties choose
   the earliest window. Both implementations use the same policy.
 - Show the current proposed window or the next one, including its date on web when
   it differs from today and always on ESP. No known current prices means unknown.
 
-The three-hour duration and day/night boundaries are initial product assumptions,
-not inferred vehicle requirements. There is no vehicle SoC, energy request,
+The six-hour duration reflects the user’s Volvo charging need. Day/night
+boundaries remain initial product assumptions, not inferred vehicle requirements. There is no vehicle SoC, energy request,
 departure deadline or completion guarantee, and no daily user input is required.
 A car plugged in after its proposed window may have no remaining proposal in that
 period. Manual charging remains available through the existing explicit button.
@@ -58,3 +58,11 @@ flash, charging Flow or device-control action was performed.
 
 The overview order is prices, EV proposal, battery strategy, then battery legend.
 All three plots retain the same horizontal UTC viewport on web and ESP.
+
+The EV proposal now selects six consecutive hours per day/night period. Shorter
+edge fragments are not presented as six-hour windows. The separate general price
+summary still reports its existing cheapest three-hour period.
+
+Six-hour update verification: 108 web tests, web/ESP planner parity and the ESP
+simulator build pass. Contiguous windows include intermediate expensive quarters
+when needed; cheaper disconnected fragments are never combined.

@@ -4,8 +4,9 @@
 
 namespace energydeck {
 // Read-only counterpart of ev-plan.js. Local civil periods preserve DST;
-// each selected window always contains twelve consecutive real quarters.
+// each selected window always contains twenty-four consecutive real quarters.
 struct EvChargingPlan {
+  static constexpr size_t QUARTERS = 24;
   struct Slot { int64_t from; float price; int64_t key; };
   struct Window { int64_t from, until, key; float cost; };
   std::array<Slot,200> slots{};
@@ -28,9 +29,9 @@ struct EvChargingPlan {
         slots[count++]={from,day->values[i],period(from)};
       }
     }
-    for(size_t i=0;i+12<=count;++i) {
+    for(size_t i=0;i+QUARTERS<=count;++i) {
       bool valid=true; float cost=0;
-      for(size_t j=0;j<12;++j) {
+      for(size_t j=0;j<QUARTERS;++j) {
         const auto &q=slots[i+j];
         if(q.key!=slots[i].key || q.from!=slots[i].from+int64_t(j)*900 || !std::isfinite(q.price))valid=false;
         cost+=q.price;
@@ -38,7 +39,7 @@ struct EvChargingPlan {
       if(!valid)continue;
       size_t at=0;while(at<window_count && windows[at].key!=slots[i].key)++at;
       if(at==window_count) { if(window_count==windows.size())continue; ++window_count; windows[at].cost=INFINITY; }
-      if(cost<windows[at].cost)windows[at]={slots[i].from,slots[i+11].from+900,slots[i].key,cost};
+      if(cost<windows[at].cost)windows[at]={slots[i].from,slots[i+QUARTERS-1].from+900,slots[i].key,cost};
     }
   }
   bool allowed(int64_t from,int64_t until) const {

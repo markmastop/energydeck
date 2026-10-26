@@ -726,3 +726,19 @@ showed a 624 W device setpoint and about 634 W measured AC supply, while the
 profile/planner remained active. No additional discharge Flow was manually run.
 Planner/active-bundle/install tests and all 97 web tests pass. No ESP or web
 layout/protocol change was needed: current clients read the revised Homey plan.
+
+### Shared weather sunshine in battery charts (26 October 2026)
+
+Overview and battery detail charts on web and ESP now prefer the same current
+sunshine forecast used by their weather card. Valid plan sunshine remains the
+fallback beyond weather coverage. Weather refreshes redraw the battery charts;
+missing values remain unknown, while a known zero overrides an older sunny plan.
+The overview sunshine strip is taller so brief sunny quarters remain visible.
+This is presentation only: sunshine minutes do not become PV kWh or alter the
+planned SoC, controller targets or charging Flows.
+
+Verification: 101 web tests pass, the native sunshine overlap/freshness test
+passes, and the ESP simulator builds. Browser demo checks confirmed yellow marks
+on overview and battery detail with a fictional v2 plan containing only unknown
+sunshine values, proving the weather feed supplies the marks independently.
+No physical display flash, deployment or device control was performed.

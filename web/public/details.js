@@ -4,7 +4,7 @@ import { lineSegments } from './charts.js';
 import { createDisplayState, powerArc, createHomeCards } from './display.js';
 
 // Detail views share the dashboard session and never send device commands while rendering.
-export function initializeDetails({ api, t, format, time, svgNode, onUnauthorized, onRefresh }) {
+export function initializeDetails({ api, t, format, time, svgNode, onUnauthorized, onRefresh, onSunshine = () => {} }) {
   const $ = id => document.getElementById(id);
   const batteryDetail = initializeBatteryDetail({t,format});
   const display = createDisplayState();
@@ -67,8 +67,8 @@ export function initializeDetails({ api, t, format, time, svgNode, onUnauthorize
   async function loadWeather() {
     if (weatherPending || !dashboard || Date.now() - weatherAt < 300000 && weather && dateKey(weather.updatedAt) === dateKey(Date.now())) return;
     weatherPending = true; const version = generation;
-    try { const result = await request('/api/weather'); if (version === generation) { weather = result; weatherAt = Date.now(); renderWeather(); } }
-    catch { if (version === generation) { weather = null; renderWeather(); } }
+    try { const result = await request('/api/weather'); if (version === generation) { weather = result; weatherAt = Date.now(); renderWeather(); onSunshine(weather?.sunshine ?? null); if (page === 'battery') render(); } }
+    catch { if (version === generation) { weather = null; renderWeather(); onSunshine(null); } }
     finally { weatherPending = false; }
   }
   async function loadHistory(force = false) {
@@ -108,14 +108,14 @@ export function initializeDetails({ api, t, format, time, svgNode, onUnauthorize
   }
   function update() {
     if (!dashboard || dashboard.status === 'offline') return;
-    if (page === 'overview' || page === 'climate') loadWeather();
+    if (page === 'overview' || page === 'climate' || page === 'battery') loadWeather();
     if (page === 'energy') loadHistory();
     if (page === 'overview' || page === 'sonos') loadSonos();
   }
   function render() {
     document.querySelector('.page-heading h1').textContent = page === 'overview' ? t('yourEnergy') : page === 'sonos' ? 'Sonos' : t(page === 'battery' ? 'batteryDetails' : page === 'energy' ? 'energy' : 'climate');
     updateHomeCard();
-    if (page === 'battery') batteryDetail.render(dashboard.battery,new Date(),dashboard.prices);
+    if (page === 'battery') batteryDetail.render(dashboard.battery,new Date(),dashboard.prices,weather?.sunshine);
     renderHeader(); renderCards(); renderTotals(); renderClimate(); renderWeather(); renderHistory(); renderSonos(); renderCharge();
   }
   function renderHeader() {
@@ -519,6 +519,7 @@ export function initializeDetails({ api, t, format, time, svgNode, onUnauthorize
       render(); update();
     },
     reset() {
+      onSunshine(null);
       generation++; sonosVersion++; dashboard = null; weather = null; history = null; sonos = null;
       weatherAt = historyAt = sonosAt = 0; draft = null; room = ''; message = ''; chargeMessage = ''; chargeUntil = 0;
       queueSignature = queueCentered = ''; queueVisible = false; queueHeight = 0;

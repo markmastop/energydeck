@@ -22,3 +22,10 @@ export function sunshineFraction(series, from, until, now = Date.now()) {
   }
   return cursor === until ? sunshine / (until - from) : null;
 }
+
+// Prefer the weather card's current forecast; retain valid plan coverage farther
+// ahead. Sunshine is a display signal and never changes planned battery energy.
+export function batterySunshine(series, from, until, fallback, now = Date.now()) {
+  const fraction = sunshineFraction(series, Math.max(from * 1000, now), until * 1000, now);
+  return fraction ?? fallback;
+}

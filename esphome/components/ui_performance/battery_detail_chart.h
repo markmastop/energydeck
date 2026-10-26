@@ -1,6 +1,7 @@
 #pragma once
 #include "battery_detail.h"
 #include "battery_soc_chart.h"
+#include "sunshine_forecast.h"
 #include "lvgl.h"
 
 namespace energydeck {
@@ -9,7 +10,7 @@ class BatteryStrategyChart {
   BatterySocChart soc_;
   lv_obj_t *now_{nullptr};
  public:
-  void draw(lv_obj_t *parent, const BatteryPlan *p, int64_t from, int64_t until, uint32_t now, const LineHistory *history = nullptr, float live = NAN) {
+  void draw(lv_obj_t *parent, const BatteryPlan *p, int64_t from, int64_t until, uint32_t now, const LineHistory *history = nullptr, float live = NAN, const SunshineForecast *sunshine = nullptr) {
     soc_.update(parent,history,p,from,until,now,live,3,41);
     for (const auto *items : {&phases_, &sun_}) for (auto *o : *items) if (o) lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
     if(now_) lv_obj_add_flag(now_, LV_OBJ_FLAG_HIDDEN);
@@ -28,7 +29,10 @@ class BatteryStrategyChart {
       if (!window.clip(q, a, b)) continue;
       const int x = window.x(a, w), width = window.x(b, w) - x;
       rect(phases_[i], x, 0, width, 44, q.action == 1 ? 0x3AA7D8 : q.action == 2 ? 0xE7A052 : 0x617064, LV_OPA_20);
-      if (std::isfinite(q.sun)) rect(sun_[i], x, 0, q.sun > 0 ? std::max(1, int(width * q.sun)) : width, 2, q.sun > 0 ? 0xFFD35A : 0x34443A);
+      // Share the weather forecast; retain the plan's longer-range coverage.
+      const float weather = sunshine ? sunshine->fraction(std::max<int64_t>(a, now), b, now) : NAN;
+      const float sun = std::isfinite(weather) ? weather : q.sun;
+      if (std::isfinite(sun)) rect(sun_[i], x, 0, sun > 0 ? std::max(1, int(width * sun)) : width, sun > 0 ? 5 : 2, sun > 0 ? 0xFFD35A : 0x34443A);
     }
     if (now >= from && now < until) { rect(now_, window.x(now, w), 0, 1, 44, 0xEEF6F0); lv_obj_move_foreground(now_); }
   }
@@ -41,7 +45,7 @@ class BatteryDetailChart {
   lv_obj_t *price_now_{nullptr}, *power_now_{nullptr}, *price_selected_{nullptr}, *power_selected_{nullptr};
   lv_obj_t *measured_{nullptr}, *price_zero_{nullptr}, *power_zero_{nullptr};
   BatterySocChart soc_;
-  uint32_t drawn_at_{0};
+  uint32_t drawn_at_{0}, sunshine_revision_{0}, drawn_minute_{0};
   int64_t drawn_from_{0};
   static lv_obj_t *rectangle(lv_obj_t *parent) {
     auto *o = lv_obj_create(parent); lv_obj_remove_style_all(o);
@@ -62,7 +66,7 @@ class BatteryDetailChart {
     measured_ = rectangle(power); lv_obj_set_style_radius(measured_, LV_RADIUS_CIRCLE, LV_PART_MAIN);
 
   }
-  void draw(const BatteryPlan *p, uint32_t now, uint32_t selection, float actual, const LineHistory *history = nullptr, float live = NAN, const PriceDay *past = nullptr, uint32_t revision = 0) {
+  void draw(const BatteryPlan *p, uint32_t now, uint32_t selection, float actual, const LineHistory *history = nullptr, float live = NAN, const PriceDay *past = nullptr, uint32_t revision = 0, const SunshineForecast *sunshine = nullptr) {
     if (!price_parent_) return;
     auto start = history ? history->day_start : p ? p->intervals[0].from : 0;
     if(past && past->count && past->start<start) start=past->start;
@@ -76,7 +80,7 @@ class BatteryDetailChart {
     const BatteryDetailGeometry g(*p,start,past);
     const int w = lv_obj_get_width(price_parent_), h = lv_obj_get_height(price_parent_);
     const uint32_t selected = g.selection(selection, now);
-    if (drawn_at_ != p->updated_at || drawn_from_ != start || price_revision_ != revision) {
+    if (drawn_at_ != p->updated_at || drawn_from_ != start || price_revision_ != revision || sunshine_revision_ != (sunshine ? sunshine->updated : 0) || drawn_minute_ != now / 60) {
       auto color = [&](float price) { const float f=(price-g.color_low)/std::max(.001f,g.color_high-g.color_low); return f<=.33f ? 0x48BD70 : f>=.66f ? 0xEA665F : 0xE8B94C; };
       for(size_t i=0;i<historical_prices_.size();++i) {
         auto *&o=historical_prices_[i];
@@ -101,11 +105,14 @@ class BatteryDetailChart {
         place(prices_[i], left, std::min(py, zero), width, std::max(1, std::abs(py - zero)), color(q.price));
         place(power_[i], left, std::min(wy, wz), width, std::max(1, std::abs(wy - wz)), q.action == 1 ? 0x3AA7D8 : q.action == 2 ? 0xE7A052 : 0x617064);
         if (sun_[i]) lv_obj_add_flag(sun_[i], LV_OBJ_FLAG_HIDDEN);
-        if (std::isfinite(q.sun)) {
+        const float weather = sunshine ? sunshine->fraction(std::max(q.from, now), q.until, now) : NAN;
+        const float sun = std::isfinite(weather) ? weather : q.sun;
+        if (std::isfinite(sun)) {
           if (!sun_[i]) sun_[i] = rectangle(sun_parent_);
-          place(sun_[i], left, q.sun > 0 ? 0 : 3, q.sun > 0 ? std::max(1, int(width * q.sun)) : width, q.sun > 0 ? 5 : 2, q.sun > 0 ? 0xFFD35A : 0x617064);
+          place(sun_[i], left, sun > 0 ? 0 : 3, sun > 0 ? std::max(1, int(width * sun)) : width, sun > 0 ? 5 : 2, sun > 0 ? 0xFFD35A : 0x617064);
         }
       }
+      sunshine_revision_ = sunshine ? sunshine->updated : 0; drawn_minute_ = now / 60;
       drawn_at_ = p->updated_at; drawn_from_=start; price_revision_=revision;
     }
     place(price_zero_, 0, g.price_y(0, h), w, 1, 0x617064);

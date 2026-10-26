@@ -52,6 +52,8 @@ script:
                     return true;
                   });
                   id(render_rain_sunshine).execute();
+                  id(render_battery_plan).execute();
+                  id(render_battery_detail).execute();
                   bool valid = false;
                   auto now = id(energydeck_time).now();
                   if (response->status_code == 200 && now.is_valid()) {

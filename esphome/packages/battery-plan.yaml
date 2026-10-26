@@ -153,7 +153,7 @@ script:
           }
           static energydeck::BatteryStrategyChart strategy;
           strategy.draw(id(price_battery_strategy_plot), known && p.version == 2 ? &p : nullptr,
-                        id(battery_price_from), id(battery_price_until), time.timestamp, history_known ? &history : nullptr, live ? s.battery.value : NAN);
+                        id(battery_price_from), id(battery_price_until), time.timestamp, history_known ? &history : nullptr, live ? s.battery.value : NAN, &id(weather_sunshine));
           static int previous_known = -1;
           if (previous_known != static_cast<int>(known)) {
             previous_known = known;

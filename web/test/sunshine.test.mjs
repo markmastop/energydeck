@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { sunshineSeries, sunshineFraction } from '../public/sunshine.js';
+import { sunshineSeries, sunshineFraction, batterySunshine } from '../public/sunshine.js';
 import { createExtrasService } from '../extras.mjs';
 
 const now = new Date('2026-10-25T00:55:00Z');
@@ -69,3 +69,15 @@ test('weather preserves simultaneous rain and sunshine from independent sources'
   assert.equal(sunshineFraction(weather.sunshine, weather.rain.points[0].time, weather.rain.points[0].time + 300000, now.getTime()), .5);
   assert.equal(openMeteoRequests, 1);
 });
+
+ test('battery charts prefer weather sunshine and retain longer plan coverage', () => {
+  const series = sunshineSeries(raw(), now), start = now.getTime()/1000;
+  assert.equal(batterySunshine(series, start, end, null, now.getTime()), .5);
+  assert.equal(batterySunshine(series, start, end, 0, now.getTime()), .5);
+  assert.equal(batterySunshine(series, end, end + 900, null, now.getTime()), 1);
+  assert.equal(batterySunshine(series, end + 900, end + 1800, .25, now.getTime()), .25);
+  assert.equal(batterySunshine(null, start, end, null, now.getTime()), null);
+  assert.equal(batterySunshine(series, start, end, .25, now.getTime()+2700001), .25);
+  const dark = {...series, periods:series.periods.map(p=>({...p,fraction:0}))};
+  assert.equal(batterySunshine(dark, start, end, 1, now.getTime()), 0);
+ });

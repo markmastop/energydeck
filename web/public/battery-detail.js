@@ -1,3 +1,4 @@
+import {batterySunshine} from './sunshine.js';
 import {priceDayBounds} from './charts.js';
 import {batteryPlanView, batterySocView, forwardClock} from './battery-plan.js';
 
@@ -55,8 +56,8 @@ export function initializeBatteryDetail({t,format}) {
   let selected=null,last=null,viewportFrom=null;
   const ns='http://www.w3.org/2000/svg';
   const node=(name,attrs,content)=>{const n=document.createElementNS(ns,name);for(const[k,v]of Object.entries(attrs))n.setAttribute(k,v);if(content!==undefined)n.textContent=content;return n;};
-  function render(battery,now=new Date(),prices=last?.prices) {
-    last={battery,prices};
+  function render(battery,now=new Date(),prices=last?.prices,sunshine=last?.sunshine) {
+    last={battery,prices,sunshine};
     const m=batteryDetailModel(battery?.plan,now,selected),live=battery?.power;
     const clock=epoch=>forwardClock(epoch,now,document.documentElement.lang||'nl');
     $('battery-detail-live').textContent=`${t('batteryMeasuredNow')}: ${t(live>20?'batteryActiondischarge':live < -20?'batteryActioncharge':'batteryActionhold')} · ${format(live===null?null:Math.abs(live),0)} W · ${format(battery?.percentage,0)}%`;
@@ -97,7 +98,8 @@ export function initializeBatteryDetail({t,format}) {
     for(const part of m.plan.intervals){
       const left=x(part.from),width=Math.max(.5,x(part.until)-left-.7),color=part.action==='charge'?'var(--blue)':part.action==='discharge'?'#e7a052':'#617064';
       marks.push(node('rect',{x:left,y:Math.min(wy(part.powerW),wy(0)),width,height:Math.max(1,Math.abs(wy(part.powerW)-wy(0))),fill:color}));
-      if(part.sun!==null)marks.push(node('rect',{x:left,y:261,width:part.sun>0?Math.max(.5,width*part.sun):width,height:3,fill:part.sun>0?'#FFD35A':'#617064'}));
+      const sun=batterySunshine(sunshine,part.from,part.until,part.sun,now.getTime());
+      if(sun!==null)marks.push(node('rect',{x:left,y:259,width:sun>0?Math.max(1,width*sun):width,height:sun>0?6:2,fill:sun>0?'#FFD35A':'#617064'}));
     }
     // Predicted SoC uses its own 0–100% scale, independently of signed watts.
     const sy=percent=>407-percent/100*140;

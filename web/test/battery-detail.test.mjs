@@ -27,7 +27,7 @@ test('home battery action and its back button use the existing dedicated-page na
   assert.match(html,/class="battery-card-open"[^>]*data-open="battery"/);
   assert.match(html,/<section id="page-battery"[\s\S]*?data-open="overview"/);
   assert.match(js,/\['overview', 'energy', 'sonos', 'climate', 'battery'\]/);
-  assert.match(js,/page === 'battery'\) batteryDetail.render\(dashboard.battery,new Date\(\),dashboard.prices\)/);
+  assert.match(js,/page === 'battery'\) batteryDetail.render\(dashboard.battery,new Date\(\),dashboard.prices,weather\?\.sunshine\)/);
 });
 
 

@@ -78,7 +78,7 @@ script:
           const auto &history=id(battery_soc_history);
           const bool history_known=clock.is_valid() && history.available(clock.year*10000+clock.month*100+clock.day_of_month,clock.timestamp);
           chart.draw(valid ? &p : nullptr, clock.timestamp, id(battery_detail_selected), actual, history_known ? &history : nullptr,
-                     state.battery.valid(millis()) ? state.battery.value : NAN, &id(battery_detail_prices), id(battery_detail_price_revision));
+                     state.battery.valid(millis()) ? state.battery.value : NAN, &id(battery_detail_prices), id(battery_detail_price_revision), &id(weather_sunshine));
           if (state.battery.valid(millis()) && std::isfinite(actual)) set_text_fmt(id(battery_detail_live), "${battery_detail_measured}", actual>20 ? "${battery_action_discharge}" : actual < -20 ? "${battery_action_charge}" : "${battery_action_hold}", std::abs(actual), state.battery.value);
           else set_text(id(battery_detail_live), "${battery_unavailable}");
           if (!valid) {

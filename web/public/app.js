@@ -3,6 +3,7 @@ import { priceWindow, priceQuarter, priceTime } from './charts.js';
 import { dayComparison, overviewRooms } from './display.js';
 import { createLiveUpdates } from './live.js';
 import { batteryPlanView, batteryStrategyView, batterySocView, planClock } from './battery-plan.js';
+import { batterySunshine } from './sunshine.js';
 import { renderForwardBattery } from './battery-forward.js';
 
 const $ = id => document.getElementById(id);
@@ -11,7 +12,7 @@ let language;
 try { language = localStorage.getItem('energydeck-language'); } catch { /* Storage can be disabled in private browsers. */ }
 if (!translations[language]) language = navigator.language.startsWith('nl') ? 'nl' : 'en';
 let data = null, selected = 'today', busy = false, loginBusy = false, authGeneration = 0;
-let liveRevision = 0;
+let liveRevision = 0, weatherSunshine = null;
 const live = createLiveUpdates({
   onDashboard(next) { liveRevision++; data = next; showDashboard(); render(); },
   onUnavailable() { liveRevision++; unavailable(); },
@@ -246,7 +247,8 @@ function drawChart(today, quarter) {
       const phase = svgNode('rect', {x:x(q.from), y:199, width:w, height:76, fill:color, opacity:.18});
       phase.append(svgNode('title', {}, `${priceTime(q.from*1000)} · ${t(`batteryAction${q.action}`)} · ${format(q.socFrom)}–${format(q.socTo)}%`));
       chart.append(phase);
-      if (q.sun !== null) chart.append(svgNode('rect', {x:x(q.from), y:195, width:q.sun > 0 ? Math.max(.5,w*q.sun) : w, height:2, fill:q.sun > 0 ? '#ffd35a' : '#34443a'}));
+      const sun = batterySunshine(weatherSunshine, q.from, q.until, q.sun);
+      if (sun !== null) chart.append(svgNode('rect', {x:x(q.from), y:191, width:sun > 0 ? Math.max(1,w*sun) : w, height:sun > 0 ? 6 : 2, fill:sun > 0 ? '#ffd35a' : '#34443a'}));
     }
     for(const [a,b] of soc.measured) chart.append(svgNode('line',{x1:x(a.at),x2:x(b.at),y1:sy(a.soc),y2:sy(b.soc),stroke:'#48bd70','stroke-width':2}));
     chart.append(svgNode('polyline', {points:soc.predicted.map(p=>`${x(p.at)},${sy(p.soc)}`).join(' '), fill:'none', stroke:'#48bd70', 'stroke-width':2,'stroke-dasharray':'4 3'}));
@@ -284,7 +286,7 @@ $('logout').addEventListener('click', async () => {
 });
 $('refresh').addEventListener('click', refresh);
 for (const day of ['today', 'tomorrow']) $(day).addEventListener('click', () => { selected = day; if (data) render(); });
-const details = initializeDetails({ api, t, format, time, svgNode, onUnauthorized: showLogin, onRefresh: refresh });
+const details = initializeDetails({ api, t, format, time, svgNode, onUnauthorized: showLogin, onRefresh: refresh, onSunshine(series) { weatherSunshine = series; if (data) render(); } });
 translate();
 await refresh();
 setInterval(() => { if (data && !document.hidden && !live.connected) refresh(); }, 15000);

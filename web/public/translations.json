@@ -267,7 +267,14 @@
     "allRoomsCount": "Alle {count} kamers",
     "rainDryShort": "Voorlopig droog",
     "weatherSunNoneShort": "geen zon",
-    "weatherSunUnknownShort": "zon onbekend"
+    "weatherSunUnknownShort": "zon onbekend",
+    "evPlanLane": "Auto · blauw laden / grijs wachten",
+    "evPlanUnknown": "Laadvoorstel onbekend · geen prijzen",
+    "evPlanUntil": "Voorstel: laden tot {time}",
+    "evPlanNext": "Volgend voorstel: {from}–{until}",
+    "evPlanAllow": "Voorgesteld laadvenster",
+    "evPlanWait": "Wachten op een volgend laadvenster",
+    "evPlanNote": "Voordeligste 3 uur overdag (08–20) en ’s nachts (20–08), binnen bekende prijzen. Dit voorstel stuurt de laadpaal nog niet aan."
   },
   "en": {
     "logout": "Sign out",
@@ -537,6 +544,13 @@
     "allRoomsCount": "All {count} rooms",
     "rainDryShort": "Dry for now",
     "weatherSunNoneShort": "no sunshine",
-    "weatherSunUnknownShort": "sunshine unknown"
+    "weatherSunUnknownShort": "sunshine unknown",
+    "evPlanLane": "EV · blue charge / grey wait",
+    "evPlanUnknown": "Charge proposal unknown · no prices",
+    "evPlanUntil": "Proposal: charge until {time}",
+    "evPlanNext": "Next proposal: {from}–{until}",
+    "evPlanAllow": "Proposed charging window",
+    "evPlanWait": "Wait for another charging window",
+    "evPlanNote": "Cheapest 3 hours by day (08–20) and night (20–08), within known prices. This proposal does not control the charger yet."
   }
 }

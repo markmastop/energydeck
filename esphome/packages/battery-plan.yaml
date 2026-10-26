@@ -1,5 +1,7 @@
 # Read-only controller snapshot. Missing/stale plan data never hides live SoC.
 globals:
+  - id: ev_charging_plan
+    type: energydeck::EvChargingPlan
   - id: battery_control_message
     type: std::string
   - id: battery_price_from
@@ -154,6 +156,31 @@ script:
           static energydeck::BatteryStrategyChart strategy;
           strategy.draw(id(price_battery_strategy_plot), known && p.version == 2 ? &p : nullptr,
                         id(battery_price_from), id(battery_price_until), time.timestamp, history_known ? &history : nullptr, live ? s.battery.value : NAN, &id(weather_sunshine));
+          // Price-only proposal. These marks never send charger commands.
+          auto &ev=id(ev_charging_plan);
+          static std::array<lv_obj_t *, 100> ev_marks{};
+          for(auto *o:ev_marks) if(o) lv_obj_add_flag(o,LV_OBJ_FLAG_HIDDEN);
+          const int64_t ef=id(battery_price_from), eu=id(battery_price_until);
+          if(eu>ef) {
+            const int width=lv_obj_get_width(id(price_ev_proposal_plot));
+            size_t index=0;
+            for(size_t i=0;i<ev.count && index<ev_marks.size();++i) {
+              const auto &q=ev.slots[i];
+              const auto a=std::max(ef,q.from), b=std::min(eu,q.from+900);
+              if(b<=a) continue;
+              auto *&o=ev_marks[index++];
+              if(!o) {o=lv_obj_create(id(price_ev_proposal_plot));lv_obj_remove_style_all(o);lv_obj_remove_flag(o,LV_OBJ_FLAG_CLICKABLE);}
+              const int x=int((a-ef)*width/(eu-ef)), end=int((b-ef)*width/(eu-ef));
+              lv_obj_set_pos(o,x,0);lv_obj_set_size(o,std::max(1,end-x-1),7);
+              lv_obj_set_style_bg_color(o,lv_color_hex(ev.allowed(q.from,q.from+900)?0x3AA7D8:0x617064),0);
+              lv_obj_set_style_bg_opa(o,LV_OPA_COVER,0);lv_obj_clear_flag(o,LV_OBJ_FLAG_HIDDEN);
+            }
+          }
+          const auto *next=ev.next(time.timestamp);
+          if(time.is_valid() && next) {
+            const auto a=ESPTime::from_epoch_local(next->from), b=ESPTime::from_epoch_local(next->until);
+            set_text_fmt(id(ev_proposal_label), "${ev_proposal_window}", a.day_of_month,a.month,a.hour,a.minute,b.hour,b.minute);
+          } else set_text(id(ev_proposal_label), "${ev_proposal_unknown}");
           static int previous_known = -1;
           if (previous_known != static_cast<int>(known)) {
             previous_known = known;

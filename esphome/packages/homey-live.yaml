@@ -167,6 +167,7 @@ script:
           id(prices_calendar_day) = 0;
           id(battery_detail_prices).count = 0;
           id(battery_detail_price_revision)++;
+          id(ev_charging_plan).clear();
           id(battery_price_from) = 0;
           id(battery_price_until) = 0;
           lv_obj_clear_flag(id(price_source_warning), LV_OBJ_FLAG_HIDDEN);
@@ -416,6 +417,7 @@ script:
                       lv_color_hex(id(show_tomorrow_prices) ? 0x294E77 : 0x1C271F), LV_PART_MAIN);
 
                     lv_obj_t *bars[100] = { id(price_bar_00), id(price_bar_01), id(price_bar_02), id(price_bar_03), id(price_bar_04), id(price_bar_05), id(price_bar_06), id(price_bar_07), id(price_bar_08), id(price_bar_09), id(price_bar_10), id(price_bar_11), id(price_bar_12), id(price_bar_13), id(price_bar_14), id(price_bar_15), id(price_bar_16), id(price_bar_17), id(price_bar_18), id(price_bar_19), id(price_bar_20), id(price_bar_21), id(price_bar_22), id(price_bar_23), id(price_bar_24), id(price_bar_25), id(price_bar_26), id(price_bar_27), id(price_bar_28), id(price_bar_29), id(price_bar_30), id(price_bar_31), id(price_bar_32), id(price_bar_33), id(price_bar_34), id(price_bar_35), id(price_bar_36), id(price_bar_37), id(price_bar_38), id(price_bar_39), id(price_bar_40), id(price_bar_41), id(price_bar_42), id(price_bar_43), id(price_bar_44), id(price_bar_45), id(price_bar_46), id(price_bar_47), id(price_bar_48), id(price_bar_49), id(price_bar_50), id(price_bar_51), id(price_bar_52), id(price_bar_53), id(price_bar_54), id(price_bar_55), id(price_bar_56), id(price_bar_57), id(price_bar_58), id(price_bar_59), id(price_bar_60), id(price_bar_61), id(price_bar_62), id(price_bar_63), id(price_bar_64), id(price_bar_65), id(price_bar_66), id(price_bar_67), id(price_bar_68), id(price_bar_69), id(price_bar_70), id(price_bar_71), id(price_bar_72), id(price_bar_73), id(price_bar_74), id(price_bar_75), id(price_bar_76), id(price_bar_77), id(price_bar_78), id(price_bar_79), id(price_bar_80), id(price_bar_81), id(price_bar_82), id(price_bar_83), id(price_bar_84), id(price_bar_85), id(price_bar_86), id(price_bar_87), id(price_bar_88), id(price_bar_89), id(price_bar_90), id(price_bar_91), id(price_bar_92), id(price_bar_93), id(price_bar_94), id(price_bar_95), id(price_bar_96), id(price_bar_97), id(price_bar_98), id(price_bar_99) };
+                    id(ev_charging_plan).build(today_prices, tomorrow_available ? &tomorrow_prices : nullptr);
                     const int current = today_prices.quarter(price_now.timestamp);
                     energydeck::PriceWindow window;
                     window.select(today_prices, tomorrow_available ? &tomorrow_prices : nullptr, id(show_tomorrow_prices), current);

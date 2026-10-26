@@ -1,3 +1,4 @@
+import { evChargingPlan, evChargingState } from './ev-plan.js';
 import { initializeDetails } from './details.js';
 import { priceWindow, priceQuarter, priceTime } from './charts.js';
 import { dayComparison, overviewRooms } from './display.js';
@@ -171,6 +172,11 @@ function render() {
     node.append(name, measured, target); $('rooms').append(node);
   });
   text('updated', data.updatedAt ? `${t('updated')} ${time(data.updatedAt)} · EnergyDeck` : 'EnergyDeck');
+  const nextDate=new Date(`${localDate(now)}T12:00:00Z`);nextDate.setUTCDate(nextDate.getUTCDate()+1);
+  const nextPrices=data.prices.tomorrow?.date===nextDate.toISOString().slice(0,10)?data.prices.tomorrow:null;
+  const ev=evChargingState(evChargingPlan([today,nextPrices]));
+  const evTime=stamp=>`${localDate(new Date(stamp*1000))!==localDate(now)?new Intl.DateTimeFormat(language==='nl'?'nl-NL':'en-GB',{timeZone:'Europe/Amsterdam',day:'2-digit',month:'2-digit'}).format(new Date(stamp*1000))+' ':''}${time(stamp*1000)}`;
+  text('ev-plan-status',ev.state==='unknown'?t('evPlanUnknown'):ev.state==='allow'?t('evPlanUntil').replace('{time}',evTime(ev.window.until)):ev.window?t('evPlanNext').replace('{from}',evTime(ev.window.from)).replace('{until}',evTime(ev.window.until)):t('evPlanWait'));
   drawChart(today, quarter);
   details.dashboard(data);
 }
@@ -183,7 +189,7 @@ function svgNode(tag, attributes, label) {
 function drawChart(today, quarter) {
   const chart = $('price-chart'); chart.replaceChildren();
   const chartWidth = Math.max(280, chart.clientWidth || 720);
-  chart.setAttribute('viewBox', `0 0 ${chartWidth} 285`);
+  chart.setAttribute('viewBox', `0 0 ${chartWidth} 326`);
   $('today').setAttribute('aria-pressed', String(selected === 'today'));
   $('tomorrow').setAttribute('aria-pressed', String(selected === 'tomorrow'));
   const tomorrowDate = new Date(`${localDate(new Date())}T12:00:00Z`);
@@ -233,6 +239,16 @@ function drawChart(today, quarter) {
     x: left + fraction * width, y: 180, 'text-anchor': fraction === 1 ? 'end' : fraction === 0 ? 'start' : 'middle',
   }, priceTime(window.start + Math.round(fraction * window.values.length) * 900000))));
   const from = window.start / 1000, until = from + window.values.length * 900;
+  const evPlan=evChargingPlan([today,tomorrow]);
+  const ex=at=>left+(Math.max(from,Math.min(until,at))-from)/(until-from)*width;
+  chart.append(svgNode('text',{x:left,y:297},t('evPlanLane')));
+  chart.append(svgNode('rect',{x:left,y:305,width,height:10,fill:'#26362d'}));
+  for(const q of evPlan.slots) {
+    if(q.until<=from || q.from>=until)continue;
+    const allow=evPlan.windows.some(w=>w.from<=q.from&&w.until>=q.until);
+    const mark=svgNode('rect',{x:ex(q.from),y:305,width:Math.max(.5,ex(q.until)-ex(q.from)-.5),height:10,fill:allow?'#3aa7d8':'#617064','data-ev-state':allow?'allow':'wait'});
+    mark.append(svgNode('title',{},`${priceTime(q.from*1000)} · ${t(allow?'evPlanAllow':'evPlanWait')}`));chart.append(mark);
+  }
   const strategy = batteryStrategyView(data.battery.plan, from, until);
   text('price-strategy-caption', `${t('batteryStrategy')} · ${strategy?.points.length ? t(strategy.plan.mode === 'shadow' ? 'batteryShadow' : 'batteryActivePlan') : t('batteryPlanUnavailable')}`);
   const soc=batterySocView(batteryHistory,data.battery.plan,from,until,data.battery.percentage);

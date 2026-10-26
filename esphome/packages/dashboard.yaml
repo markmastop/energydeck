@@ -1487,7 +1487,7 @@ lvgl:
                   x: 46
                   y: 184
                   width: 384
-                  height: 44
+                  height: 28
                   bg_opa: TRANSP
                   border_width: 0
                   pad_all: 0
@@ -1505,7 +1505,7 @@ lvgl:
               - label:
                   x: 3
                   id: price_strategy_min
-                  y: 223
+                  y: 207
                   width: 35
                   text: "0%"
                   text_align: RIGHT
@@ -1513,30 +1513,50 @@ lvgl:
                   text_color: 0x48BD70
               - label:
                   x: 46
-                  y: 231
+                  y: 216
                   text: "${battery_action_charge}"
                   text_font: montserrat_10
                   text_color: 0x3AA7D8
               - label:
                   x: 124
-                  y: 231
+                  y: 216
                   text: "${battery_action_discharge}"
                   text_font: montserrat_10
                   text_color: 0xE7A052
               - label:
                   x: 214
-                  y: 231
+                  y: 216
                   text: "${battery_action_hold}"
                   text_font: montserrat_10
                   text_color: 0xA9B8AE
               - label:
                   x: 304
-                  y: 231
+                  y: 216
                   text: "${battery_strategy_sun}"
                   text_font: montserrat_10
                   text_color: 0xFFD35A
               - label:
+                  id: ev_proposal_label
+                  x: 46
+                  y: 231
+                  width: 384
+                  text: "${ev_proposal_unknown}"
+                  text_font: montserrat_10
+                  text_color: 0x3AA7D8
+              - obj:
+                  id: price_ev_proposal_plot
+                  x: 46
+                  y: 247
+                  width: 384
+                  height: 7
+                  bg_opa: TRANSP
+                  border_width: 0
+                  pad_all: 0
+                  scrollbar_mode: "OFF"
+                  clickable: false
+              - label:
                   id: cheapest_period_label
+                  hidden: true
                   x: 46
                   y: 246
                   text: "${cheapest_period}"

@@ -11,7 +11,8 @@ class BatteryStrategyChart {
   lv_obj_t *now_{nullptr};
  public:
   void draw(lv_obj_t *parent, const BatteryPlan *p, int64_t from, int64_t until, uint32_t now, const LineHistory *history = nullptr, float live = NAN, const SunshineForecast *sunshine = nullptr) {
-    soc_.update(parent,history,p,from,until,now,live,3,41);
+    const int height=lv_obj_get_height(parent);
+    soc_.update(parent,history,p,from,until,now,live,3,height-3);
     for (const auto *items : {&phases_, &sun_}) for (auto *o : *items) if (o) lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
     if(now_) lv_obj_add_flag(now_, LV_OBJ_FLAG_HIDDEN);
     if ((!p && !history) || from <= 0 || until <= from) return;
@@ -28,13 +29,13 @@ class BatteryStrategyChart {
       const auto &q = p->intervals[i]; int64_t a, b;
       if (!window.clip(q, a, b)) continue;
       const int x = window.x(a, w), width = window.x(b, w) - x;
-      rect(phases_[i], x, 0, width, 44, q.action == 1 ? 0x3AA7D8 : q.action == 2 ? 0xE7A052 : 0x617064, LV_OPA_20);
+      rect(phases_[i], x, 0, width, height, q.action == 1 ? 0x3AA7D8 : q.action == 2 ? 0xE7A052 : 0x617064, LV_OPA_20);
       // Share the weather forecast; retain the plan's longer-range coverage.
       const float weather = sunshine ? sunshine->fraction(std::max<int64_t>(a, now), b, now) : NAN;
       const float sun = std::isfinite(weather) ? weather : q.sun;
       if (std::isfinite(sun)) rect(sun_[i], x, 0, sun > 0 ? std::max(1, int(width * sun)) : width, sun > 0 ? 5 : 2, sun > 0 ? 0xFFD35A : 0x34443A);
     }
-    if (now >= from && now < until) { rect(now_, window.x(now, w), 0, 1, 44, 0xEEF6F0); lv_obj_move_foreground(now_); }
+    if (now >= from && now < until) { rect(now_, window.x(now, w), 0, 1, height, 0xEEF6F0); lv_obj_move_foreground(now_); }
   }
 };
 class BatteryDetailChart {

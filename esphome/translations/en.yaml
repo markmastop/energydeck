@@ -305,3 +305,6 @@ battery_detail_unknown_price: "Selected: %s | price unavailable"
 battery_detail_historical: "Measured: %.0f%% | history"
 battery_detail_history_missing: "No measurement at this time"
 battery_detail_prices_missing: "Price | history unavailable"
+
+ev_proposal_window: "EV proposal %02d/%02d %02d:%02d-%02d:%02d | blue charge"
+ev_proposal_unknown: "EV proposal: unknown | no automatic control"

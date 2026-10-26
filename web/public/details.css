@@ -269,7 +269,7 @@ dialog p { font-size: 14px; line-height: 1.6; color: var(--muted); }
 #page-overview { gap:14px; align-items:start; }
 #page-overview .panel { padding:18px; }
 #page-overview .chart-info { margin-top:12px; }
-#page-overview #price-chart { height:255px; }
+#page-overview #price-chart { height:290px; }
 #page-overview .chart-summary { margin-top:12px; padding-top:12px; }
 #page-overview .cheapest { margin-top:12px; padding:10px 12px; }
 #page-overview .battery-heading { margin:12px 0 10px; }
@@ -304,7 +304,7 @@ dialog p { font-size: 14px; line-height: 1.6; color: var(--muted); }
   #page-overview .totals { grid-column:1 / span 2; grid-row:2; grid-template-columns:1fr; }
   #page-overview .weather-panel { grid-column:3 / -1; grid-row:2; align-self:stretch; }
   #page-overview .climate-panel { grid-column:1 / -1; grid-row:3; }
-  #page-overview #price-chart { height:235px; }
+  #page-overview #price-chart { height:270px; }
   #page-overview .chart-summary > div { gap:4px; }
   #page-overview .rooms { grid-template-columns:repeat(4,minmax(0,1fr)); }
 
@@ -319,7 +319,7 @@ dialog p { font-size: 14px; line-height: 1.6; color: var(--muted); }
   .energy-actions { grid-template-columns:1fr; gap:10px; }
   #page-overview, .energy-overview { gap:12px; }
   #page-overview .panel { padding:15px; }
-  #page-overview #price-chart { height:245px; }
+  #page-overview #price-chart { height:280px; }
   #page-overview .totals { gap:8px; }
   #page-overview .stat { grid-template-columns:1fr; gap:5px; padding:12px 9px; }
   #page-overview .stat-icon { display:none; }
@@ -377,3 +377,5 @@ dialog p { font-size: 14px; line-height: 1.6; color: var(--muted); }
 #page-overview .weather-summary > div { gap:5px; }
 #page-overview .rain-chart { height:92px; }
 #page-overview .weather-sources { margin-top:6px; }
+
+.ev-plan-status { color:var(--blue); margin:12px 0 4px; font-weight:500; }

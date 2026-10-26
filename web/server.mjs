@@ -28,6 +28,7 @@ const staticFiles = new Map([
   ['/battery-detail.js', ['battery-detail.js', 'text/javascript; charset=utf-8']],
   ['/battery-forward.js', ['battery-forward.js', 'text/javascript; charset=utf-8']],
   ['/battery-plan.js', ['battery-plan.js', 'text/javascript; charset=utf-8']],
+  ['/ev-plan.js', ['ev-plan.js', 'text/javascript; charset=utf-8']],
   ['/sunshine.js', ['sunshine.js', 'text/javascript; charset=utf-8']],
   ['/live.js', ['live.js', 'text/javascript; charset=utf-8']],
   ['/fonts/Montserrat-Medium.ttf', ['fonts/Montserrat-Medium.ttf', 'font/ttf']],

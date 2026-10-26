@@ -1,6 +1,6 @@
 # EV charging proposal
 
-The overview shows a read-only EV proposal below the price/battery graph on both
+The overview shows a read-only EV proposal between the price and battery graphs on both
 web and ESP. Blue quarters are proposed charging windows, grey quarters are
 waiting periods, and missing prices remain unfilled. Actual charger connection,
 charging, completion and fault state remain separate from this proposal.
@@ -55,3 +55,6 @@ normal day and both DST transition days; the ESP simulator compiled. Browser
 inspection confirmed the aligned lane and charger-card summary on desktop and
 320-pixel mobile viewports without horizontal overflow. No deployment, physical
 flash, charging Flow or device-control action was performed.
+
+The overview order is prices, EV proposal, battery strategy, then battery legend.
+All three plots retain the same horizontal UTC viewport on web and ESP.

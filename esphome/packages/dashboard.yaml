@@ -1477,7 +1477,7 @@ lvgl:
               - label:
                   id: price_strategy_caption
                   x: 46
-                  y: 168
+                  y: 199
                   text: "${battery_plan_unavailable}"
                   text_font: montserrat_10
                   text_color: 0xA9B8AE
@@ -1485,7 +1485,7 @@ lvgl:
               - obj:
                   id: price_battery_strategy_plot
                   x: 46
-                  y: 184
+                  y: 215
                   width: 384
                   height: 28
                   bg_opa: TRANSP
@@ -1496,7 +1496,7 @@ lvgl:
               - label:
                   x: 3
                   id: price_strategy_max
-                  y: 184
+                  y: 215
                   width: 35
                   text: "100%"
                   text_align: RIGHT
@@ -1505,7 +1505,7 @@ lvgl:
               - label:
                   x: 3
                   id: price_strategy_min
-                  y: 207
+                  y: 238
                   width: 35
                   text: "0%"
                   text_align: RIGHT
@@ -1513,32 +1513,32 @@ lvgl:
                   text_color: 0x48BD70
               - label:
                   x: 46
-                  y: 216
+                  y: 247
                   text: "${battery_action_charge}"
                   text_font: montserrat_10
                   text_color: 0x3AA7D8
               - label:
                   x: 124
-                  y: 216
+                  y: 247
                   text: "${battery_action_discharge}"
                   text_font: montserrat_10
                   text_color: 0xE7A052
               - label:
                   x: 214
-                  y: 216
+                  y: 247
                   text: "${battery_action_hold}"
                   text_font: montserrat_10
                   text_color: 0xA9B8AE
               - label:
                   x: 304
-                  y: 216
+                  y: 247
                   text: "${battery_strategy_sun}"
                   text_font: montserrat_10
                   text_color: 0xFFD35A
               - label:
                   id: ev_proposal_label
                   x: 46
-                  y: 231
+                  y: 168
                   width: 384
                   text: "${ev_proposal_unknown}"
                   text_font: montserrat_10
@@ -1546,7 +1546,7 @@ lvgl:
               - obj:
                   id: price_ev_proposal_plot
                   x: 46
-                  y: 247
+                  y: 184
                   width: 384
                   height: 7
                   bg_opa: TRANSP

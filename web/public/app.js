@@ -241,12 +241,12 @@ function drawChart(today, quarter) {
   const from = window.start / 1000, until = from + window.values.length * 900;
   const evPlan=evChargingPlan([today,tomorrow]);
   const ex=at=>left+(Math.max(from,Math.min(until,at))-from)/(until-from)*width;
-  chart.append(svgNode('text',{x:left,y:297},t('evPlanLane')));
-  chart.append(svgNode('rect',{x:left,y:305,width,height:10,fill:'#26362d'}));
+  chart.append(svgNode('text',{x:left,y:199},t('evPlanLane')));
+  chart.append(svgNode('rect',{x:left,y:207,width,height:10,fill:'#26362d'}));
   for(const q of evPlan.slots) {
     if(q.until<=from || q.from>=until)continue;
     const allow=evPlan.windows.some(w=>w.from<=q.from&&w.until>=q.until);
-    const mark=svgNode('rect',{x:ex(q.from),y:305,width:Math.max(.5,ex(q.until)-ex(q.from)-.5),height:10,fill:allow?'#3aa7d8':'#617064','data-ev-state':allow?'allow':'wait'});
+    const mark=svgNode('rect',{x:ex(q.from),y:207,width:Math.max(.5,ex(q.until)-ex(q.from)-.5),height:10,fill:allow?'#3aa7d8':'#617064','data-ev-state':allow?'allow':'wait'});
     mark.append(svgNode('title',{},`${priceTime(q.from*1000)} · ${t(allow?'evPlanAllow':'evPlanWait')}`));chart.append(mark);
   }
   const strategy = batteryStrategyView(data.battery.plan, from, until);
@@ -255,21 +255,21 @@ function drawChart(today, quarter) {
   if (strategy?.points.length || soc.measured.length) {
     $('price-strategy-legend').hidden = false;
     const x = at => left + (Math.max(from,Math.min(until,at)) - from) / (until - from) * width;
-    const sy = soc => 275 - soc / 100 * 76;
+    const sy = soc => 315 - soc / 100 * 76;
     for (const soc of [0, 100]) chart.append(svgNode('text', {x:0, y:sy(soc)+3, class:'strategy-percent'}, `${soc}%`));
     for (const q of strategy?.segments || []) {
       const w = Math.max(.5, x(q.until) - x(q.from));
       const color = q.action === 'charge' ? '#3aa7d8' : q.action === 'discharge' ? '#e7a052' : '#617064';
-      const phase = svgNode('rect', {x:x(q.from), y:199, width:w, height:76, fill:color, opacity:.18});
+      const phase = svgNode('rect', {x:x(q.from), y:239, width:w, height:76, fill:color, opacity:.18});
       phase.append(svgNode('title', {}, `${priceTime(q.from*1000)} · ${t(`batteryAction${q.action}`)} · ${format(q.socFrom)}–${format(q.socTo)}%`));
       chart.append(phase);
       const sun = batterySunshine(weatherSunshine, q.from, q.until, q.sun);
-      if (sun !== null) chart.append(svgNode('rect', {x:x(q.from), y:191, width:sun > 0 ? Math.max(1,w*sun) : w, height:sun > 0 ? 6 : 2, fill:sun > 0 ? '#ffd35a' : '#34443a'}));
+      if (sun !== null) chart.append(svgNode('rect', {x:x(q.from), y:231, width:sun > 0 ? Math.max(1,w*sun) : w, height:sun > 0 ? 6 : 2, fill:sun > 0 ? '#ffd35a' : '#34443a'}));
     }
     for(const [a,b] of soc.measured) chart.append(svgNode('line',{x1:x(a.at),x2:x(b.at),y1:sy(a.soc),y2:sy(b.soc),stroke:'#48bd70','stroke-width':2}));
     chart.append(svgNode('polyline', {points:soc.predicted.map(p=>`${x(p.at)},${sy(p.soc)}`).join(' '), fill:'none', stroke:'#48bd70', 'stroke-width':2,'stroke-dasharray':'4 3'}));
     const epoch=Date.now()/1000;
-    if (epoch>=from && epoch<until) chart.append(svgNode('line', {x1:x(epoch),x2:x(epoch),y1:195,y2:275,stroke:'#eef6f0','stroke-width':1}));
+    if (epoch>=from && epoch<until) chart.append(svgNode('line', {x1:x(epoch),x2:x(epoch),y1:235,y2:315,stroke:'#eef6f0','stroke-width':1}));
   }
 }
 $('language').addEventListener('click', () => {

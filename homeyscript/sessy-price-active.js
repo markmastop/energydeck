@@ -38,7 +38,8 @@ async function activeSessyStep(variables, now, deviceId, previous) {
     let hash=2166136261;
     for (const char of JSON.stringify([bridge,profile.updatedAt,config,sun?.updatedAt])) hash=Math.imul(hash^char.charCodeAt(0),16777619);
     const key=`${Math.floor(epoch/300)}:${Math.floor(state.soc)}:${state.ev}:${hash>>>0}`;
-    if (previous?.mode==='active'&&previous.inputQuality==='calibrated'&&previous.inputKey===key&&previous.validUntil>epoch) plan=previous;
+    // A reserve change must invalidate the cached plan immediately after installation.
+    if (previous?.reservePercent===2&&previous.mode==='active'&&previous.inputQuality==='calibrated'&&previous.inputKey===key&&previous.validUntil>epoch) plan=previous;
     else {
       const slots=[],fmt=new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Amsterdam',hour:'2-digit',weekday:'short',hourCycle:'h23'});
       for (const date of [localDay(now),localDay(now,1)]) {

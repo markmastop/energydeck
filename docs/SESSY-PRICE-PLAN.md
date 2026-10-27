@@ -20,7 +20,7 @@ periods, without draining the battery before a later, more expensive peak.
 - Actual solar surplus keeps priority and may use the existing 2.2 kW charge limit.
 - Discharge supplies household demand only; no deliberate grid export or EV charging.
 - Preserve existing device fault, availability, full/empty and manual-control guards.
-- Propose a 10% operating reserve; confirm against the device's configured limits.
+- Use a 2% operating reserve (selected on 27 October 2026); device protection remains authoritative.
   A provisional 20% end-of-horizon reserve avoids emptying at the last known price.
 - The existing discharge ceiling is 1.8 kW; a ceiling is never a required output.
 - Price, weather, energy and SoC readings remain distinct from predictions.
@@ -607,7 +607,13 @@ sunshine-to-kWh conversion and conservatively reserves capacity without predicte
 PV energy. Actual solar surplus is still used immediately. Open-Meteo sunshine
 fractions remain visible separately in the strategy and weather cards. Fixed
 5 kWh capacity, 90%/95% charge/discharge efficiencies, a configurable throughput
-allowance, 10% operating reserve and 20% terminal reserve remain model settings.
+allowance, 2% operating reserve and 20% terminal reserve remain model settings.
+The user lowered the operating reserve from 10% to 2% on 27 October 2026,
+freeing approximately 0.4 kWh in the 5 kWh model. The terminal reserve is a
+planning target for the end of published prices, not a continuous discharge floor.
+Both web and ESP readers use the published plan reserve and intervals; no
+client or display firmware change is required. Cached plans with the old
+operating reserve are rejected immediately after installing the controller.
 After reviewing the evening hold decision, the user selected **1.5 ct per charged
 or delivered kWh**, approximately 3 ct per complete round trip. The earlier
 3 ct per charged AND delivered kWh amounted to over 6 ct per round trip and

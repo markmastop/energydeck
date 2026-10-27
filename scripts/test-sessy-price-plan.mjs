@@ -12,13 +12,19 @@ const verify=p=>{
   for(const q of p.intervals){
     const hours=(q.until-q.from)/3600;
     assert.ok(q.powerW>=-2200 && q.powerW<=1800);
-    assert.ok(q.socTo>=10 && q.socTo<=100);
+    assert.ok(q.socTo>=p.reservePercent && q.socTo<=100);
     assert.ok(q.ev===false || q.powerW<=0,'Never power an EV from the battery');
     const delta=q.socTo-q.socFrom;
     const expected=(q.powerW<0?-q.powerW*.9:-q.powerW/.95)*hours/5000*100;
     assert.ok(Math.abs(delta-expected)<.01,'Every quarter preserves the energy balance');
   }
 };
+// The operating floor is independent of the end-of-horizon energy target.
+const lowReserve=solve(forecast(Array(8).fill(60)),10,{endReservePercent:2});
+assert.equal(lowReserve.reservePercent,2);
+assert.equal(lowReserve.intervals.at(-1).socTo,2,'Energy below the previous 10% floor is usable');
+verify(lowReserve);
+assert.equal(solve(forecast([20])).endReservePercent,20,'Preserve the terminal planning target');
 const flat=solve(forecast(Array(32).fill(20))); verify(flat);
 assert.ok(flat.intervals.every(q=>q.action==='hold'),'Flat prices do not create cycling');
 const overnight=forecast([...Array(24).fill(10),...Array(16).fill(55)]).map((q,i)=>({...q,ev:i<24}));
@@ -68,7 +74,8 @@ assert.equal(sessyTarget(live,state,now+601),0);
 const discharge={...live,intervals:[{...p.intervals[0],action:'discharge',powerW:1800}]};
 assert.equal(sessyTarget(discharge,{...state,ev:true},now),0);
 assert.equal(sessyTarget(discharge,{...state,ev:null},now),0);
-assert.equal(sessyTarget(discharge,{...state,soc:10},now),0);
+assert.equal(sessyTarget(discharge,{...state,soc:2},now),0);
+assert.equal(sessyTarget(discharge,{...state,soc:3},now),900,'Discharge above the new floor');
 assert.equal(sessyTarget(discharge,{...state,houseNetW:200},now),200);
 assert.equal(sessyTarget({...discharge,intervals:[{...discharge.intervals[0],powerW:200}]},
   {...state,houseNetW:1400},now),1400,'Discharge follows live demand above the forecast');

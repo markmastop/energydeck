@@ -2,7 +2,7 @@
 // the house, negative power charges. No Homey/device writes belong in this file.
 export function planSessy(input) {
   const {now, soc, slots} = input;
-  const capacity = input.capacityKwh ?? 5, reserve = input.reservePercent ?? 10;
+  const capacity = input.capacityKwh ?? 5, reserve = input.reservePercent ?? 2;
   const terminal = input.endReservePercent ?? 20, etaC = input.chargeEfficiency ?? .90;
   const etaD = input.dischargeEfficiency ?? .95, wear = input.wearCt ?? 3;
   const chargeW = input.chargeW ?? 1000, dischargeW = input.dischargeW ?? 1800;

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {planSessy, sessyTarget} from '../homeyscript/sessy-price-planner.mjs';
+import {planSessy, sessyTarget, sessyChargeWindow} from '../homeyscript/sessy-price-planner.mjs';
 import {priceDayBounds} from '../web/public/charts.js';
 import {forwardBatteryPlan, batteryPlanView} from '../web/public/battery-plan.js';
 
@@ -63,7 +63,7 @@ for(const date of ['2026-03-29','2026-10-25']) {
 const partial=forecast([10,50]);partial[0].from=now+899;
 assert.doesNotThrow(()=>planSessy({now:now+899,soc:20,slots:partial}));
 for(const bad of [forecast([20,30]).map((q,i)=>({...q,from:q.from+i})),forecast([NaN]),forecast([10],{houseW:null}),forecast([20],{ev:'false'})])assert.throws(()=>solve(bad));
-const live={...p,mode:'active',inputQuality:'calibrated',intervals:[{...p.intervals[0],action:'charge',powerW:-1000}]};
+const live={...p,mode:'active',inputQuality:'calibrated',intervals:[{...p.intervals[0],action:'charge',powerW:-1000,socFrom:50,socTo:54.5}]};
 const state={available:true,fault:false,soc:50,ev:false,houseNetW:900,headroomW:1000};
 assert.equal(sessyTarget(p,state,now),0,'Shadow plans cannot drive hardware');
 assert.ok(sessyTarget(live,state,now)<0);
@@ -83,3 +83,38 @@ assert.equal(sessyTarget(discharge,{...state,houseNetW:4000},now),1800,'Physical
 assert.equal(sessyTarget(discharge,{...state,houseNetW:-600},now),-600,'Actual surplus retains priority');
 const view=batteryPlanView(p,new Date(now*1000));assert.equal(view.phases.length,40);
 console.log('PASS: prices, overnight EV, morning/later peaks, losses, no cycling, unknown inputs, headroom, solar, negative prices, partial quarters, DST, energy balance and execution guards');
+
+// Close the loop around a deadline, keeping expensive gaps free of grid top-up.
+const rolling={mode:'active',inputQuality:'calibrated',updatedAt:now,validUntil:now+600,
+  capacityKwh:5,chargeEfficiency:.9,reservePercent:2,intervals:[
+    {from:now,until:now+900,action:'charge',powerW:-600,socFrom:20,socTo:22.7},
+    {from:now+900,until:now+1800,action:'hold',powerW:0,socFrom:22.7,socTo:22.7},
+    {from:now+1800,until:now+2700,action:'charge',powerW:-600,socFrom:22.7,socTo:25.4},
+    {from:now+2700,until:now+3600,action:'discharge',powerW:500,socFrom:25.4,socTo:22.8}]};
+const target=soc=>sessyTarget(rolling,{...state,soc},now);
+assert.ok(Math.abs(target(20)+600)<=1);
+assert.ok(target(19)<target(20),'A charging shortfall increases requested power');
+assert.ok(target(22)>target(20),'Unexpected solar energy reduces grid top-up');
+assert.equal(target(10),-1000,'Recovery never exceeds the grid cap');
+assert.equal(target(26),0,'Stop grid charging when the window target is reached');
+assert.equal(sessyChargeWindow(rolling,{soc:20},now).until,now+2700);
+assert.equal(sessyChargeWindow(rolling,{soc:10},now).atRisk,true,'Report infeasible deadlines without overriding the cap');
+const gap={...rolling,updatedAt:now+900,validUntil:now+1500};
+assert.equal(sessyTarget(gap,{...state,soc:20},now+900),0,'Do not fill expensive gaps merely to meet the target');
+// Simulate 10-second feedback with fresh plan timestamps: half delivered power
+// causes compensation, and full delivery converges to the window's energy goal.
+for(const fraction of [1,.5]) {
+  let soc=20;
+  for(let at=now;at<now+2700;at+=10) {
+    const livePlan={...rolling,updatedAt:at,validUntil:at+600};
+    const watts=sessyTarget(livePlan,{...state,soc},at);
+    assert.ok(watts<=0&&watts>=-1000);
+    soc+=-watts*fraction*10/3600*.9/5000*100;
+  }
+  if(fraction===1)assert.ok(Math.abs(soc-25.4)<.02);
+  else assert.ok(soc>22.7,'Feedback improves on blindly delivering half the fixed setpoint');
+}
+assert.ok(Math.abs(sessyTarget(rolling,{...state,soc:20,ev:true,houseNetW:-1500,siteNetW:500},now)+600)<=1,
+  'EV consumption is not spare solar: grid top-up remains capped');
+assert.equal(sessyTarget(rolling,{...state,soc:20,siteNetW:-1800},now),-1800,'Actual whole-site solar surplus may exceed 1 kW');
+console.log('PASS: rolling charge deadline, SoC feedback, cheap gaps, shortfall recovery, full-target stop and whole-site solar');

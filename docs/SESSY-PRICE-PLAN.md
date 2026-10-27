@@ -591,7 +591,9 @@ counting the car twice. At least 72 aligned, completed hourly measurements are
 required, with recent coverage and at least two samples for every local hour.
 Weekday/weekend hour medians are used where two matching samples exist;
 otherwise the available week-wide hour samples are used. EV loading is an hourly
-historical mean, not a declared car schedule. The three-phase EV contribution is
+historical mean used for phase-headroom forecasting, not a declared car schedule.
+It does not block future discharge quarters. Actual EV state controls the current
+quarter and the ten-second execution guard always blocks discharge into the car. The three-phase EV contribution is
 removed from the L3 baseline; the charger currently reports three-phase operation.
 DST hours retain their UTC identity and are grouped by Amsterdam local hour.
 
@@ -649,7 +651,7 @@ smoothing after these guards. Polling limits response speed; this is software
 coordination, not replacement electrical protection or an EV load balancer.
 
 The planner jointly allocates the published price horizon, up to 36 hours. It
-replans at least every five minutes and on integer SoC, actual EV, price, profile,
+replans at least every minute and on integer SoC, actual EV, price, profile,
 site configuration or sunshine-source changes. Current phase headroom is checked
 on every execution, even when the forecast is cached. The current quarter is
 executed through the original Flow device-command cards.
@@ -748,3 +750,39 @@ passes, and the ESP simulator builds. Browser demo checks confirmed yellow marks
 on overview and battery detail with a fictional v2 plan containing only unknown
 sunshine values, proving the weather feed supplies the marks independently.
 No physical display flash, deployment or device control was performed.
+
+
+### Rolling charge-window feedback (27 October 2026)
+
+The optimiser still chooses economical quarters across the published price horizon.
+During charging, the execution loop now steers toward the **SoC target at the end
+of the remaining charge window**, rather than blindly replaying fixed watts. A
+window contains the selected charging quarters up to the next planned household
+discharge; expensive hold quarters do not count as available charge time. The
+last selected charge quarter defines the deadline and target. This is the useful
+energy target chosen by the price/demand optimiser, up to 100%, not an unconditional
+requirement to fill the battery every day.
+
+Every ten seconds, remaining AC Wh are calculated from measured SoC, 5 kWh model
+capacity and the plan's charge efficiency. The remaining energy is allocated in
+proportion to the optimiser's selected quarter powers and remaining durations.
+An energy shortfall increases requested watts; unexpected solar gains reduce them.
+Reaching the target stops grid top-up. The current quarter never exceeds 1 kW
+from the grid, device charge limits or measured phase headroom. A deadline
+shortfall is recorded as `execution.chargeWindow.atRisk`; limits are not bypassed.
+The whole price allocation is recalculated every minute and on the existing
+input changes, so missed charging can select additional economical quarters.
+The controller version is part of the cache key to reject the previous policy.
+
+Actual whole-site surplus (grid power minus the battery AC contribution) may
+charge above 1 kW, up to the existing 2.2 kW/device/phase limits. House demand
+excluding the EV remains a separate quantity for discharge. Energy already
+consumed by the EV is never treated as available solar surplus. Sunshine remains
+a visual forecast; it is not converted into invented PV energy.
+
+Both web and ESP continue to consume the same plan intervals and live execution
+watts. No UI layout or firmware change is needed; the existing requested-watts
+indicator shows feedback adjustments. `execution.chargeWindow` additionally
+publishes the target percentage, UTC deadline, remaining Wh, unconstrained
+request (capped at 1 kW) and deadline-risk flag for diagnostics. The existing
+20% terminal planning target and 2% operating floor are preserved.

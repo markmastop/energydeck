@@ -37,8 +37,9 @@ async function activeSessyStep(variables, now, deviceId, previous) {
     const sun=parse(find('sessy_sunshine_forecast')?.value);
     let hash=2166136261;
     for (const char of JSON.stringify([bridge,profile.updatedAt,config,sun?.updatedAt])) hash=Math.imul(hash^char.charCodeAt(0),16777619);
-    const key=`${Math.floor(epoch/300)}:${Math.floor(state.soc)}:${state.ev}:${hash>>>0}`;
-    // A reserve change must invalidate the cached plan immediately after installation.
+    // Version the policy to invalidate cached plans from an older controller.
+    // Re-optimise each minute; the ten-second loop adjusts watts between plans.
+    const key=`rolling-v1:${Math.floor(epoch/60)}:${Math.floor(state.soc)}:${state.ev}:${hash>>>0}`;
     if (previous?.reservePercent===2&&previous.mode==='active'&&previous.inputQuality==='calibrated'&&previous.inputKey===key&&previous.validUntil>epoch) plan=previous;
     else {
       const slots=[],fmt=new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Amsterdam',hour:'2-digit',weekday:'short',hourCycle:'h23'});
@@ -51,8 +52,10 @@ async function activeSessyStep(variables, now, deviceId, previous) {
           const c=Object.fromEntries(fmt.formatToParts(new Date(from*1000)).map(p=>[p.type,p.value]));
           const b=profile.bins[['Sat','Sun'].includes(c.weekday)?1:0][Number(c.hour)];
           const q={from,until,price:day.values[i],houseW:b.houseW,pvW:0,
-            ev:slots.length?b.evW>50:state.ev,
-            headroomW:Math.max(0,(config.fuseA-config.marginA)*220-b.phaseW-b.evW/3),sun:null};
+            // An hourly mean is not a car schedule. Protect actual charging in
+            // the live guard, retaining expected EV load for phase forecasting.
+            ev:slots.length?false:state.ev,
+            headroomW:slots.length?Math.max(0,(config.fuseA-config.marginA)*220-b.phaseW-b.evW/3):state.headroomW,sun:null};
           // Sunshine stays a separate visual signal. No invented sunshine->PV kWh.
           if (sun?.valid===true&&sun.source==='open-meteo'&&sun.updatedAt<=epoch+30&&sun.updatedAt>=epoch-4500) {
             const periods=Array.isArray(sun.forwardPeriods)&&sun.forwardPeriods.length<=145?sun.forwardPeriods:
@@ -67,7 +70,8 @@ async function activeSessyStep(variables, now, deviceId, previous) {
         plan=planSessy({now:epoch,soc:state.soc,slots,inputQuality:'calibrated',wearCt});
         plan.mode='active';plan.inputKey=key;
         plan.inputs={source:'homey-insights',samples:profile.samples,updatedAt:profile.updatedAt,
-          forecast:'historical-hourly',pvForecast:'unknown',fuseA:config.fuseA,phase:config.phase,marginA:config.marginA,wearCt};
+          forecast:'historical-hourly',control:'rolling-charge-window',replanSeconds:60,
+          pvForecast:'unknown',fuseA:config.fuseA,phase:config.phase,marginA:config.marginA,wearCt};
       }
     }
   }

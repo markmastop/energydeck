@@ -18,7 +18,7 @@ const battery={available:true,settings:{power_max_charge:2200,power_max_discharg
 const grid={available:true,capabilitiesObj:{measure_power:cap(500),'measure_voltage.l3':cap(230),'measure_current.l3':cap(10),'measure_power.l3':cap(2300)}};
 const charger={available:true,capabilitiesObj:{measure_power:{value:0,lastUpdated:1},is_charging:{value:false,lastUpdated:1},alarm_device:cap(false),measure_voltage:cap(390)}};
 let state=sessyLiveState(battery,grid,charger,config,epoch);
-assert.equal(state.houseNetW,1000);assert.equal(state.headroomW,2490);assert.equal(state.ev,false,'Unchanged zero is valid with a live voltage heartbeat');
+assert.equal(state.houseNetW,1000);assert.equal(state.siteNetW,1000);assert.equal(state.headroomW,2490);assert.equal(state.ev,false,'Unchanged zero is valid with a live voltage heartbeat');
 let plan={mode:'active',inputQuality:'calibrated',updatedAt:epoch,validUntil:epoch+600,reservePercent:10,
   intervals:[{from:epoch,until:epoch+900,action:'discharge',powerW:1500}]};
 assert.equal(executeSessyPlan(plan,state,epoch).targetW,1000,'No export and no smoothing overshoot');
@@ -34,8 +34,8 @@ plan.intervals[0]={...plan.intervals[0],action:'charge',powerW:-1000};
 assert.equal(executeSessyPlan(plan,{...state,headroomW:230,ev:true},epoch).targetW,-230);
 assert.equal(executeSessyPlan(plan,{...state,headroomW:230,ev:true},epoch).reason,'phase-limit');
 assert.equal(executeSessyPlan(plan,{...state,headroomW:null},epoch).targetW,0);
-assert.equal(executeSessyPlan(plan,{...state,houseNetW:-2000,headroomW:2400},epoch).targetW,-2000);
-assert.equal(executeSessyPlan(plan,{...state,houseNetW:-2000,headroomW:800},epoch).targetW,-800);
+assert.equal(executeSessyPlan(plan,{...state,houseNetW:-2000,siteNetW:-2000,headroomW:2400},epoch).targetW,-2000);
+assert.equal(executeSessyPlan(plan,{...state,houseNetW:-2000,siteNetW:-2000,headroomW:800},epoch).targetW,-800);
 assert.equal(sessyLiveState(battery,grid,charger,{...config,phase:null},epoch).headroomW,null);
 charger.capabilitiesObj.measure_voltage.lastUpdated=(epoch-70)*1000;
 assert.equal(sessyLiveState(battery,grid,charger,config,epoch).ev,null);
@@ -74,10 +74,15 @@ if(source) {
   const disabled=await run('preview');assert.equal(disabled.out.controller.targetW,0);assert.equal(disabled.out.proposal,null);
   const control=await run('control');assert.deepEqual(control.writes.map(w=>w.id),['saved','target','plan']);
   const snapshot=JSON.parse(control.variables.plan.value);
-  assert.equal(snapshot.forwardPlan.mode,'active');assert.equal(snapshot.execution.targetW,control.out.targetW);
+  assert.equal(snapshot.forwardPlan.mode,'active');
+  assert.equal(snapshot.forwardPlan.inputs.replanSeconds,60);
+  assert.equal(snapshot.forwardPlan.inputs.control,'rolling-charge-window');
+  assert.ok(snapshot.forwardPlan.intervals.slice(1).every(q=>q.ev===false),'Historical EV means do not invent future charging sessions');
+  assert.equal(snapshot.forwardPlan.chargeEfficiency,.90);assert.equal(snapshot.execution.targetW,control.out.targetW);
   assert.equal(snapshot.forwardPlan.inputs.wearCt,1.5,'The selected allowance reaches the exact installed controller');
   const ev=structuredClone(charger);ev.capabilitiesObj.is_charging.value=true;ev.capabilitiesObj.measure_power.value=11000;
   const withEv=await run('control',{charger:ev});assert.ok(withEv.out.targetW<=0,'Never discharge into an active EV');
   assert.ok(JSON.stringify(control.variables.plan.value).length<65536);
+  assert.ok(JSON.parse(withEv.variables.plan.value).execution.targetW<=0);
 }
 console.log('PASS: measured reconstruction, profile gaps, phase VA/restored battery load, EV heartbeat, reserve/fault/stale/manual guards, solar, exact active bundle and zero-write preview');

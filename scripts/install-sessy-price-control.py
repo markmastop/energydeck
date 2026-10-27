@@ -25,7 +25,7 @@ def bundle(env):
     tariff={key:float(env.get(name,default)) for key,name,default in [
         ('tax','ENERGYDECK_ENERGY_TAX_EX_VAT_CT','9.161'),('vat','ENERGYDECK_VAT_PERCENT','21'),('fee','ENERGYDECK_SUPPLIER_FEE_INCL_VAT_CT','2')]}
     base=reserve.price_plan_bundle(env['HOMEY_PRICES_VARIABLE_ID'],env['HOMEY_CHARGER_DEVICE_ID'],tariff)
-    measured=(ROOT/'homeyscript/sessy-measured-inputs.mjs').read_text().replace("import {sessyTarget} from './sessy-price-planner.mjs';",'').replace('export function ','function ')
+    measured=(ROOT/'homeyscript/sessy-measured-inputs.mjs').read_text().replace("import {sessyTarget, sessyChargeWindow} from './sessy-price-planner.mjs';",'').replace('export function ','function ')
     active=(ROOT/'homeyscript/sessy-price-active.js').read_text()
     for key,env_key in [('GRID','HOMEY_HOMEWIZARD_DEVICE_ID'),('SOLAR','HOMEY_SOLAR_DEVICE_ID'),('CHARGER','HOMEY_CHARGER_DEVICE_ID'),('PRICES_VARIABLE','HOMEY_PRICES_VARIABLE_ID')]:
         active=active.replace("'__SESSY_"+key+"_ID__'",json.dumps(env[env_key]))

@@ -63,9 +63,30 @@ export function planSessy(input) {
     state = to; return result;
   });
   return {version:2, mode:'shadow', updatedAt:now, validUntil:Math.min(now + 600, slots.at(-1).until),
-    capacityKwh:capacity, reservePercent:reserve, endReservePercent:terminal, topUpW:chargeW,
+    capacityKwh:capacity, reservePercent:reserve, endReservePercent:terminal, topUpW:chargeW, chargeEfficiency:etaC,
     inputQuality:input.inputQuality === 'calibrated' ? 'calibrated' : 'provisional',
     atRisk:state < ending, intervals};
+}
+
+// Feedback over the remaining cheap slots, up to the next household discharge.
+// SoC is stored DC energy; divide by efficiency to obtain required AC Wh.
+export function sessyChargeWindow(plan, state, now) {
+  if (!Number.isFinite(plan?.capacityKwh) || !Number.isFinite(state.soc)) return null;
+  const remaining=plan.intervals.filter(q=>q.until>now);
+  const stop=remaining.findIndex(q=>q.action==='discharge');
+  const charges=(stop<0?remaining:remaining.slice(0,stop)).filter(q=>q.action==='charge');
+  if (!charges.length || !Number.isFinite(charges.at(-1).socTo)) return null;
+  const eta=plan.chargeEfficiency??.90;
+  if (!Number.isFinite(eta)||eta<.5||eta>1) return null;
+  const targetPercent=charges.at(-1).socTo, until=charges.at(-1).until;
+  const remainingWh=Math.max(0,targetPercent-state.soc)*plan.capacityKwh*10/eta;
+  const scheduledWh=charges.reduce((sum,q)=>sum+Math.max(0,-q.powerW)*(q.until-Math.max(now,q.from))/3600,0);
+  const hours=charges.reduce((sum,q)=>sum+(q.until-Math.max(now,q.from))/3600,0);
+  const current=charges.find(q=>q.from<=now&&q.until>now);
+  // Preserve the optimiser's relative allocation to cheap quarters. Extra solar
+  // or delayed charging changes the remaining deficit instead of a fixed timer.
+  const requestedW=current&&scheduledWh>0?Math.min(1000,-current.powerW*remainingWh/scheduledWh):0;
+  return {targetPercent,until,remainingWh,requestedW,atRisk:remainingWh>hours*1000+10};
 }
 
 // Final execution guard, independent of optimisation and smoothing. A planner
@@ -79,9 +100,13 @@ export function sessyTarget(plan, state, now) {
       !validNumber(state.houseNetW)) return 0;
   const q = plan.intervals.find(q => q.from <= now && q.until > now);
   if (!q) return 0;
-  if (state.houseNetW < 0 && state.soc < 100) return -Math.round(Math.min(2200, -state.houseNetW));
+  // Use whole-site surplus, including the EV: energy already powering the car
+  // is not spare solar available to charge the household battery.
+  const siteNetW=Number.isFinite(state.siteNetW)?state.siteNetW:state.houseNetW;
+  if (siteNetW < 0 && state.soc < 100) return -Math.round(Math.min(2200, -siteNetW));
   if (q.action === 'charge' && state.soc < 100 && typeof state.ev === 'boolean' && validNumber(state.headroomW)) {
-    return -Math.floor(Math.max(0, Math.min(1000, -q.powerW, state.headroomW)));
+    const window=sessyChargeWindow(plan,state,now);
+    return -Math.floor(Math.max(0, Math.min(1000, window?.requestedW??-q.powerW, state.headroomW)))||0;
   }
   if (q.action === 'discharge' && state.ev === false && state.soc > plan.reservePercent) {
     // The plan selects discharge periods; its forecast watts are not a live

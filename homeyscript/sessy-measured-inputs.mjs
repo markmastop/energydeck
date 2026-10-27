@@ -1,4 +1,4 @@
-import {sessyTarget} from './sessy-price-planner.mjs';
+import {sessyTarget, sessyChargeWindow} from './sessy-price-planner.mjs';
 // Pure input model. Homey energy_power is signed AC consumption for grid/battery
 // and positive production for PV. Reconstruct gross house load excluding the EV.
 export function buildSessyProfile(logs, now) {
@@ -63,6 +63,7 @@ export function sessyLiveState(battery, grid, charger, config, now) {
   const baseVA=phaseKnown?Math.max(0,Math.max(Math.abs(phaseW),amps*voltage)-ac):null;
   const headroomW=baseVA===null?null:Math.max(0,Math.floor((config.fuseA-config.marginA)*voltage-baseVA));
   return {available:live,fault:value(b,'alarm_fault')!==false,soc:value(b,'measure_battery'),ev,headroomW,
+    siteNetW:live&&finite(ac)?value(g,'measure_power')-ac:null,
     houseNetW:live&&finite(ac)&&finite(value(g,'measure_power'))&&evKnown?
       value(g,'measure_power')-ac-value(e,'measure_power'):null,
     chargeLimitW:Math.min(2200,battery?.settings?.power_max_charge??0),
@@ -81,7 +82,8 @@ export function executeSessyPlan(plan,state,now) {
   const q=plan.intervals.find(q=>q.from<=now&&q.until>now);
   if (!q) return stopped('plan-unavailable');
   let watts=sessyTarget(plan,state,now),reason='following';
-  if (state.houseNetW<0 && state.soc<100) reason='solar-surplus';
+  const siteNetW=Number.isFinite(state.siteNetW)?state.siteNetW:state.houseNetW;
+  if (siteNetW<0 && state.soc<100) reason='solar-surplus';
   else if (q.action==='discharge'&&state.ev) reason='ev-charging';
   else if (q.action==='discharge'&&state.soc<=plan.reservePercent) reason='reserve';
   else if (q.action==='charge'&&(!Number.isFinite(state.headroomW)||-q.powerW>state.headroomW)) reason='phase-limit';
@@ -90,6 +92,7 @@ export function executeSessyPlan(plan,state,now) {
     if (-watts>limit) reason='phase-limit';
     watts=-Math.min(-watts,limit);
   } else watts=Math.min(watts,Math.max(0,state.dischargeLimitW));
-  return {updatedAt:now,mode:'active',reason,targetW:Math.round(watts)||0,plannedW:q.powerW,
+  const chargeWindow=sessyChargeWindow(plan,state,now);
+  return {updatedAt:now,mode:'active',reason,targetW:Math.round(watts)||0,plannedW:q.powerW,chargeWindow,
     commandW:state.commandW??null,headroomW:state.headroomW};
 }

@@ -362,7 +362,7 @@ dialog p { font-size: 14px; line-height: 1.6; color: var(--muted); }
 .strategy-legend .measured,.strategy-legend .expected { color:#48bd70; }
 .strategy-legend .expected::before { background:transparent; border-top:2px dashed currentColor; height:0; }
 
-/* The overview summarizes rooms; the dedicated page retains every room. */
+/* Keep all overview rooms compact as the grid wraps onto additional rows. */
 #page-overview .rooms { gap:0 20px; margin-top:4px; }
 #page-overview .room { padding:12px 0; gap:5px; }
 #page-overview .room strong { font-size:20px; }

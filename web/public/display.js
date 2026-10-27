@@ -61,10 +61,10 @@ export function createHomeCards() {
   };
 }
 
-// Keep the overview short; the climate detail page still owns the complete list.
+// Show every configured room; prioritize heat demand without changing the source order.
 export function overviewRooms(rooms = [], climate = {}) {
   const demanding = room => Boolean(climate.mode && climate.demand !== 'off' &&
     room.temperature !== null && room.target !== null && room.target - room.temperature > .05);
   return rooms.map((room,index)=>({room,index,heating:demanding(room)}))
-    .sort((a,b)=>Number(b.heating)-Number(a.heating)||a.index-b.index).slice(0,4).map(item=>item.room);
+    .sort((a,b)=>Number(b.heating)-Number(a.heating)||a.index-b.index).map(item=>item.room);
 }

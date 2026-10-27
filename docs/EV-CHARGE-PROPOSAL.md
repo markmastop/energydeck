@@ -1,9 +1,24 @@
 # EV charging proposal
 
 The overview shows a read-only EV proposal between the price and battery graphs on both
-web and ESP. Blue quarters are proposed charging windows, grey quarters are
-waiting periods, and missing prices remain unfilled. Actual charger connection,
-charging, completion and fault state remain separate from this proposal.
+web and ESP. Blue quarters are proposed charging opportunities; grey quarters wait
+for a better price. With fresh, healthy connected-car telemetry, the current or
+next remaining proposal is outlined green. Completed sessions, faults, missing
+connection data and telemetry older than 45 seconds do not produce green plans.
+Only the next window is outlined, rather than suggesting that one connected car
+needs every future six-hour window. This is still a proposal, not a charger schedule.
+
+Solid green marks a quarter in which charging was actually observed, including
+manual charging outside the proposed window. It takes precedence over blue/grey.
+One observation does not prove continuous charging throughout the quarter or any
+energy amount. Observations are kept in bounded session memory independently of
+price refreshes; browser reload/sign-out or display reboot clears them. Web and
+ESP collect their own observations, so history can differ when one was offline.
+Past proposals are never retrospectively marked as planned/charged just because
+a car is connected now. Missing prices remain unfilled.
+
+The display legend and web chart titles distinguish green outlines from solid
+green. The web charger note also explains the observation lifetime.
 
 ## Initial policy
 
@@ -66,3 +81,21 @@ summary still reports its existing cheapest three-hour period.
 Six-hour update verification: 108 web tests, web/ESP planner parity and the ESP
 simulator build pass. Contiguous windows include intermediate expensive quarters
 when needed; cheaper disconnected fragments are never combined.
+
+## Connection-aware colours, 2026-10-27
+
+Verified: all 110 web tests pass, including stale/faulted/completed connection
+states and observed manual charging outside advice. The C++/JavaScript planner
+parity check passes on normal and both DST transition days, with additional native
+colour-state assertions. The final ESP simulator and 7-inch target compile.
+The 7-inch setup frame is 2720 B against a 4096 B budget. A production-LVGL preview
+of the EV labels/strip confirms blue, grey, outlined green and solid green without
+label overlap. A synthetic browser preview confirms charging marks and no page
+horizontal overflow at the requested 320-pixel viewport. No real charging Flow
+was triggered.
+
+The identified 7-inch display received the OTA update successfully and returned
+via mDNS with the new configuration hash matching the built image. This verifies
+firmware identity and network return; physical panel appearance was not inspected.
+The web source was updated and tested locally; no web deployment or Git push was
+performed.

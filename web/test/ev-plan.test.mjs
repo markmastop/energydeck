@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {priceDayBounds} from '../public/charts.js';
-import {evChargingPlan,evChargingState} from '../public/ev-plan.js';
+import {evChargingPlan,evChargingState,EvChargingActivity} from '../public/ev-plan.js';
 const day=(date,price=30)=>({date,values:Array(priceDayBounds(date).count).fill(price)});
 const hour=at=>Number(new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Amsterdam',hour:'2-digit',hourCycle:'h23'}).format(new Date(at*1000)));
 
@@ -54,4 +54,32 @@ test('separate cheap fragments never replace one continuous six-hour window',()=
  assert.equal(w.from,start+32*900);assert.equal(w.until,start+56*900);
  assert.equal(evChargingState(p,start+48*900).state,'allow');
  assert.equal(evChargingState(p,start+72*900).state,'wait');
+});
+
+test('connected cars outline only the next remaining window; missing, faulted and completed cars do not',()=>{
+ const plan=evChargingPlan([day('2026-10-26')]),now=plan.slots[0].from;
+ const activity=new EvChargingActivity(),first=plan.slots[0],later=plan.slots[32];
+ const car={connected:true,fault:false,charging:false,complete:false,observedAt:now};
+ assert.equal(activity.state(plan,first,car,now),'planned');
+ assert.equal(activity.state(plan,later,car,now),'allow');
+ for(const override of [{connected:false},{connected:null},{fault:true},{fault:null},{complete:true},{observedAt:now-46},{observedAt:now+1}])
+   assert.equal(activity.state(plan,first,{...car,...override},now),'allow');
+ assert.equal(activity.state(plan,first,car,first.until),'allow');
+ assert.equal(activity.state(plan,plan.slots[24],car,now),'wait');
+});
+
+test('observed charging overrides price advice without inventing history or future charging',()=>{
+ const plan=evChargingPlan([day('2026-10-26')]),slot=plan.slots[24],now=slot.from+20;
+ const activity=new EvChargingActivity(),car={connected:true,fault:false,charging:true,observedAt:now};
+ assert.equal(activity.state(plan,slot,car,now),'wait');
+ for(const override of [{connected:false},{fault:true},{charging:null}]) activity.observe({...car,...override},now,now);
+ activity.observe(car,now-46,now);activity.observe(car,now+1,now);
+ assert.equal(activity.state(plan,slot,car,now),'wait');
+ activity.observe(car,now,now);
+ assert.equal(activity.state(plan,slot,car,now),'charging');
+ assert.equal(activity.state(plan,slot,{connected:false},now+900),'charging');
+ assert.equal(activity.state(plan,plan.slots[25],car,now),'wait');
+ assert.equal(new EvChargingActivity().state(plan,slot,car,now),'wait');
+ activity.observe(null,now+201*900,now+201*900);
+ assert.equal(activity.quarters.size,0);
 });

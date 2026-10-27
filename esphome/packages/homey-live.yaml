@@ -744,10 +744,13 @@ script:
                     const std::string status = status_raw != nullptr ? status_raw : "";
                     const bool complete = status.find("finished") != std::string::npos ||
                                           status.find("complete") != std::string::npos;
-                    if (!capabilities["is_charging"]["value"].is<bool>() ||
+                    if (!capabilities["alarm_device"]["value"].is<bool>() || !capabilities["is_charging"]["value"].is<bool>() ||
                         !capabilities["measure_power"]["value"].is<float>() || !std::isfinite(power_w)) return false;
                     id(energy_state).connected.set(connected ? 1 : 0, millis());
                     id(energy_state).car.set(connected && !fault && (charging || power_w > 50.0f) ? 1 : 0, millis());
+                    id(energy_state).charger_ready.set(connected && !fault && !complete ? 1 : 0, millis());
+                    const auto observed = id(energydeck_time).now();
+                    if (observed.is_valid()) id(ev_charging_activity).observe(observed.timestamp, connected && !fault && (charging || power_w > 50.0f));
                     id(charger_is_charging) = charging || power_w > 50.0f;
                     if (id(charge_pending) &&
                         (!connected || fault || id(charger_is_charging) == id(charge_target))) {

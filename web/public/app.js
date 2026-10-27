@@ -1,4 +1,4 @@
-import { evChargingPlan, evChargingState } from './ev-plan.js';
+import { evChargingPlan, evChargingState, EvChargingActivity } from './ev-plan.js';
 import { initializeDetails } from './details.js';
 import { priceWindow, priceQuarter, priceTime } from './charts.js';
 import { dayComparison, overviewRooms } from './display.js';
@@ -14,6 +14,7 @@ try { language = localStorage.getItem('energydeck-language'); } catch { /* Stora
 if (!translations[language]) language = navigator.language.startsWith('nl') ? 'nl' : 'en';
 let data = null, selected = 'today', busy = false, loginBusy = false, authGeneration = 0;
 let liveRevision = 0, weatherSunshine = null;
+let evActivity = new EvChargingActivity();
 const live = createLiveUpdates({
   onDashboard(next) { liveRevision++; data = next; showDashboard(); render(); },
   onUnavailable() { liveRevision++; unavailable(); },
@@ -58,6 +59,7 @@ function showLogin() {
   live.stop();
   authGeneration++;
   data = null;
+  evActivity = new EvChargingActivity();
   batteryHistory=null; batteryHistoryAt=0;
   details.reset();
   $('login').hidden = false;
@@ -116,6 +118,7 @@ function priceSource(day) {
 }
 function render() {
   if(data?.status!=='offline') loadBatteryHistory();
+  evActivity.observe(data.charger,Date.parse(data.updatedAt)/1000);
   data.battery.history=batteryHistory;
   const now = new Date();
   text('date', new Intl.DateTimeFormat(language === 'nl' ? 'nl-NL' : 'en-GB', {
@@ -240,14 +243,18 @@ function drawChart(today, quarter) {
   }, priceTime(window.start + Math.round(fraction * window.values.length) * 900000))));
   const from = window.start / 1000, until = from + window.values.length * 900;
   const evPlan=evChargingPlan([today,tomorrow]);
+  const evNow=Date.now()/1000;
+  const evCharger={...data.charger,observedAt:Date.parse(data.updatedAt)/1000};
   const ex=at=>left+(Math.max(from,Math.min(until,at))-from)/(until-from)*width;
   chart.append(svgNode('text',{x:left,y:199},t('evPlanLane')));
   chart.append(svgNode('rect',{x:left,y:207,width,height:10,fill:'#26362d'}));
   for(const q of evPlan.slots) {
     if(q.until<=from || q.from>=until)continue;
-    const allow=evPlan.windows.some(w=>w.from<=q.from&&w.until>=q.until);
-    const mark=svgNode('rect',{x:ex(q.from),y:207,width:Math.max(.5,ex(q.until)-ex(q.from)-.5),height:10,fill:allow?'#3aa7d8':'#617064','data-ev-state':allow?'allow':'wait'});
-    mark.append(svgNode('title',{},`${priceTime(q.from*1000)} · ${t(allow?'evPlanAllow':'evPlanWait')}`));chart.append(mark);
+    const state=evActivity.state(evPlan,q,evCharger,evNow),planned=state==='planned';
+    const color=state==='charging'||planned?'#48bd70':state==='allow'?'#3aa7d8':'#617064';
+    const mark=svgNode('rect',{x:ex(q.from)+.5,y:207.5,width:Math.max(.5,ex(q.until)-ex(q.from)-1),height:9,
+      fill:planned?'none':color,stroke:color,'stroke-width':1,'data-ev-state':state});
+    mark.append(svgNode('title',{},`${priceTime(q.from*1000)} · ${t({allow:'evPlanAllow',wait:'evPlanWait',planned:'evPlanPlanned',charging:'evPlanCharging'}[state])}`));chart.append(mark);
   }
   const strategy = batteryStrategyView(data.battery.plan, from, until);
   text('price-strategy-caption', `${t('batteryStrategy')} · ${strategy?.points.length ? t(strategy.plan.mode === 'shadow' ? 'batteryShadow' : 'batteryActivePlan') : t('batteryPlanUnavailable')}`);

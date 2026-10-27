@@ -1538,15 +1538,22 @@ lvgl:
               - label:
                   id: ev_proposal_label
                   x: 46
-                  y: 168
+                  y: 166
                   width: 384
                   text: "${ev_proposal_unknown}"
                   text_font: montserrat_10
                   text_color: 0x3AA7D8
+              - label:
+                  x: 46
+                  y: 178
+                  width: 384
+                  text: "${ev_proposal_key}"
+                  text_font: montserrat_10
+                  text_color: 0xA9B8AE
               - obj:
                   id: price_ev_proposal_plot
                   x: 46
-                  y: 184
+                  y: 191
                   width: 384
                   height: 7
                   bg_opa: TRANSP

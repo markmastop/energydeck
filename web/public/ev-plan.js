@@ -35,3 +35,24 @@ export function evChargingState(plan,now=Date.now()/1000) {
   const window=plan.windows.find(q=>q.from<=now&&q.until>now);
   return {state:window?'allow':'wait',window:window??plan.windows.find(q=>q.from>now)??null};
 }
+
+// Record only quarters with a live charging observation; never backfill a plan.
+// Session memory is deliberately bounded and disappears on reload/reboot.
+export class EvChargingActivity {
+  quarters = new Set();
+  observe(charger, at, now = Date.now()/1000) {
+    if (!Number.isFinite(at) || at > now || now-at > 45) return;
+    for (const q of this.quarters) if (q < now-200*900) this.quarters.delete(q);
+    if (charger?.connected === true && charger.fault === false && charger.charging === true)
+      this.quarters.add(Math.floor(at/900)*900);
+  }
+  state(plan, slot, charger, now = Date.now()/1000) {
+    if (this.quarters.has(slot.from)) return 'charging';
+    const allowed = plan.windows.some(w => w.from <= slot.from && w.until >= slot.until);
+    const next = plan.windows.find(w => w.until > now);
+    const fresh = Number.isFinite(charger?.observedAt) && charger.observedAt <= now && now-charger.observedAt <= 45;
+    if (allowed && slot.until > now && fresh && charger.connected === true && charger.fault === false &&
+        charger.complete !== true && next?.from <= slot.from && next.until >= slot.until) return 'planned';
+    return allowed ? 'allow' : 'wait';
+  }
+}

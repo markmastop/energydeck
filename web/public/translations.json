@@ -268,13 +268,15 @@
     "rainDryShort": "Voorlopig droog",
     "weatherSunNoneShort": "geen zon",
     "weatherSunUnknownShort": "zon onbekend",
-    "evPlanLane": "Auto · blauw laden / grijs wachten",
+    "evPlanLane": "Auto · blauw mogen / grijs wachten / groen gepland of laden",
     "evPlanUnknown": "Laadvoorstel onbekend · geen prijzen",
     "evPlanUntil": "Voorstel: laden tot {time}",
     "evPlanNext": "Volgend voorstel: {from}–{until}",
     "evPlanAllow": "Voorgesteld laadvenster",
     "evPlanWait": "Wachten op een volgend laadvenster",
-    "evPlanNote": "Voordeligste 6 aaneengesloten uren overdag (08–20) en ’s nachts (20–08), binnen bekende prijzen. Dit voorstel stuurt de laadpaal nog niet aan."
+    "evPlanNote": "Voordeligste 6 aaneengesloten uren overdag (08–20) en ’s nachts (20–08). Groene rand: gepland advies met aangesloten auto. Volgroen: laden waargenomen, bewaard zolang deze pagina open is. Het advies stuurt de laadpaal niet aan.",
+    "evPlanPlanned": "Gepland laadadvies · auto aangesloten",
+    "evPlanCharging": "Laden waargenomen in dit kwartier"
   },
   "en": {
     "logout": "Sign out",
@@ -545,12 +547,14 @@
     "rainDryShort": "Dry for now",
     "weatherSunNoneShort": "no sunshine",
     "weatherSunUnknownShort": "sunshine unknown",
-    "evPlanLane": "EV · blue charge / grey wait",
+    "evPlanLane": "EV · blue allowed / grey wait / green planned or charging",
     "evPlanUnknown": "Charge proposal unknown · no prices",
     "evPlanUntil": "Proposal: charge until {time}",
     "evPlanNext": "Next proposal: {from}–{until}",
     "evPlanAllow": "Proposed charging window",
     "evPlanWait": "Wait for another charging window",
-    "evPlanNote": "Cheapest 6 consecutive hours by day (08–20) and night (20–08), within known prices. This proposal does not control the charger yet."
+    "evPlanNote": "Cheapest 6 consecutive hours by day (08–20) and night (20–08). Green outline: planned proposal with car connected. Solid green: charging observed, kept while this page is open. The proposal does not control the charger.",
+    "evPlanPlanned": "Planned charging proposal · car connected",
+    "evPlanCharging": "Charging observed in this quarter"
   }
 }

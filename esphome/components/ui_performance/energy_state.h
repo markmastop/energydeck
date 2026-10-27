@@ -30,7 +30,7 @@ struct StableMode {
   }
 };
 struct EnergyState {
-  Reading grid, solar, battery, battery_power, gas, car, connected, heating_enabled;
+  Reading grid, solar, battery, battery_power, gas, car, connected, charger_ready, heating_enabled;
   Reading electricity_day, solar_day, gas_day, gas_yesterday;
   static constexpr int ROOM_COUNT = 9;
   Reading room_temperature[ROOM_COUNT], room_target[ROOM_COUNT];

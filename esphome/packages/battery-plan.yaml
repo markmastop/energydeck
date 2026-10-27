@@ -1,5 +1,7 @@
 # Read-only controller snapshot. Missing/stale plan data never hides live SoC.
 globals:
+  - id: ev_charging_activity
+    type: energydeck::EvChargingActivity
   - id: ev_charging_plan
     type: energydeck::EvChargingPlan
   - id: battery_control_message
@@ -156,10 +158,12 @@ script:
           static energydeck::BatteryStrategyChart strategy;
           strategy.draw(id(price_battery_strategy_plot), known && p.version == 2 ? &p : nullptr,
                         id(battery_price_from), id(battery_price_until), time.timestamp, history_known ? &history : nullptr, live ? s.battery.value : NAN, &id(weather_sunshine));
-          // Price-only proposal. These marks never send charger commands.
+          // Read-only proposal plus observed charging; these marks never send commands.
           auto &ev=id(ev_charging_plan);
           static std::array<lv_obj_t *, 100> ev_marks{};
           for(auto *o:ev_marks) if(o) lv_obj_add_flag(o,LV_OBJ_FLAG_HIDDEN);
+          const bool ev_ready=time.is_valid() && s.connected.valid(millis()) && s.connected.value>0 &&
+                              s.charger_ready.valid(millis()) && s.charger_ready.value>0;
           const int64_t ef=id(battery_price_from), eu=id(battery_price_until);
           if(eu>ef) {
             const int width=lv_obj_get_width(id(price_ev_proposal_plot));
@@ -172,8 +176,14 @@ script:
               if(!o) {o=lv_obj_create(id(price_ev_proposal_plot));lv_obj_remove_style_all(o);lv_obj_remove_flag(o,LV_OBJ_FLAG_CLICKABLE);}
               const int x=int((a-ef)*width/(eu-ef)), end=int((b-ef)*width/(eu-ef));
               lv_obj_set_pos(o,x,0);lv_obj_set_size(o,std::max(1,end-x-1),7);
-              lv_obj_set_style_bg_color(o,lv_color_hex(ev.allowed(q.from,q.from+900)?0x3AA7D8:0x617064),0);
-              lv_obj_set_style_bg_opa(o,LV_OPA_COVER,0);lv_obj_clear_flag(o,LV_OBJ_FLAG_HIDDEN);
+              const auto state=id(ev_charging_activity).state(ev,q.from,time.timestamp,ev_ready);
+              const bool planned=state==energydeck::EvChargingActivity::PLANNED;
+              const uint32_t color=planned || state==energydeck::EvChargingActivity::CHARGING ? 0x48BD70 :
+                                   state==energydeck::EvChargingActivity::ALLOW ? 0x3AA7D8 : 0x617064;
+              lv_obj_set_style_bg_color(o,lv_color_hex(color),0);
+              lv_obj_set_style_bg_opa(o,planned?LV_OPA_TRANSP:LV_OPA_COVER,0);
+              lv_obj_set_style_border_color(o,lv_color_hex(color),0);
+              lv_obj_set_style_border_width(o,planned?1:0,0);lv_obj_clear_flag(o,LV_OBJ_FLAG_HIDDEN);
             }
           }
           const auto *next=ev.next(time.timestamp);

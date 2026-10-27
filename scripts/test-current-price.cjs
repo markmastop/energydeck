@@ -114,5 +114,29 @@ async function run(instant, payload, existing = {}) {
   const secondHour = await run('2026-10-25T01:00:00Z',repeated,firstHour.vars);
   assert.notEqual(firstHour.value('Prijsinterval'),secondHour.value('Prijsinterval'));
   assert.notEqual(firstHour.value('Prijsupdate'),secondHour.value('Prijsupdate'));
+  const {evChargingPlan, evChargingState} = await import('../web/public/ev-plan.js');
+  const {priceDayBounds} = await import('../web/public/charts.js');
+  const shared = fs.readFileSync(path.join(__dirname, '../web/public/ev-plan.js'), 'utf8')
+    .split('export function evChargingPlan')[1].split('// Record only quarters')[0];
+  assert.ok(source.includes(('function evChargingPlan' + shared).replaceAll('export function','function').replaceAll('priceDayBounds','dayBounds')),
+    'The Homey policy must remain identical to the client planner');
+  for (const date of ['2026-10-27','2026-03-29','2026-10-25']) {
+    const bounds = priceDayBounds(date), next = new Date(bounds.end + 43200000).toISOString().slice(0,10);
+    const evPayload = {today:{date,values:Array.from({length:bounds.count},(_,i)=>(i*13)%31-5)},
+      tomorrow:{date:next,values:Array.from({length:priceDayBounds(next).count},(_,i)=>(i*7)%29)}};
+    const plan = evChargingPlan([evPayload.today,evPayload.tomorrow]);
+    for (let q=0;q<bounds.count;q++) {
+      const at=bounds.start+q*900000, expected=evChargingState(plan,at/1000).state==='allow';
+      const r=await run(new Date(at).toISOString(),evPayload);
+      assert.equal(r.value('EV zesuursplan toegestaan'),expected,`${date} quarter ${q}`);
+      assert.equal(JSON.parse(r.value('Prijsupdate')).evSixHourAllowed,expected);
+      assert.ok(r.writes.indexOf('Energie - EV zesuursplan toegestaan')<r.writes.indexOf('Energie - Prijsupdate'));
+    }
+  }
+  const invalidEv=await run('2026-09-08T00:15:00Z',{},first.vars);
+  assert.equal(invalidEv.value('EV zesuursplan toegestaan'),false);
+  assert.equal(JSON.parse(invalidEv.value('EV zesuursplan')).state,'unknown');
+  assert.ok(!invalidEv.writes.includes('Laden_Forceren'));
+  console.log('PASS: EV permission matches every client quarter on regular and both DST days; invalid prices disable automatic permission');
   console.log('PASS: current quarters, negative/zero prices, ranking, unchanged flags, midnight, invalid cache and DST');
 })().catch(error => {console.error(error); process.exitCode = 1;});

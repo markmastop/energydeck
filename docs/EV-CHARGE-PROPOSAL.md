@@ -1,12 +1,12 @@
 # EV charging proposal
 
-The overview shows a read-only EV proposal between the price and battery graphs on both
+The overview shows a price-based EV plan between the price and battery graphs on both
 web and ESP. Blue quarters are proposed charging opportunities; grey quarters wait
 for a better price. With fresh, healthy connected-car telemetry, the current or
 next remaining proposal is outlined green. Completed sessions, faults, missing
 connection data and telemetry older than 45 seconds do not produce green plans.
 Only the next window is outlined, rather than suggesting that one connected car
-needs every future six-hour window. This is still a proposal, not a charger schedule.
+needs every future six-hour window. With the Homey integration below activated, the same windows also determine automatic charger permission.
 
 Solid green marks a quarter in which charging was actually observed, including
 manual charging outside the proposed window. It takes precedence over blue/grey.
@@ -44,13 +44,13 @@ departure deadline or completion guarantee, and no daily user input is required.
 A car plugged in after its proposed window may have no remaining proposal in that
 period. Manual charging remains available through the existing explicit button.
 
-## Relationship to Sessy and controls
+## Relationship to Sessy and controls (initial rollout)
 
 This first stage is a price proposal for review, not a joint energy optimiser.
 It sends no Homey or charger commands, does not enforce phase limits and does not
 change the battery's forecast. The existing active Sessy controller continues to
 protect against feeding an actually charging EV and continues to apply measured
-phase/headroom limits. A future actuator integration must reconcile EV permission,
+phase/headroom limits. The initial rollout left actuator integration separate from EV permission,
 phase limits, manual overrides and the battery plan before enabling automation.
 
 The ESP uses its compact chart footer for the EV proposal and aligned strip in
@@ -99,3 +99,48 @@ via mDNS with the new configuration hash matching the built image. This verifies
 firmware identity and network return; physical panel appearance was not inspected.
 The web source was updated and tested locally; no web deployment or Git push was
 performed.
+
+## Active Homey six-hour permission (2026-10-27)
+
+`EnergieActuelePrijs` now publishes `Energie - EV zesuursplan toegestaan` and a
+JSON diagnostic `Energie - EV zesuursplan` from the exact web planner policy.
+Only today's and the next Amsterdam calendar day's complete published prices are
+used, matching both clients. The isolated test compares every quarter on normal,
+23-hour and 25-hour days and checks that the embedded planner matches the web source.
+Missing/invalid current prices clear automatic permission. Short price horizons
+never produce a window shorter than six elapsed hours.
+
+The existing minute/price-event publisher writes permission before its final
+`Energie - Prijsupdate` completion signal, including `evSixHourAllowed` so policy
+changes within the current quarter trigger reevaluation. `Auto - Run` uses the
+new permission instead of `Energie - Goedkoopste 7 uren`; the old seven-hour
+variable remains available for other consumers.
+
+All other Flow cards and connections stay unchanged: connected-car checks,
+`Laden_Forceren`, `laden_direct`, actual allow/deny actions, notifications and
+session reporting. The configured force button still targets `Auto - Laden
+Forceren`; its 01:30 rule is preserved. Overrides can therefore permit charging
+outside the six-hour windows or continue beyond their end. Permission cannot
+guarantee that a connected vehicle accepts power or finishes charging.
+
+Run `python3 scripts/install-ev-six-hour-plan.py` for a read-only preflight, then
+add `--apply` to activate real permission control. It saves the original Flow,
+force Flow, publisher and permission flag in a private `build/homey-backups/`
+file, verifies source and Flow read-back, and runs the price publisher once to
+apply the current policy. It never invokes the force Flow as a test. For rollback,
+restore the saved publisher and `flow` fields (`name`, `folder`, `enabled`, `cards`)
+through the same Homey endpoints, then run the restored price publisher; keep the
+force Flow intact. Do not commit backups containing household/device identifiers.
+
+Both clients already calculate these windows, so no display firmware change or
+physical flash is required. The web explanation describes the optional Homey
+activation; publishing web changes remains separate from Homey activation.
+
+Activation verified on 2026-10-27 at approximately 21:14 Amsterdam: the installed
+publisher returned `ok: true` with six-hour permission false; the connected
+charger reported permission false, no charging and 0 W. The calculated next
+window was 23:30–05:30. The complete force Flow matched its saved original after
+migration. Future window-start charging was not physically observed during this
+check. All 110 web tests, current-price/bridge checks, per-quarter Homey/web parity,
+C++/web parity and the ESP simulator build passed. No manual force test or
+physical display flash was performed.

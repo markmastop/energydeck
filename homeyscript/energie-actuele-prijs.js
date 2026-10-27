@@ -56,6 +56,43 @@ function dayBounds(date) {
   return { start, end, count: (end - start) / 900000 };
 }
 
+// BEGIN shared EV policy (kept in parity with web/public/ev-plan.js).
+function evChargingPlan(days) {
+  const quarters=24,slots=[];
+  const local=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Amsterdam',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',hourCycle:'h23'});
+  for(const day of days) {
+    if(!day?.date || !Array.isArray(day.values))continue;
+    const bounds=dayBounds(day.date);
+    if(day.values.length!==bounds.count || !day.values.every(Number.isFinite))continue;
+    for(let i=0;i<day.values.length;i++) {
+      const from=bounds.start/1000+i*900,parts=Object.fromEntries(local.formatToParts(new Date(from*1000)).map(p=>[p.type,p.value]));
+      let date=`${parts.year}-${parts.month}-${parts.day}`;
+      const hour=Number(parts.hour),period=hour>=8&&hour<20?'day':'night';
+      if(hour<8){const previous=new Date(`${date}T12:00:00Z`);previous.setUTCDate(previous.getUTCDate()-1);date=previous.toISOString().slice(0,10);}
+      slots.push({from,until:from+900,price:day.values[i],key:`${date}:${period}`,period});
+    }
+  }
+  slots.sort((a,b)=>a.from-b.from);
+  const best=new Map();
+  for(let i=0;i<=slots.length-quarters;i++) {
+    const qs=slots.slice(i,i+quarters),first=qs[0];
+    if(!qs.every((q,j)=>q.key===first.key&&q.from===first.from+j*900))continue;
+    const cost=qs.reduce((sum,q)=>sum+q.price,0),previous=best.get(first.key);
+    if(!previous || cost<previous.cost)best.set(first.key,{from:first.from,until:qs.at(-1).until,cost,period:first.period});
+  }
+  const windows=[...best.values()].sort((a,b)=>a.from-b.from);
+  return {slots,windows};
+}
+
+function evChargingState(plan,now=Date.now()/1000) {
+  const current=plan.slots.find(q=>q.from<=now&&q.until>now);
+  if(!current)return {state:'unknown',window:null};
+  const window=plan.windows.find(q=>q.from<=now&&q.until>now);
+  return {state:window?'allow':'wait',window:window??plan.windows.find(q=>q.from>now)??null};
+}
+
+// END shared EV policy.
+
 const now = new Date();
 const fmt = new Intl.DateTimeFormat('en-GB', {timeZone: 'Europe/Amsterdam', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'});
 function parts(d) { return Object.fromEntries(fmt.formatToParts(d).map(p => [p.type, p.value])); }
@@ -73,6 +110,14 @@ await set('Energie - Homey prijzen beschikbaar', data.homeyAvailable?.[day] === 
 await set('Energie - Prijsbron', valid ? source : 'Geen');
 await set('Energie - Laatste prijscontrole', data.checkedAt || 'Onbekend');
 await set('Energie - Laatste succesvolle update', data.fetchedAt?.[day] || data.updatedAt || 'Onbekend');
+// Use only today's and the next published calendar day, just like the clients.
+const nextDate = new Date(midday + 86400000).toISOString().slice(0, 10);
+const evDays = [day, nextDate].map(date => [data.today, data.tomorrow].find(d => d?.date === date));
+const evState = valid ? evChargingState(evChargingPlan(evDays), now.getTime()/1000) : {state: 'unknown', window: null};
+const evAllowed = evState.state === 'allow';
+// Permission is published before the completion signal; manual overrides live in Auto - Run.
+await set('Energie - EV zesuursplan toegestaan', evAllowed);
+await set('Energie - EV zesuursplan', JSON.stringify({day, state: evState.state, window: evState.window}));
 if (!valid) await set('Energie - Goedkoopste 3 uren', false);
 if (!valid) await set('Energie - Goedkoopste 7 uren', false);
 if (!valid) {
@@ -80,7 +125,7 @@ if (!valid) {
   await set('Energie - Prijsinterval', 'Geen geldig interval');
   await publishDashboard(false, 0, 0, [], '', '', problem);
   // Publish only after all invalidation flags are written.
-  await set('Energie - Prijsupdate', JSON.stringify({day, valid: false}));
+  await set('Energie - Prijsupdate', JSON.stringify({day, valid: false, evSixHourAllowed: false}));
   return {ok: false, reason: problem};
 }
 // Rank real elapsed hours so repeated clock hours remain independent.
@@ -99,5 +144,5 @@ const offset = bounds.count !== 96 ? ' ' + new Intl.DateTimeFormat('en-GB', {tim
 await set('Energie - Prijsinterval', day + ' ' + p.hour + ':' + String(Math.floor(Number(p.minute)/15)*15).padStart(2,'0') + offset);
 await publishDashboard(true, prices[quarter], prices.reduce((a,b) => a+b, 0) / prices.length, prices, source, p.hour + ':' + String(Math.floor(Number(p.minute)/15)*15).padStart(2,'0'), '');
 // Stable completion signal: also changes for corrected prices/rankings within a quarter.
-await set('Energie - Prijsupdate', JSON.stringify({day, quarter, valid: true, price: prices[quarter], cheapest3Hours: top3, cheapest7Hours: top7}));
-return {ok: true, day, quarter, source, marketPrice: prices[quarter], cheapest3Hours: top3, cheapest7Hours: top7};
+await set('Energie - Prijsupdate', JSON.stringify({day, quarter, valid: true, price: prices[quarter], cheapest3Hours: top3, cheapest7Hours: top7, evSixHourAllowed: evAllowed}));
+return {ok: true, day, quarter, source, marketPrice: prices[quarter], cheapest3Hours: top3, cheapest7Hours: top7, evSixHourAllowed: evAllowed};

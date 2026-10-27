@@ -274,7 +274,7 @@
     "evPlanNext": "Volgend voorstel: {from}–{until}",
     "evPlanAllow": "Voorgesteld laadvenster",
     "evPlanWait": "Wachten op een volgend laadvenster",
-    "evPlanNote": "Voordeligste 6 aaneengesloten uren overdag (08–20) en ’s nachts (20–08). Groene rand: gepland advies met aangesloten auto. Volgroen: laden waargenomen, bewaard zolang deze pagina open is. Het advies stuurt de laadpaal niet aan.",
+    "evPlanNote": "Voordeligste 6 aaneengesloten uren overdag (08–20) en ’s nachts (20–08). Groene rand: gepland advies met aangesloten auto. Volgroen: laden waargenomen, bewaard zolang deze pagina open is. Homey kan dit plan automatisch volgen na activering van het zesuursplan. Geforceerd laden blijft beschikbaar.",
     "evPlanPlanned": "Gepland laadadvies · auto aangesloten",
     "evPlanCharging": "Laden waargenomen in dit kwartier"
   },
@@ -553,7 +553,7 @@
     "evPlanNext": "Next proposal: {from}–{until}",
     "evPlanAllow": "Proposed charging window",
     "evPlanWait": "Wait for another charging window",
-    "evPlanNote": "Cheapest 6 consecutive hours by day (08–20) and night (20–08). Green outline: planned proposal with car connected. Solid green: charging observed, kept while this page is open. The proposal does not control the charger.",
+    "evPlanNote": "Cheapest 6 consecutive hours by day (08–20) and night (20–08). Green outline: planned proposal with car connected. Solid green: charging observed, kept while this page is open. Homey can follow this plan automatically after six-hour control is activated. Force charging remains available.",
     "evPlanPlanned": "Planned charging proposal · car connected",
     "evPlanCharging": "Charging observed in this quarter"
   }

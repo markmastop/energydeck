@@ -255,3 +255,17 @@ verification. Passive serial logs confirmed repeated current energy/Sessy reads,
 18 realtime subscriptions, successful Sonos reads, a v2 proposal with 115 quarters,
 244 measured SoC samples and a successful boot marker after one minute. The
 7-inch was compiled but not uploaded for this repair. No charging Flow was run.
+
+## 5-inch firmware refresh (2026-10-28)
+
+Built the current production 5-inch target from `f5756e4` and uploaded it to
+the device identified by `energydeck.local` through ESPHome OTA. The build reports
+`2026-10-28 17:18:39 +0100`, configuration hash `0x9bc58dbc`, and a
+2,098,640-byte application image. Compilation and the startup stack check passed:
+the setup frame uses 2,720 bytes against a 4,096-byte budget.
+
+ESPHome reported `OTA successful` and `Successfully uploaded program`. The OTA
+endpoint returned after restart and remained reachable across a 70-second
+observation, beyond the one-minute boot-success window. No serial boot log or physical image/touch
+inspection was available. This installs existing functionality; no web source
+change is needed. No charging Flow was triggered, and the 7-inch was not updated.

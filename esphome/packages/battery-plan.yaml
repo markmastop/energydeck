@@ -150,7 +150,7 @@ script:
           const bool history_known = time.is_valid() && history.available(time.year*10000+time.month*100+time.day_of_month,time.timestamp);
           const bool strategy_known = known && p.version == 2 && id(battery_price_until) > id(battery_price_from) &&
                                       p.intervals[0].from < id(battery_price_until) && p.intervals[p.interval_count - 1].until > id(battery_price_from);
-          set_text(id(price_strategy_caption), strategy_known ? (p.shadow ? "${battery_strategy} | ${battery_forward_shadow} | ${battery_soc_key}" : "${battery_strategy} | ${battery_forward_active} | ${battery_soc_key}") : "${battery_plan_unavailable}");
+          set_text(id(price_strategy_caption), strategy_known || history_known ? "${battery_overview}" : "${battery_plan_unavailable}");
           for (auto *o : {id(price_strategy_min), id(price_strategy_max)}) {
             if (strategy_known || history_known) lv_obj_clear_flag(o, LV_OBJ_FLAG_HIDDEN);
             else lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
@@ -189,7 +189,10 @@ script:
           const auto *next=ev.next(time.timestamp);
           if(time.is_valid() && next) {
             const auto a=ESPTime::from_epoch_local(next->from), b=ESPTime::from_epoch_local(next->until);
-            set_text_fmt(id(ev_proposal_label), "${ev_proposal_window}", a.day_of_month,a.month,a.hour,a.minute,b.hour,b.minute);
+            // Only a future starting date needs a date prefix; overnight end times are unambiguous.
+            if(a.year == time.year && a.day_of_year == time.day_of_year)
+              set_text_fmt(id(ev_proposal_label), "${ev_proposal_today}", a.hour,a.minute,b.hour,b.minute);
+            else set_text_fmt(id(ev_proposal_label), "${ev_proposal_window}", a.day_of_month,a.month,a.hour,a.minute,b.hour,b.minute);
           } else set_text(id(ev_proposal_label), "${ev_proposal_unknown}");
           static int previous_known = -1;
           if (previous_known != static_cast<int>(known)) {

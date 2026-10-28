@@ -306,7 +306,10 @@ battery_detail_historical: "Gemeten: %.0f%% | historie"
 battery_detail_history_missing: "Geen meting op dit tijdstip"
 battery_detail_prices_missing: "Stroomprijs | historie ontbreekt"
 
-ev_proposal_window: "Auto voorstel %02d/%02d %02d:%02d-%02d:%02d"
-ev_proposal_unknown: "Auto voorstel: onbekend | geen automatische sturing"
+ev_proposal_window: "Auto laden %02d/%02d %02d:%02d-%02d:%02d"
+ev_proposal_unknown: "Auto laden: onbekend"
 
 ev_proposal_key: "Blauw mogen | grijs wachten | groen rand plan / vol laden"
+
+battery_overview: "Accuverloop"
+ev_proposal_today: "Auto laden %02d:%02d-%02d:%02d"

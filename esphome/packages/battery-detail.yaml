@@ -33,6 +33,7 @@ esphome:
             }
           };
           passthrough(passthrough, id(battery_card));
+          passthrough(passthrough, id(price_overview_card));
 
 script:
   - id: open_battery_page

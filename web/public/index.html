@@ -59,10 +59,11 @@
           <section class="chart-panel panel" aria-labelledby="prices-title">
             <div class="section-top"><h2 id="prices-title" data-i18n="prices"></h2><div class="segmented" role="group" data-i18n-aria="priceDay"><button id="today" type="button" aria-pressed="true" data-i18n="today"></button><button id="tomorrow" type="button" aria-pressed="false" data-i18n="tomorrow"></button></div></div>
             <div class="chart-info"><span id="chart-date" class="muted"></span><span class="chart-unit">ct/kWh</span></div>
+            <button type="button" class="quiet" data-open="battery" data-i18n="batteryDetails"></button>
             <svg id="price-chart" viewBox="0 0 720 285" role="img" data-i18n-aria="prices" preserveAspectRatio="none"></svg>
             <p id="price-strategy-caption" class="fineprint muted"></p>
             <div id="price-strategy-legend" class="strategy-legend" hidden>
-              <span class="measured" data-i18n="batterySocMeasured"></span><span class="expected" data-i18n="batterySocForecast"></span><span class="charge" data-i18n="batteryActioncharge"></span><span class="discharge" data-i18n="batteryActiondischarge"></span><span class="hold" data-i18n="batteryActionhold"></span><span class="sun" data-i18n="batteryStrategySun"></span>
+              <span class="charge" data-i18n="batteryActioncharge"></span><span class="discharge" data-i18n="batteryActiondischarge"></span><span class="hold" data-i18n="batteryActionhold"></span><span class="sun" data-i18n="batteryStrategySun"></span>
             </div>
             <p id="chart-empty" class="empty" hidden data-i18n="noPrices"></p>
             <p id="chart-warning" class="chart-warning" hidden></p>
@@ -96,6 +97,7 @@
           <p id="battery-detail-selected" class="battery-detail-selected" aria-live="polite"></p>
           <p id="battery-detail-note" class="fine-print muted"></p>
           <p class="fine-print muted" data-i18n="batteryDetailLegend"></p>
+          <p class="fine-print muted" data-i18n="evPlanNote"></p>
         </section>
       </section>
       <section id="page-energy" class="detail-page" hidden>

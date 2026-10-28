@@ -317,6 +317,13 @@ widgets:
     text_color: 11122862
     width: 404
     long_mode: DOT
+- label:
+    x: 42
+    y: 658
+    width: 404
+    text: ${ev_proposal_key}
+    text_font: montserrat_10
+    text_color: 11122862
 - slider:
     id: battery_detail_slider
     x: 42

@@ -365,6 +365,10 @@ lvgl:
                   text_font: montserrat_14
 
         - obj:
+            id: price_overview_card
+            clickable: true
+            on_click:
+              - script.execute: open_battery_page
             x: 14
             y: 194
             width: 452
@@ -1479,7 +1483,7 @@ lvgl:
                   x: 46
                   y: 199
                   text: "${battery_plan_unavailable}"
-                  text_font: montserrat_10
+                  text_font: montserrat_12
                   text_color: 0xA9B8AE
               # Shares the price plot's UTC window and horizontal coordinates.
               - obj:
@@ -1541,19 +1545,12 @@ lvgl:
                   y: 166
                   width: 384
                   text: "${ev_proposal_unknown}"
-                  text_font: montserrat_10
+                  text_font: montserrat_14
                   text_color: 0x3AA7D8
-              - label:
-                  x: 46
-                  y: 178
-                  width: 384
-                  text: "${ev_proposal_key}"
-                  text_font: montserrat_10
-                  text_color: 0xA9B8AE
               - obj:
                   id: price_ev_proposal_plot
                   x: 46
-                  y: 191
+                  y: 186
                   width: 384
                   height: 7
                   bg_opa: TRANSP

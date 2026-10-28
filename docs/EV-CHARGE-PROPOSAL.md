@@ -17,7 +17,7 @@ ESP collect their own observations, so history can differ when one was offline.
 Past proposals are never retrospectively marked as planned/charged just because
 a car is connected now. Missing prices remain unfilled.
 
-The display legend and web chart titles distinguish green outlines from solid
+The detail-page legend and web chart titles distinguish green outlines from solid
 green. The web charger note also explains the observation lifetime.
 
 ## Initial policy
@@ -144,3 +144,12 @@ migration. Future window-start charging was not physically observed during this
 check. All 110 web tests, current-price/bridge checks, per-quarter Homey/web parity,
 C++/web parity and the ESP simulator build passed. No manual force test or
 physical display flash was performed.
+
+### Compact overview
+
+The home chart keeps one larger EV window label (date only when the start is
+not today), the aligned EV strip, and a short battery-level heading. Color and
+measured/forecast line explanations live on the battery detail page; tap the
+display chart or use the web chart details button. Action labels and the
+tomorrow-price comparison remain on the overview. This changes presentation
+only and never triggers charging commands.

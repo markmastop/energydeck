@@ -306,7 +306,10 @@ battery_detail_historical: "Measured: %.0f%% | history"
 battery_detail_history_missing: "No measurement at this time"
 battery_detail_prices_missing: "Price | history unavailable"
 
-ev_proposal_window: "EV proposal %02d/%02d %02d:%02d-%02d:%02d"
-ev_proposal_unknown: "EV proposal: unknown | no automatic control"
+ev_proposal_window: "EV charge %02d/%02d %02d:%02d-%02d:%02d"
+ev_proposal_unknown: "EV charge: unknown"
 
 ev_proposal_key: "Blue allowed | grey wait | green outline plan / solid charging"
+
+battery_overview: "Battery level"
+ev_proposal_today: "EV charge %02d:%02d-%02d:%02d"

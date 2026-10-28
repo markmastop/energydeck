@@ -147,9 +147,12 @@ physical display flash was performed.
 
 ### Compact overview
 
-The home chart keeps one larger EV window label (date only when the start is
+The home chart keeps one compact EV window label (date only when the start is
 not today), the aligned EV strip, and a short battery-level heading. Color and
 measured/forecast line explanations live on the battery detail page; tap the
 display chart or use the web chart details button. Action labels and the
 tomorrow-price comparison remain on the overview. This changes presentation
 only and never triggers charging commands.
+
+Overview EV window, battery-level heading and tomorrow-price comparison use
+the same small supporting font as the chart legend (10 px on ESP and web).

@@ -251,7 +251,7 @@ function drawChart(today, quarter) {
     timeZone:'Europe/Amsterdam',hour:'2-digit',minute:'2-digit',
     ...(localDate(new Date(at*1000))===localDate(new Date())?{}:{day:'2-digit',month:'2-digit'})
   }).format(new Date(at*1000));
-  chart.append(svgNode('text',{x:left,y:199,style:'font-size:14px'},nextEv
+  chart.append(svgNode('text',{x:left,y:199},nextEv
     ?t('evPlanOverview').replace('{from}',evStamp(nextEv.from)).replace('{until}',priceTime(nextEv.until*1000))
     :t('evPlanUnknown')));
   chart.append(svgNode('rect',{x:left,y:207,width,height:10,fill:'#26362d'}));
@@ -264,7 +264,7 @@ function drawChart(today, quarter) {
     mark.append(svgNode('title',{},`${priceTime(q.from*1000)} · ${t({allow:'evPlanAllow',wait:'evPlanWait',planned:'evPlanPlanned',charging:'evPlanCharging'}[state])}`));chart.append(mark);
   }
   const strategy = batteryStrategyView(data.battery.plan, from, until);
-  chart.append(svgNode('text',{x:left,y:230,style:'font-size:13px'},t('batteryOverview')));
+  chart.append(svgNode('text',{x:left,y:230},t('batteryOverview')));
   const soc=batterySocView(batteryHistory,data.battery.plan,from,until,data.battery.percentage);
   if (strategy?.points.length || soc.measured.length) {
     $('price-strategy-legend').hidden = false;

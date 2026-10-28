@@ -194,7 +194,7 @@ dialog p { font-size: 14px; line-height: 1.6; color: var(--muted); }
 .display-status-icons .icon-blue { color: var(--blue); }
 .display-status-icons .icon-green { color: var(--green); }
 .display-status-icons .icon-orange { color: var(--orange); }
-.tomorrow-comparison { font-size: 12px; text-transform: uppercase; color: var(--muted); line-height: 1.6; }
+.tomorrow-comparison { font-size: 10px; text-transform: uppercase; color: var(--muted); line-height: 1.6; }
 .tomorrowCheaper { color: #7fe0a2; }
 .tomorrowDearer { color: var(--red); }
 #price-chart .price-bar.low-price { fill: #45bd70; }

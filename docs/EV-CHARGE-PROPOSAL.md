@@ -177,3 +177,14 @@ regular and both DST days, native energy-state/icon checks pass, and the ESP
 simulator compiles. Local synthetic browser checks confirm solid green windows,
 orange charging marks/header and green planned header. No charging Flow was run;
 no web deployment or physical-display flash was performed.
+
+
+### 7-inch rollout, 2026-10-28
+
+Firmware from `a73dac2` was built for `energydeck-crowpanel-7.yaml` and uploaded
+successfully through ESPHome OTA to `energydeck-7.local`. The target build reports
+configuration hash `9d658f9d` and build time `2026-10-28 20:15:57 +0100`.
+The startup stack check passes: 2720 B against a 4096 B setup-frame budget.
+After reboot the device's mDNS announcement reports the matching configuration
+hash, confirming firmware identity and network return. Physical panel appearance
+was not inspected. The 5-inch display and deployed web app were not updated.

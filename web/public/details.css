@@ -378,4 +378,11 @@ dialog p { font-size: 14px; line-height: 1.6; color: var(--muted); }
 #page-overview .rain-chart { height:92px; }
 #page-overview .weather-sources { margin-top:6px; }
 
-.ev-plan-status { color:var(--blue); margin:12px 0 4px; font-weight:500; }
+.ev-plan-status { color:var(--muted); margin:12px 0 4px; font-weight:500; }
+
+/* Match the shared header state, including manual charging outside a plan. */
+.charger-panel { --car-status-color:var(--muted); }
+.charger-panel[data-car-color="blue"] { --car-status-color:var(--blue); }
+.charger-panel[data-car-color="green"] { --car-status-color:var(--green); }
+.charger-panel[data-car-color="orange"] { --car-status-color:var(--orange); }
+.charger-panel .ev-icon, .charger-panel .ev-plan-status { color:var(--car-status-color); }

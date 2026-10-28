@@ -188,3 +188,17 @@ The startup stack check passes: 2720 B against a 4096 B setup-frame budget.
 After reboot the device's mDNS announcement reports the matching configuration
 hash, confirming firmware identity and network return. Physical panel appearance
 was not inspected. The 5-inch display and deployed web app were not updated.
+
+
+### Charger-card consistency, 2026-10-28
+
+The web charger card now shares the header's colour decision. A connected session
+with a known window shows green, “Charging planned” timing and a waiting-for-plan
+subtitle instead of a blue “Next proposal”. Actual charging takes orange priority;
+a disconnected car keeps neutral proposal text. The card icon follows the same
+state. Dutch and English translations are provided. This web-only card correction
+needs no ESP change: the display header and chart already use the agreed colours.
+
+Verified: all 111 web tests pass; a synthetic mobile browser check confirms the
+green card icon/timing, planned-window subtitle and matching green header without
+horizontal overflow. No charging control, deployment or firmware upload was run.

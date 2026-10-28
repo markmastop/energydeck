@@ -1,7 +1,7 @@
 import { evChargingPlan, evChargingState, EvChargingActivity } from './ev-plan.js';
 import { initializeDetails } from './details.js';
 import { priceWindow, priceQuarter, priceTime } from './charts.js';
-import { dayComparison, overviewRooms } from './display.js';
+import { dayComparison, overviewRooms, carIconColor } from './display.js';
 import { createLiveUpdates } from './live.js';
 import { batteryPlanView, batteryStrategyView, batterySocView, planClock } from './battery-plan.js';
 import { batterySunshine } from './sunshine.js';
@@ -158,10 +158,12 @@ function render() {
     }
   }
   const charger = data.charger;
+  const carColor=carIconColor(data,now.getTime());
+  document.querySelector('.charger-panel').dataset.carColor=carColor;
   const chargeState = charger.connected === false ? 'disconnected' : charger.fault === true ? 'fault' :
     charger.connected !== true || charger.charging === null || charger.fault !== false ? 'unavailable' : charger.charging ? 'charging' : charger.complete ? 'chargeComplete' : 'connected';
   text('charger-status', t(chargeState));
-  text('charger-power', chargeState === 'charging' ? `${format(charger.power / 1000, 1)} kW` : t(chargeState === 'connected' ? 'chargeWaiting' : chargeState === 'chargeComplete' ? 'vehicleReady' : chargeState === 'disconnected' ? 'connectVehicle' : chargeState === 'fault' ? 'checkCharger' : 'retryShortly'));
+  text('charger-power', chargeState === 'charging' ? `${format(charger.power / 1000, 1)} kW` : t(chargeState === 'connected' ? carColor==='green' ? 'chargeWaitingPlanned' : 'chargeWaiting' : chargeState === 'chargeComplete' ? 'vehicleReady' : chargeState === 'disconnected' ? 'connectVehicle' : chargeState === 'fault' ? 'checkCharger' : 'retryShortly'));
   $('rooms').replaceChildren();
   if (!data.rooms.length) {
     const p = document.createElement('p'); p.className = 'empty'; p.textContent = t(data.status === 'offline' ? 'unavailable' : 'noRooms'); $('rooms').append(p);
@@ -179,7 +181,8 @@ function render() {
   const nextPrices=data.prices.tomorrow?.date===nextDate.toISOString().slice(0,10)?data.prices.tomorrow:null;
   const ev=evChargingState(evChargingPlan([today,nextPrices]));
   const evTime=stamp=>`${localDate(new Date(stamp*1000))!==localDate(now)?new Intl.DateTimeFormat(language==='nl'?'nl-NL':'en-GB',{timeZone:'Europe/Amsterdam',day:'2-digit',month:'2-digit'}).format(new Date(stamp*1000))+' ':''}${time(stamp*1000)}`;
-  text('ev-plan-status',ev.state==='unknown'?t('evPlanUnknown'):ev.state==='allow'?t('evPlanUntil').replace('{time}',evTime(ev.window.until)):ev.window?t('evPlanNext').replace('{from}',evTime(ev.window.from)).replace('{until}',evTime(ev.window.until)):t('evPlanWait'));
+  const scheduled=carColor==='green' || carColor==='orange';
+  text('ev-plan-status',ev.state==='unknown'?t('evPlanUnknown'):ev.state==='allow'?t(scheduled?'evScheduledUntil':'evPlanUntil').replace('{time}',evTime(ev.window.until)):ev.window?t(scheduled?'evScheduledNext':'evPlanNext').replace('{from}',evTime(ev.window.from)).replace('{until}',evTime(ev.window.until)):t('evPlanWait'));
   drawChart(today, quarter);
   details.dashboard(data);
 }

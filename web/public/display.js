@@ -1,5 +1,17 @@
 import {evChargingPlan} from './ev-plan.js';
 
+// Shared by the header and charger card so planned/actual states stay consistent.
+export function carIconColor(data, now = Date.now()) {
+  const charger=data.charger;
+  if (charger.connected!==true) return 'dim';
+  if (charger.fault===false && charger.charging===true) return 'orange';
+  const observedAt=Date.parse(data.updatedAt)/1000, epoch=now/1000;
+  const fresh=Number.isFinite(observedAt) && observedAt<=epoch && epoch-observedAt<=45;
+  const planned=charger.fault===false && charger.complete!==true && fresh &&
+    evChargingPlan([data.prices?.today,data.prices?.tomorrow]).windows.some(w=>w.until>epoch);
+  return planned ? 'green' : 'blue';
+}
+
 // Mirrors energy_state.h: thresholds and the 10-second hold belong to the display contract.
 export function createDisplayState() {
   const modes = {};
@@ -22,15 +34,11 @@ export function createDisplayState() {
       // Missing source data disappears immediately, including during a mode hold.
       if (source === 1 && !storage) source = 0;
       else if (source === 0 && !sun) source = 1;
-      const observedAt=Date.parse(data.updatedAt)/1000, epoch=now/1000;
-      const fresh=Number.isFinite(observedAt) && observedAt<=epoch && epoch-observedAt<=45;
-      const planned=charger.connected===true && charger.fault===false && charger.complete!==true && fresh &&
-        evChargingPlan([data.prices?.today,data.prices?.tomorrow]).windows.some(w=>w.until>epoch);
       return {
         gridMode, gridPending: known(grid.power) && (grid.power < -50 && gridMode === 0 || grid.power > 50 && gridMode === 1),
         gasMode, source,
         heat: climate?.demand === 'demand' ? 'orange' : climate?.demand === 'idle' ? 'green' : 'dim',
-        car: charger.connected === true ? charger.fault === false && charger.charging === true ? 'orange' : planned ? 'green' : 'blue' : 'dim',
+        car: carIconColor(data,now),
         battery: !known(battery.power) ? 'dim' : battery.power < -25 ? 'blue' : battery.power > 25 ? 'green' : 'dim',
       };
     },

@@ -309,7 +309,7 @@ battery_detail_prices_missing: "Stroomprijs | historie ontbreekt"
 ev_proposal_window: "Auto laden %02d/%02d %02d:%02d-%02d:%02d"
 ev_proposal_unknown: "Auto laden: onbekend"
 
-ev_proposal_key: "Blauw mogen | grijs wachten | groen rand plan / vol laden"
+ev_proposal_key: "Grijs los | blauw wacht | groen gepland | oranje laden"
 
 battery_overview: "Accuverloop"
 ev_proposal_today: "Auto laden %02d:%02d-%02d:%02d"

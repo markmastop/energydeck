@@ -53,6 +53,9 @@ export class EvChargingActivity {
     const fresh = Number.isFinite(charger?.observedAt) && charger.observedAt <= now && now-charger.observedAt <= 45;
     if (allowed && slot.until > now && fresh && charger.connected === true && charger.fault === false &&
         charger.complete !== true && next?.from <= slot.from && next.until >= slot.until) return 'planned';
+    // Connection colours apply only to remaining quarters, never to past advice.
+    if (slot.until > now && fresh && charger.connected === true && charger.fault === false &&
+        charger.complete !== true) return 'waiting';
     return allowed ? 'allow' : 'wait';
   }
 }

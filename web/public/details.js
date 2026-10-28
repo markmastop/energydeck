@@ -147,7 +147,7 @@ export function initializeDetails({ api, t, format, time, svgNode, onUnauthorize
     arc('header-grid-dial', powerArc(grid.power), true);
     arc('header-gas-dial', Math.max(0, Math.min(100, (liveGas ? gas.rate : gas.today) * (liveGas ? 33.3 : 10))), false);
     arc('header-source-dial', powerArc(state.source < 0 ? null : storage ? battery.power : solar.power), storage);
-    for (const [name, label] of [['heat', t(`heat${climate?.demand || 'unknown'}`)], ['car', t(charger.connected === false ? 'disconnected' : charger.connected !== true ? 'unavailable' : charger.charging ? 'charging' : 'connected')], ['battery', `${format(battery.percentage, 0)}%`]]) {
+    for (const [name, label] of [['heat', t(`heat${climate?.demand || 'unknown'}`)], ['car', t(charger.connected === false ? 'disconnected' : charger.connected !== true ? 'unavailable' : charger.charging ? 'charging' : state.car === 'green' ? 'evChargePlanned' : 'connected')], ['battery', `${format(battery.percentage, 0)}%`]]) {
       $(`status-${name}`).className = `icon-${state[name]}`;
       text(`status-${name}-text`, label);
     }

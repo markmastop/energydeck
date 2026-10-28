@@ -52,7 +52,7 @@ test('ESP status colors distinguish demand, charging, standby and unknown values
   assert.equal(view.heat, 'green'); assert.equal(view.car, 'blue'); assert.equal(view.battery, 'blue');
   data.climate.demand = 'demand'; data.charger.charging = true; data.battery.power = 500;
   view = state.update(data, 1);
-  assert.equal(view.heat, 'orange'); assert.equal(view.car, 'green'); assert.equal(view.battery, 'green');
+  assert.equal(view.heat, 'orange'); assert.equal(view.car, 'orange'); assert.equal(view.battery, 'green');
   data.climate.demand = 'unknown'; data.charger.connected = false; data.battery.power = 25;
   view = state.update(data, 2);
   assert.equal(view.heat, 'dim'); assert.equal(view.car, 'dim'); assert.equal(view.battery, 'dim');
@@ -136,4 +136,20 @@ test('overview shows all nine rooms with heat demand first without altering the 
   assert.equal(rooms.length,9);assert.equal(rooms[0].name,'0');
   assert.deepEqual(overviewRooms(rooms,{mode:'auto',demand:'off'}).map(r=>r.name),['0','1','2','3','4','5','6','7','8']);
   assert.deepEqual(overviewRooms([{name:'unknown',temperature:null,target:20},rooms[7]],{mode:'auto'}).map(r=>r.name),['7','unknown']);
+});
+
+
+test('header car is green for a fresh connected planned session; charging takes priority', () => {
+  const data=readings(),state=createDisplayState(),now=Date.parse('2026-10-28T19:00:00Z');
+  data.updatedAt=new Date(now).toISOString();
+  data.prices={today:{date:'2026-10-28',values:Array(96).fill(30)},tomorrow:{date:'2026-10-29',values:Array(96).fill(20)}};
+  assert.equal(state.update(data,now).car,'green');
+  data.charger.charging=true;assert.equal(state.update(data,now).car,'orange');
+  data.charger.charging=false;
+  for (const override of [{complete:true},{fault:true},{connected:false}]) {
+    const copy={...data,charger:{...data.charger,...override}};
+    assert.equal(state.update(copy,now).car,override.connected===false?'dim':'blue');
+  }
+  assert.equal(state.update(data,now+46000).car,'blue');
+  assert.equal(state.update({...data,prices:{}},now).car,'blue');
 });

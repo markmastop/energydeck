@@ -40,9 +40,10 @@ struct EnergyState {
   static constexpr uint32_t CLIMATE_TTL = 180000;
   static constexpr uint32_t ICON_DIM = 0x46534B, ICON_BLUE = 0x3AA7D8;
   static constexpr uint32_t ICON_GREEN = 0x48BD70, ICON_ORANGE = 0xF29A38;
-  uint32_t car_icon_color(uint32_t now) const {
+  uint32_t car_icon_color(uint32_t now, bool planned = false) const {
     if (!connected.valid(now) || connected.value <= 0) return ICON_DIM;
-    return car.valid(now) && car.value > 0 ? ICON_GREEN : ICON_BLUE;
+    if (car.valid(now) && car.value > 0) return ICON_ORANGE;
+    return planned && charger_ready.valid(now) && charger_ready.value > 0 ? ICON_GREEN : ICON_BLUE;
   }
   enum HeatStatus { HEAT_UNKNOWN = -1, HEAT_OFF = 0, HEAT_IDLE = 1, HEAT_DEMAND = 2 };
   bool room_requests_heat(int room, uint32_t now) const {

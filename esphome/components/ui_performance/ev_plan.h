@@ -52,12 +52,12 @@ struct EvChargingPlan {
     return result;
   }
 };
-// A filled quarter proves at least one charging observation, not 15 minutes of energy.
+// An orange quarter proves at least one charging observation, not 15 minutes of energy.
 // Keep session history separate from the price plan so rebuilds do not erase it.
 struct EvChargingActivity {
   std::array<int64_t,200> quarters{};
   size_t cursor{0};
-  enum State { WAIT, ALLOW, PLANNED, CHARGING };
+  enum State { WAIT, ALLOW, PLANNED, CHARGING, WAITING };
   void observe(int64_t now, bool charging) {
     if(now<=0 || !charging) return;
     const auto from=now/900*900;
@@ -66,9 +66,13 @@ struct EvChargingActivity {
   }
   State state(const EvChargingPlan &plan, int64_t from, int64_t now, bool ready) const {
     for(auto q:quarters) if(q>0 && q==from) return CHARGING;
-    if(!plan.allowed(from,from+900)) return WAIT;
+    const bool allowed=plan.allowed(from,from+900);
     const auto *next=plan.next(now);
-    return ready && from+900>now && next && next->from<=from && next->until>=from+900 ? PLANNED : ALLOW;
+    if(ready && from+900>now) {
+      if(allowed && next && next->from<=from && next->until>=from+900) return PLANNED;
+      return WAITING;
+    }
+    return allowed ? ALLOW : WAIT;
   }
 };
 }

@@ -257,11 +257,11 @@ function drawChart(today, quarter) {
   chart.append(svgNode('rect',{x:left,y:207,width,height:10,fill:'#26362d'}));
   for(const q of evPlan.slots) {
     if(q.until<=from || q.from>=until)continue;
-    const state=evActivity.state(evPlan,q,evCharger,evNow),planned=state==='planned';
-    const color=state==='charging'||planned?'#48bd70':state==='allow'?'#3aa7d8':'#617064';
+    const state=evActivity.state(evPlan,q,evCharger,evNow);
+    const color=state==='charging'?'#f29a38':state==='planned'?'#48bd70':state==='waiting'?'#3aa7d8':'#617064';
     const mark=svgNode('rect',{x:ex(q.from)+.5,y:207.5,width:Math.max(.5,ex(q.until)-ex(q.from)-1),height:9,
-      fill:planned?'none':color,stroke:color,'stroke-width':1,'data-ev-state':state});
-    mark.append(svgNode('title',{},`${priceTime(q.from*1000)} · ${t({allow:'evPlanAllow',wait:'evPlanWait',planned:'evPlanPlanned',charging:'evPlanCharging'}[state])}`));chart.append(mark);
+      fill:color,stroke:color,'stroke-width':1,'data-ev-state':state});
+    mark.append(svgNode('title',{},`${priceTime(q.from*1000)} · ${t({allow:'evPlanAllow',wait:'evPlanWait',waiting:'chargeWaiting',planned:'evPlanPlanned',charging:'evPlanCharging'}[state])}`));chart.append(mark);
   }
   const strategy = batteryStrategyView(data.battery.plan, from, until);
   chart.append(svgNode('text',{x:left,y:230},t('batteryOverview')));

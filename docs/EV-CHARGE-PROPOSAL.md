@@ -1,24 +1,27 @@
 # EV charging proposal
 
 The overview shows a price-based EV plan between the price and battery graphs on both
-web and ESP. Blue quarters are proposed charging opportunities; grey quarters wait
-for a better price. With fresh, healthy connected-car telemetry, the current or
-next remaining proposal is outlined green. Completed sessions, faults, missing
-connection data and telemetry older than 45 seconds do not produce green plans.
-Only the next window is outlined, rather than suggesting that one connected car
-needs every future six-hour window. With the Homey integration below activated, the same windows also determine automatic charger permission.
+web and ESP. Grey quarters have no current charging expectation (disconnected,
+stale, faulted or completed sessions, and unobserved past quarters). Blue quarters
+show a healthy connected car waiting; the next remaining six-hour window is filled
+green. Later windows remain blue until they become the next proposal. Fresh
+telemetry is required (45 seconds). Missing prices remain unfilled. With the Homey
+integration below activated, the same windows determine automatic charger permission.
 
-Solid green marks a quarter in which charging was actually observed, including
-manual charging outside the proposed window. It takes precedence over blue/grey.
+Orange marks a quarter in which charging was actually observed, including manual
+charging outside the proposed window. It takes precedence over every proposal.
 One observation does not prove continuous charging throughout the quarter or any
 energy amount. Observations are kept in bounded session memory independently of
 price refreshes; browser reload/sign-out or display reboot clears them. Web and
 ESP collect their own observations, so history can differ when one was offline.
 Past proposals are never retrospectively marked as planned/charged just because
-a car is connected now. Missing prices remain unfilled.
+a car is connected now.
 
-The detail-page legend and web chart titles distinguish green outlines from solid
-green. The web charger note also explains the observation lifetime.
+The header car icon uses green when a healthy connected car has a current or
+upcoming planned window, orange for actual charging (highest priority), blue for
+connected without a known plan and a dim colour for disconnected/unknown. The chart uses solid fills in every state,
+so the planned window remains visible on small displays. The detail-page legend,
+web chart titles and charger note explain these colours and observation lifetime.
 
 ## Initial policy
 
@@ -156,3 +159,21 @@ only and never triggers charging commands.
 
 Overview EV window, battery-level heading and tomorrow-price comparison use
 the same small supporting font as the chart legend (10 px on ESP and web).
+
+
+## Solid planned windows and orange charging, 2026-10-28
+
+Replaced the thin green outline with a solid green next-window fill. Actual
+charging observations are orange, including manual charging outside advice.
+Healthy connected waiting quarters are blue; disconnected or unavailable
+expectations and unobserved past quarters are grey. The header is green when
+that connected session has a current/upcoming plan, orange during actual charging
+and blue when no window is known. Completed/faulted/stale telemetry cannot create
+a green plan. This changes presentation only; automatic permission and manual
+controls are unchanged.
+
+Verification: all 111 web tests pass, C++/JavaScript EV planner parity passes on
+regular and both DST days, native energy-state/icon checks pass, and the ESP
+simulator compiles. Local synthetic browser checks confirm solid green windows,
+orange charging marks/header and green planned header. No charging Flow was run;
+no web deployment or physical-display flash was performed.

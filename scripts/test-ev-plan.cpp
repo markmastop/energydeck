@@ -20,6 +20,8 @@ int main(int argc,char **argv) {
   assert(activity.state(visual,first,first+900,false)==energydeck::EvChargingActivity::ALLOW);
   const auto outside=a.start+24*900;
   assert(!visual.allowed(outside,outside+900));
+  assert(activity.state(visual,outside,outside,true)==energydeck::EvChargingActivity::WAITING);
+  assert(activity.state(visual,first,outside,true)==energydeck::EvChargingActivity::ALLOW);
   activity.observe(outside,false);
   assert(activity.state(visual,outside,outside,false)==energydeck::EvChargingActivity::WAIT);
   activity.observe(outside+10,true);

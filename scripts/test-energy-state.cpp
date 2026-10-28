@@ -50,7 +50,14 @@ int main() {
   assert(icons.car_icon_color(0) == EnergyState::ICON_DIM);
   icons.connected.set(1, 100); icons.car.set(0, 100);
   assert(icons.car_icon_color(100) == EnergyState::ICON_BLUE);
-  icons.car.set(1, 100); assert(icons.car_icon_color(100) == EnergyState::ICON_GREEN);
+  assert(icons.car_icon_color(100, true) == EnergyState::ICON_BLUE);
+  icons.charger_ready.set(1, 100);
+  assert(icons.car_icon_color(100, true) == EnergyState::ICON_GREEN);
+  icons.charger_ready.set(0, 100);
+  assert(icons.car_icon_color(100, true) == EnergyState::ICON_BLUE);
+  icons.charger_ready.set(1, 100);
+  icons.car.set(1, 100); assert(icons.car_icon_color(100) == EnergyState::ICON_ORANGE);
+  assert(icons.car_icon_color(100, true) == EnergyState::ICON_ORANGE);
   icons.connected.set(0, 100); assert(icons.car_icon_color(100) == EnergyState::ICON_DIM);
   icons.connected.set(1, 100); assert(icons.car_icon_color(45101) == EnergyState::ICON_DIM);
   assert(icons.heating_icon_color(100) == EnergyState::ICON_DIM);

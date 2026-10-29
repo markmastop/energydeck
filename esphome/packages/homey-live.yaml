@@ -761,29 +761,26 @@ script:
                              connected ? "yes" : "no", charging ? "yes" : "no",
                              status.c_str(), power_w);
 
+                    // Report measured power separately from the price advice, including an idle 0 W.
+                    esphome::ui_performance::set_text_fmt(id(ev_detail_label), "${car_power_format}", power_w);
                     if (!connected) {
                       esphome::ui_performance::set_text(id(ev_status_label), "${car_disconnected}");
-                      esphome::ui_performance::set_text(id(ev_detail_label), "${car_connect_vehicle}");
                       set_button(false, "${charge_unavailable}", 0x46505D);
                     } else if (fault) {
                       esphome::ui_performance::set_text(id(ev_status_label), "${car_charger_error}");
-                      esphome::ui_performance::set_text(id(ev_detail_label), "${car_check_homey}");
                       set_button(false, "${charge_unavailable}", 0x7A4545);
                     } else if (charging || power_w > 50.0f) {
                       esphome::ui_performance::set_text(id(ev_status_label), "${car_charging}");
-                      esphome::ui_performance::set_text_fmt(id(ev_detail_label), "${car_charging_format}", power_w / 1000.0f);
                       // The user's Homey Flow is a toggle. Keep the button
                       // available while charging so a second press invokes
                       // the same Flow and returns the charger to normal mode.
                       set_button(true, "${resume_normal}", 0xB94343);
                     } else if (complete) {
                       esphome::ui_performance::set_text(id(ev_status_label), "${car_complete}");
-                      esphome::ui_performance::set_text(id(ev_detail_label), "${car_complete_detail}");
                       // Keep the available start action blue even after a completed session.
                       set_button(true, "${charge_complete}", 0x346DDB);
                     } else {
                       esphome::ui_performance::set_text(id(ev_status_label), "${car_ready}");
-                      esphome::ui_performance::set_text(id(ev_detail_label), "${car_waiting}");
                       set_button(true, "${force_charge}", 0x346DDB);
                     }
                     return true;

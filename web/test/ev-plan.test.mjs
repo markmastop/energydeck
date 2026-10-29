@@ -61,25 +61,30 @@ test('connected cars fill only the next remaining window green; missing, faulted
  const activity=new EvChargingActivity(),first=plan.slots[0],later=plan.slots[32];
  const car={connected:true,fault:false,charging:false,complete:false,observedAt:now};
  assert.equal(activity.state(plan,first,car,now),'planned');
- assert.equal(activity.state(plan,later,car,now),'waiting');
- for(const override of [{connected:false},{connected:null},{fault:true},{fault:null},{complete:true},{observedAt:now-46},{observedAt:now+1}])
+ assert.equal(activity.state(plan,later,car,now),'allow');
+ for(const override of [{connected:false},{connected:null},{fault:true},{fault:null},{charging:null},{complete:true},{observedAt:now-46},{observedAt:now+1}])
    assert.equal(activity.state(plan,first,{...car,...override},now),'allow');
+ // The price window survives every session state, while outside slots stay grey.
+ for(const override of [{},{connected:false},{fault:true},{complete:true},{observedAt:now-46}]) {
+   assert.equal(activity.state(plan,later,{...car,...override},now),'allow');
+   assert.equal(activity.state(plan,plan.slots[24],{...car,...override},now),'wait');
+ }
  assert.equal(activity.state(plan,first,car,first.until),'allow');
- assert.equal(activity.state(plan,plan.slots[24],car,now),'waiting');
+ assert.equal(activity.state(plan,plan.slots[24],car,now),'wait');
 });
 
 test('observed charging overrides price advice without inventing history or future charging',()=>{
  const plan=evChargingPlan([day('2026-10-26')]),slot=plan.slots[24],now=slot.from+20;
  const activity=new EvChargingActivity(),car={connected:true,fault:false,charging:true,observedAt:now};
- assert.equal(activity.state(plan,slot,car,now),'waiting');
+ assert.equal(activity.state(plan,slot,car,now),'wait');
  for(const override of [{connected:false},{fault:true},{charging:null}]) activity.observe({...car,...override},now,now);
  activity.observe(car,now-46,now);activity.observe(car,now+1,now);
- assert.equal(activity.state(plan,slot,car,now),'waiting');
+ assert.equal(activity.state(plan,slot,car,now),'wait');
  activity.observe(car,now,now);
  assert.equal(activity.state(plan,slot,car,now),'charging');
  assert.equal(activity.state(plan,slot,{connected:false},now+900),'charging');
- assert.equal(activity.state(plan,plan.slots[25],car,now),'waiting');
- assert.equal(new EvChargingActivity().state(plan,slot,car,now),'waiting');
+ assert.equal(activity.state(plan,plan.slots[25],car,now),'wait');
+ assert.equal(new EvChargingActivity().state(plan,slot,car,now),'wait');
  activity.observe(null,now+201*900,now+201*900);
  assert.equal(activity.quarters.size,0);
 });

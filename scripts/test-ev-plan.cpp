@@ -20,8 +20,13 @@ int main(int argc,char **argv) {
   assert(activity.state(visual,first,first+900,false)==energydeck::EvChargingActivity::ALLOW);
   const auto outside=a.start+24*900;
   assert(!visual.allowed(outside,outside+900));
-  assert(activity.state(visual,outside,outside,true)==energydeck::EvChargingActivity::WAITING);
+  assert(activity.state(visual,outside,outside,true)==energydeck::EvChargingActivity::WAIT);
   assert(activity.state(visual,first,outside,true)==energydeck::EvChargingActivity::ALLOW);
+  // Completed/unavailable sessions retain blue advice, and later windows do too.
+  visual.window_count=2; visual.windows[1]={a.start+12*3600,a.start+18*3600,0,0};
+  assert(activity.state(visual,visual.windows[1].from,first,true)==energydeck::EvChargingActivity::ALLOW);
+  assert(activity.state(visual,visual.windows[1].from,first,false)==energydeck::EvChargingActivity::ALLOW);
+  assert(activity.state(visual,visual.windows[1].from,outside,true)==energydeck::EvChargingActivity::PLANNED);
   activity.observe(outside,false);
   assert(activity.state(visual,outside,outside,false)==energydeck::EvChargingActivity::WAIT);
   activity.observe(outside+10,true);

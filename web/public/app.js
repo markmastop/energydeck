@@ -162,8 +162,8 @@ function render() {
   document.querySelector('.charger-panel').dataset.carColor=carColor;
   const chargeState = charger.connected === false ? 'disconnected' : charger.fault === true ? 'fault' :
     charger.connected !== true || charger.charging === null || charger.fault !== false ? 'unavailable' : charger.charging ? 'charging' : charger.complete ? 'chargeComplete' : 'connected';
-  text('charger-status', t(chargeState));
-  text('charger-power', chargeState === 'charging' ? `${format(charger.power / 1000, 1)} kW` : t(chargeState === 'connected' ? carColor==='green' ? 'chargeWaitingPlanned' : 'chargeWaiting' : chargeState === 'chargeComplete' ? 'vehicleReady' : chargeState === 'disconnected' ? 'connectVehicle' : chargeState === 'fault' ? 'checkCharger' : 'retryShortly'));
+  text('charger-status', t({connected:'evConnectedStatus',charging:'evChargingStatus',fault:'evFaultStatus'}[chargeState] || chargeState));
+  text('charger-power', `${t('chargerPower')}: ${format(charger.power, 0)} W`);
   $('rooms').replaceChildren();
   if (!data.rooms.length) {
     const p = document.createElement('p'); p.className = 'empty'; p.textContent = t(data.status === 'offline' ? 'unavailable' : 'noRooms'); $('rooms').append(p);
@@ -179,10 +179,11 @@ function render() {
   text('updated', data.updatedAt ? `${t('updated')} ${time(data.updatedAt)} · EnergyDeck` : 'EnergyDeck');
   const nextDate=new Date(`${localDate(now)}T12:00:00Z`);nextDate.setUTCDate(nextDate.getUTCDate()+1);
   const nextPrices=data.prices.tomorrow?.date===nextDate.toISOString().slice(0,10)?data.prices.tomorrow:null;
-  const ev=evChargingState(evChargingPlan([today,nextPrices]));
-  const evTime=stamp=>`${localDate(new Date(stamp*1000))!==localDate(now)?new Intl.DateTimeFormat(language==='nl'?'nl-NL':'en-GB',{timeZone:'Europe/Amsterdam',day:'2-digit',month:'2-digit'}).format(new Date(stamp*1000))+' ':''}${time(stamp*1000)}`;
-  const scheduled=carColor==='green' || carColor==='orange';
-  text('ev-plan-status',ev.state==='unknown'?t('evPlanUnknown'):ev.state==='allow'?t(scheduled?'evScheduledUntil':'evPlanUntil').replace('{time}',evTime(ev.window.until)):ev.window?t(scheduled?'evScheduledNext':'evPlanNext').replace('{from}',evTime(ev.window.from)).replace('{until}',evTime(ev.window.until)):t('evPlanWait'));
+  const ev=evChargingState(evChargingPlan([today,nextPrices]),now.getTime()/1000);
+  const evDay=stamp=>localDate(new Date(stamp*1000))===localDate(now)?t('today'):new Intl.DateTimeFormat(language==='nl'?'nl-NL':'en-GB',{timeZone:'Europe/Amsterdam',day:'2-digit',month:'2-digit'}).format(new Date(stamp*1000));
+  // Timing is price advice, independent of the charger's current session status.
+  const timing=ev.window?`${evDay(ev.window.from)} ${time(ev.window.from*1000)}–${localDate(new Date(ev.window.from*1000))===localDate(new Date(ev.window.until*1000))?'':evDay(ev.window.until)+' '}${time(ev.window.until*1000)}`:null;
+  text('ev-plan-status',ev.state==='unknown'?t('evPlanUnknown'):timing || t('evPlanWait'));
   drawChart(today, quarter);
   details.dashboard(data);
 }
@@ -261,10 +262,10 @@ function drawChart(today, quarter) {
   for(const q of evPlan.slots) {
     if(q.until<=from || q.from>=until)continue;
     const state=evActivity.state(evPlan,q,evCharger,evNow);
-    const color=state==='charging'?'#f29a38':state==='planned'?'#48bd70':state==='waiting'?'#3aa7d8':'#617064';
+    const color=state==='charging'?'#f29a38':state==='planned'?'#48bd70':state==='allow'?'#3aa7d8':'#617064';
     const mark=svgNode('rect',{x:ex(q.from)+.5,y:207.5,width:Math.max(.5,ex(q.until)-ex(q.from)-1),height:9,
       fill:color,stroke:color,'stroke-width':1,'data-ev-state':state});
-    mark.append(svgNode('title',{},`${priceTime(q.from*1000)} · ${t({allow:'evPlanAllow',wait:'evPlanWait',waiting:'chargeWaiting',planned:'evPlanPlanned',charging:'evPlanCharging'}[state])}`));chart.append(mark);
+    mark.append(svgNode('title',{},`${priceTime(q.from*1000)} · ${t({allow:'evPlanAllow',wait:'evPlanOutside',planned:'evPlanPlanned',charging:'evPlanCharging'}[state])}`));chart.append(mark);
   }
   const strategy = batteryStrategyView(data.battery.plan, from, until);
   chart.append(svgNode('text',{x:left,y:230},t('batteryOverview')));

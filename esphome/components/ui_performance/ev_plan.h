@@ -57,7 +57,7 @@ struct EvChargingPlan {
 struct EvChargingActivity {
   std::array<int64_t,200> quarters{};
   size_t cursor{0};
-  enum State { WAIT, ALLOW, PLANNED, CHARGING, WAITING };
+  enum State { WAIT, ALLOW, PLANNED, CHARGING };
   void observe(int64_t now, bool charging) {
     if(now<=0 || !charging) return;
     const auto from=now/900*900;
@@ -68,10 +68,8 @@ struct EvChargingActivity {
     for(auto q:quarters) if(q>0 && q==from) return CHARGING;
     const bool allowed=plan.allowed(from,from+900);
     const auto *next=plan.next(now);
-    if(ready && from+900>now) {
-      if(allowed && next && next->from<=from && next->until>=from+900) return PLANNED;
-      return WAITING;
-    }
+    if(ready && from+900>now && allowed && next && next->from<=from && next->until>=from+900) return PLANNED;
+    // Price advice stays visible after completion/disconnection; readiness only adds green.
     return allowed ? ALLOW : WAIT;
   }
 };

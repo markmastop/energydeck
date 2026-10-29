@@ -146,7 +146,7 @@ test('header car is green for a fresh connected planned session; charging takes 
   assert.equal(state.update(data,now).car,'green');
   data.charger.charging=true;assert.equal(state.update(data,now).car,'orange');
   data.charger.charging=false;
-  for (const override of [{complete:true},{fault:true},{connected:false}]) {
+  for (const override of [{complete:true},{fault:true},{charging:null},{connected:false}]) {
     const copy={...data,charger:{...data.charger,...override}};
     assert.equal(state.update(copy,now).car,override.connected===false?'dim':'blue');
   }

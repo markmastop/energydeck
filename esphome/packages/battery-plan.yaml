@@ -179,7 +179,7 @@ script:
               const auto state=id(ev_charging_activity).state(ev,q.from,time.timestamp,ev_ready);
               const uint32_t color=state==energydeck::EvChargingActivity::CHARGING ? 0xF29A38 :
                                    state==energydeck::EvChargingActivity::PLANNED ? 0x48BD70 :
-                                   state==energydeck::EvChargingActivity::WAITING ? 0x3AA7D8 : 0x617064;
+                                   state==energydeck::EvChargingActivity::ALLOW ? 0x3AA7D8 : 0x617064;
               lv_obj_set_style_bg_color(o,lv_color_hex(color),0);
               lv_obj_set_style_bg_opa(o,LV_OPA_COVER,0);
               lv_obj_set_style_border_width(o,0,0);lv_obj_clear_flag(o,LV_OBJ_FLAG_HIDDEN);

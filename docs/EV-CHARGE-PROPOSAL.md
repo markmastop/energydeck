@@ -1,12 +1,13 @@
 # EV charging proposal
 
-The overview shows a price-based EV plan between the price and battery graphs on both
-web and ESP. Grey quarters have no current charging expectation (disconnected,
-stale, faulted or completed sessions, and unobserved past quarters). Blue quarters
-show a healthy connected car waiting; the next remaining six-hour window is filled
-green. Later windows remain blue until they become the next proposal. Fresh
-telemetry is required (45 seconds). Missing prices remain unfilled. With the Homey
-integration below activated, the same windows determine automatic charger permission.
+The overview shows low-cost EV windows between the price and battery graphs on
+web and both ESP displays. Blue quarters show every known low-cost window,
+including past windows and disconnected, stale, faulted or completed sessions.
+Grey quarters lie outside those windows. The next remaining six-hour window is
+filled green only for a healthy connected car that can still charge, with fresh
+telemetry (45 seconds). Later windows remain blue until they become the next
+proposal. Missing prices remain unfilled. With the Homey integration below
+activated, the same windows determine automatic charger permission.
 
 Orange marks a quarter in which charging was actually observed, including manual
 charging outside the proposed window. It takes precedence over every proposal.
@@ -17,11 +18,14 @@ ESP collect their own observations, so history can differ when one was offline.
 Past proposals are never retrospectively marked as planned/charged just because
 a car is connected now.
 
-The header car icon uses green when a healthy connected car has a current or
-upcoming planned window, orange for actual charging (highest priority), blue for
-connected without a known plan and a dim colour for disconnected/unknown. The chart uses solid fills in every state,
-so the planned window remains visible on small displays. The detail-page legend,
-web chart titles and charger note explain these colours and observation lifetime.
+The header car icon uses green when a healthy connected car that can still charge
+has a current or upcoming planned window, orange for actual charging (highest
+priority), blue for connected without a current charging expectation and a dim
+colour for disconnected/unknown. Current charger status and measured power are
+shown separately from the neutral low-cost window label. The chart uses solid
+fills in every state, so price advice remains visible on small displays. The
+detail-page legend, web chart titles and charger note explain these colours and
+observation lifetime.
 
 ## Initial policy
 
@@ -202,3 +206,39 @@ needs no ESP change: the display header and chart already use the agreed colours
 Verified: all 111 web tests pass; a synthetic mobile browser check confirms the
 green card icon/timing, planned-window subtitle and matching green header without
 horizontal overflow. No charging control, deployment or firmware upload was run.
+
+## Separate charger status and price advice, 2026-10-29
+
+The charger presentation now separates its reported connection/charging status
+and measured power from the low-cost window. Power remains explicit when it is
+0 W. The web card has a neutral “Low-cost charging window” block; both compact
+ESP layouts keep the same price advice above the graph, apart from the status
+card. The manual start action is explicitly labelled as force charging. The
+existing charging controls and Homey permission policy retain their behaviour.
+
+The shared chart colours now have one meaning on all three clients:
+
+- Grey: a published quarter outside the selected low-cost windows.
+- Blue: a known low-cost window, including past windows and completed,
+  disconnected, faulted or stale sessions.
+- Green: the next remaining window for a healthy connected car that can still
+  charge, using telemetry no older than 45 seconds.
+- Orange: a quarter with an actual charging observation, taking priority over
+  every other colour, including manual charging outside the low-cost windows.
+
+The label describes a low-cost window instead of promising that the vehicle will
+charge. A charger-reported completed session retains its blue price window; it
+does not imply a measured vehicle state of charge. Missing prices remain
+unfilled, and charging observations keep their existing bounded session lifetime.
+
+Verified locally: all 111 web tests pass, including completed/disconnected/stale
+sessions and missing charging telemetry. Web/C++ planner and colour-state checks
+pass on normal and both DST transition days; the Homey publisher still matches
+the unchanged client permission policy. The simulator, 5-inch and 7-inch targets
+compile; both physical targets use a 2720 B setup frame against a 4096 B budget.
+Synthetic browser checks confirm blue completed/disconnected windows, a green
+next ready window, orange charging observations and neutral card timing. Dutch
+and English mobile checks show no horizontal overflow at the browser's measured
+355 CSS-pixel viewport. Production-LVGL preview/text measurements confirm the
+compact card, button, chart label and legend fit in both languages. No charging
+Flow, web deployment, Git push or physical firmware upload was performed.

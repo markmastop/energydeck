@@ -1546,7 +1546,7 @@ lvgl:
                   width: 384
                   text: "${ev_proposal_unknown}"
                   text_font: montserrat_10
-                  text_color: 0x3AA7D8
+                  text_color: 0xA9B8AE
               - obj:
                   id: price_ev_proposal_plot
                   x: 46

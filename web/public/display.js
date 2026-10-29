@@ -7,7 +7,7 @@ export function carIconColor(data, now = Date.now()) {
   if (charger.fault===false && charger.charging===true) return 'orange';
   const observedAt=Date.parse(data.updatedAt)/1000, epoch=now/1000;
   const fresh=Number.isFinite(observedAt) && observedAt<=epoch && epoch-observedAt<=45;
-  const planned=charger.fault===false && charger.complete!==true && fresh &&
+  const planned=charger.fault===false && typeof charger.charging==='boolean' && charger.complete!==true && fresh &&
     evChargingPlan([data.prices?.today,data.prices?.tomorrow]).windows.some(w=>w.until>epoch);
   return planned ? 'green' : 'blue';
 }

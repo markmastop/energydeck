@@ -242,3 +242,30 @@ and English mobile checks show no horizontal overflow at the browser's measured
 355 CSS-pixel viewport. Production-LVGL preview/text measurements confirm the
 compact card, button, chart label and legend fit in both languages. No charging
 Flow, web deployment, Git push or physical firmware upload was performed.
+
+### Both-display OTA rollout, 2026-10-29
+
+The user-authorized OTA rollout installed the firmware implementing `6b23db0`
+on both physical displays at approximately 08:16–08:17 Amsterdam time. The
+existing verified target images were uploaded without rebuilding or changing
+their configuration:
+
+| Display | Build time (Amsterdam) | Configuration hash | OTA image size |
+| --- | --- | --- | --- |
+| 5-inch (`energydeck.local`) | 2026-10-29 08:11:04 | `c1c8dfe6` | 2,098,736 B |
+| 7-inch (`energydeck-7.local`) | 2026-10-29 08:11:32 | `36feaf29` | 2,098,752 B |
+
+Both startup stack checks passed again: 2720 B against a 4096 B budget. ESPHome
+reported `OTA successful` and `Successfully uploaded program` for both targets.
+Fresh mDNS responses then reported the expected configuration hashes, and both
+OTA endpoints were reachable after reboot. Without the native API enabled,
+ESPHome advertises these identity TXT records on its `_http._tcp.local.` fallback
+service; the service name does not imply an active HTTP UI.
+
+An independent fresh mDNS/TCP check at 08:18:22 Amsterdam confirmed both expected
+hashes and reachable OTA endpoints more than 60 seconds after the final upload,
+beyond the initial boot-success window.
+
+This verifies transfer, firmware identity and network recovery. Physical panel
+appearance was not inspected. No charging Flow, web deployment or Git push was
+performed during this display rollout.

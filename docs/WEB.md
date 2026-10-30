@@ -295,3 +295,10 @@ Both physical displays received the matching firmware; see the
 [verified rollout](SMART_HEADER.md#battery-color-rollout-to-both-displays-and-web-2026-10-30).
 Synthetic web previews verified the orange charging and green discharging
 icon/status text; authenticated production rendering was not inspected.
+
+The later graph/legend follow-up `ad21968` prepares shell v52 with the same
+orange/green palette for planned areas, power bars, legend labels and action
+text. All 111 web tests and synthetic overview/detail browser checks passed.
+The user handles web publication and deployment; this follow-up is prepared
+locally and was not deployed by the agent. See `AGENTS.md` for this working
+agreement and the display rollout notes for the matching installed firmware.

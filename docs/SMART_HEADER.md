@@ -282,3 +282,29 @@ returned HTTP 401. Authenticated production rendering was not inspected.
 Earlier implementation checks passed all 111 web tests, the display simulator
 build, native energy-state checks and synthetic web/production-LVGL color
 previews. This rollout issued no charging, battery-control or thermostat command.
+
+### Plan graph and legend follow-up (2026-10-30)
+
+The first color rollout covered the live icon and status text. The follow-up
+`ad21968` also updates the overview strategy areas, detail power bars, action
+legend, current/next action text and measured/selected detail action text.
+Charging is orange and discharging is green throughout. Gray hold, yellow
+sunshine and the green SOC line retain separate meanings.
+
+| Display | Build time (Amsterdam) | Configuration hash | OTA image size |
+| --- | --- | --- | --- |
+| 5-inch (`energydeck.local`) | 2026-10-30 11:32:30 | `499752b7` | 2,098,912 B |
+| 7-inch (`energydeck-7.local`) | 2026-10-30 11:31:27 | `3c4e60fa` | 2,098,928 B |
+
+The final simulator and both target builds passed, along with both 2,720 B
+setup-stack checks. Both OTA uploads succeeded; fresh mDNS records matched
+these hashes and both OTA ports remained reachable at 11:35:12 Amsterdam time,
+85 seconds after the final upload. Production-LVGL
+previews checked both actual chart classes and the Dutch/English legend using
+the native font. Physical pixels and touch were not inspected.
+
+All 111 web tests and native plan/detail/energy-state checks passed. Synthetic
+browser checks verified both charts, legends and action text. Web shell v52 is
+prepared in the repository; the user explicitly manages web publication and
+deployment, as recorded in `AGENTS.md`. This follow-up did not publish or deploy
+the web app and issued no device-control commands beyond the authorized OTA.

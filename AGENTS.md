@@ -7,6 +7,11 @@
 - For hardware-only changes with no web equivalent, check the web impact and explain briefly why no web change is needed.
 - Verify both affected implementations with appropriate checks: build the display simulator for ESP UI changes and run the relevant web checks for web changes. Update shared setup and feature documentation as needed.
 
+## Leave web deployment to the user
+
+- The user publishes and deploys the web app themselves. Keep the web source in sync with display changes and verify it, then report that it is ready for the user's deployment.
+- Do not deploy or redeploy the production web app, trigger Coolify, or push commits to initiate its automatic deployment. Updating web source does not authorize publishing it.
+
 ## Finish each change with a commit
 
 - After every user task that changes this repository, complete appropriate checks and create a local Git commit without requesting another confirmation. Follow an explicit user instruction to postpone or skip a commit.

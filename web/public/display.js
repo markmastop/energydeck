@@ -39,7 +39,8 @@ export function createDisplayState() {
         gasMode, source,
         heat: climate?.demand === 'demand' ? 'orange' : climate?.demand === 'idle' ? 'green' : 'dim',
         car: carIconColor(data,now),
-        battery: !known(battery.power) ? 'dim' : battery.power < -25 ? 'blue' : battery.power > 25 ? 'green' : 'dim',
+        // Actual charging shares the car's orange; negative Sessy power means charging.
+        battery: !known(battery.power) ? 'dim' : battery.power < -25 ? 'orange' : battery.power > 25 ? 'green' : 'dim',
       };
     },
   };

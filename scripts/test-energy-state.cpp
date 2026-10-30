@@ -84,7 +84,7 @@ int main() {
   icons.room_target[8].set(20.001f, 100);
   assert(!icons.room_requests_heat(8, 100)); // Float noise is below Homey's 0.1 °C precision.
   icons.battery_power.set(-500, 100); icons.battery.set(45, 100);
-  assert(icons.battery_icon_color(100) == EnergyState::ICON_BLUE && icons.battery_fill_percent(100) == 45);
+  assert(icons.battery_icon_color(100) == EnergyState::ICON_ORANGE && icons.battery_fill_percent(100) == 45);
   icons.battery_power.set(500, 100); assert(icons.battery_icon_color(100) == EnergyState::ICON_GREEN);
   icons.battery_power.set(25, 100); assert(icons.battery_icon_color(100) == EnergyState::ICON_DIM);
   icons.battery.set(0, 100); assert(icons.battery_fill_percent(100) == 0);

@@ -49,7 +49,7 @@ test('ESP gas and solar/battery selection keep labels stable and drop missing so
 test('ESP status colors distinguish demand, charging, standby and unknown values', () => {
   const state = createDisplayState(), data = readings();
   let view = state.update(data, 0);
-  assert.equal(view.heat, 'green'); assert.equal(view.car, 'blue'); assert.equal(view.battery, 'blue');
+  assert.equal(view.heat, 'green'); assert.equal(view.car, 'blue'); assert.equal(view.battery, 'orange');
   data.climate.demand = 'demand'; data.charger.charging = true; data.battery.power = 500;
   view = state.update(data, 1);
   assert.equal(view.heat, 'orange'); assert.equal(view.car, 'orange'); assert.equal(view.battery, 'green');

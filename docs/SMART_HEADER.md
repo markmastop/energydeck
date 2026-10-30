@@ -38,16 +38,18 @@ direction for grid/battery, 5 kW PV, 3 m3/hour active gas and 10 m3 daily gas; t
 The three permanently positioned icons between price and gauges have no text.
 Their roughly 20 px drawings use a compact 24 px vertical pitch beside the gauges:
 
-- Car: gray when disconnected/unknown, blue when connected, green when charging.
-  A disconnected or faulted charger never produces a green charging icon.
+- Car: gray when disconnected/unknown, blue when connected without a known plan,
+  green when ready for the next planned window, orange while actually charging.
 - Heating: gray when off/unknown, green when the programme is enabled without
   room demand, orange when an Evohome zone requests heat. Orange is inferred
   demand, not confirmed burner activity; see `CLIMATE.md`.
-- Battery: blue while charging, green while discharging, gray in standby or when
+- Battery: orange while charging, green while discharging, gray in standby or when
   power is unavailable. The outline contains a proportional horizontal SOC fill
   from 0 to 100%, in the same color, without a number or direction glyph. A fresh
   SOC remains visible in gray during standby; missing/stale SOC leaves it empty.
 
+Battery charging/discharging colors follow measured power beyond the ±25 W
+standby band. Orange consistently means observed charging for both car and battery.
 Icon colors and battery fill update only when their displayed state changes.
 
 Heating programme and room demand are derived only from the EvoTouch controller

@@ -72,8 +72,8 @@ struct EnergyState {
   }
   uint32_t battery_icon_color(uint32_t now) const {
     if (!battery_power.valid(now)) return ICON_DIM;
-    // Sessy reports charging as negative, discharging as positive battery power.
-    return battery_power.value < -25 ? ICON_BLUE : battery_power.value > 25 ? ICON_GREEN : ICON_DIM;
+    // Sessy uses negative power for charging; orange matches actual EV charging.
+    return battery_power.value < -25 ? ICON_ORANGE : battery_power.value > 25 ? ICON_GREEN : ICON_DIM;
   }
   int battery_fill_percent(uint32_t now) const {
     if (!battery.valid(now)) return 0;

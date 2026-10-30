@@ -481,6 +481,9 @@ h2 {
 .battery-heading>span {
   font-size:11px;
 }
+#battery-status[data-state="charging"] { color:var(--orange); }
+#battery-status[data-state="discharging"] { color:var(--green); }
+#battery-status[data-state="standby"] { color:var(--muted); }
 .battery-energy,.battery-plan-heading {
   display:flex;
   justify-content:space-between;

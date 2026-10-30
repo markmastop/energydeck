@@ -50,6 +50,8 @@ Their roughly 20 px drawings use a compact 24 px vertical pitch beside the gauge
 
 Battery charging/discharging colors follow measured power beyond the ±25 W
 standby band. Orange consistently means observed charging for both car and battery.
+The battery card's live status text follows the same orange/green colors;
+standby text is muted and unavailable readings retain their warning state.
 Icon colors and battery fill update only when their displayed state changes.
 
 Heating programme and room demand are derived only from the EvoTouch controller

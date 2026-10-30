@@ -637,11 +637,11 @@ script:
                     esphome::ui_performance::set_bar_value(id(battery_level_bar), percentage, LV_ANIM_OFF);
                     esphome::ui_performance::set_text_fmt(id(battery_percentage_label), "%d%%", percentage);
 
-                    // Sessy reports charging as negative battery power and
-                    // discharging as positive battery power.
+                    // Match the live icon: orange charging, green discharging.
+                    // Sessy reports charging as negative battery power.
                     if (power < -25.0f) {
                       esphome::ui_performance::set_text_fmt(id(battery_status_label), "${battery_charging_format}", watts);
-                      esphome::ui_performance::set_style_text_color(id(battery_status_label), lv_color_hex(0x3AA7D8), LV_PART_MAIN);
+                      esphome::ui_performance::set_style_text_color(id(battery_status_label), lv_color_hex(energydeck::EnergyState::ICON_ORANGE), LV_PART_MAIN);
                     } else if (power > 25.0f) {
                       esphome::ui_performance::set_text_fmt(id(battery_status_label), "${battery_discharging_format}", watts);
                       esphome::ui_performance::set_style_text_color(id(battery_status_label), lv_color_hex(0x48BD70), LV_PART_MAIN);

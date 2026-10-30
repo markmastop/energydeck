@@ -143,7 +143,9 @@ function render() {
   text('battery-level', data.battery.percentage === null ? '—' : `${format(data.battery.percentage, 0)}%`);
   $('battery-progress').value = data.battery.percentage ?? 0;
   text('battery-power', data.battery.power === null ? '—' : `${format(Math.abs(data.battery.power), 0)} W`);
-  text('battery-status', t(data.battery.power === null ? 'unavailable' : data.battery.power < -25 ? 'charging' : data.battery.power > 25 ? 'discharging' : 'standby'));
+  const batteryStatus = data.battery.power === null ? 'unavailable' : data.battery.power < -25 ? 'charging' : data.battery.power > 25 ? 'discharging' : 'standby';
+  text('battery-status', t(batteryStatus));
+  $('battery-status').dataset.state = batteryStatus;
   const view = batteryPlanView(data.battery.plan, now), plan = view.plan;
   text('battery-energy', plan && data.battery.percentage !== null ? `${format(plan.capacityKwh * data.battery.percentage / 100)} / ${format(plan.capacityKwh)} kWh` : '—');
   if (plan?.version === 2) renderForwardBattery(view, t, now);

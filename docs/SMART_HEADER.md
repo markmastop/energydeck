@@ -52,6 +52,9 @@ Battery charging/discharging colors follow measured power beyond the ±25 W
 standby band. Orange consistently means observed charging for both car and battery.
 The battery card's live status text follows the same orange/green colors;
 standby text is muted and unavailable readings retain their warning state.
+Battery plan action labels, overview bands and detail power bars use orange for
+charging and green for discharging as well. The green SOC line retains its
+separate percentage scale; gray means hold and yellow indicates sunshine.
 Icon colors and battery fill update only when their displayed state changes.
 
 Heating programme and room demand are derived only from the EvoTouch controller

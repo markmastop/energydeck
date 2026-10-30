@@ -115,8 +115,8 @@ Keep the large **measured** battery percentage, measured power and estimated sto
 kWh. Replace the fixed 09:00–17:00 strip with a forward timeline that crosses
 midnight and clearly labels the date change. A white marker means now.
 
-Use blue for planned grid charging, orange for household discharge, green only
-for actual/calibrated solar charging and a muted track for holding energy. Keep
+Use orange for charging, green for household discharge and a muted track for
+holding energy, consistently across icons, status text, plan labels and graphs. Keep
 sunshine forecasts as yellow marks, separate from promised battery energy.
 Indicate EV protection with a separate labelled lane/marker, never with an
 ambiguous battery phase color. Unknown future intervals stay unfilled.
@@ -237,7 +237,7 @@ fresh, so manual control cannot leave a shadow plan looking current. Existing
 
 The forward card retains measured SoC, stored energy and power. Its next-transition
 label and UTC timeline span the published horizon; subsequent dates are printed
-explicitly. Blue is charging, orange household discharge and grey holding. Yellow
+explicitly. Orange is charging, green household discharge and grey holding. Yellow
 sunshine marks are separate, with unknown coverage left empty. Tapping the battery card opens a dedicated detail page on display and web.
 The price and signed battery-power plots use exactly the same UTC axis; selection
 shows price, action, watts and expected SoC. The EV controls remain intact.
@@ -361,8 +361,8 @@ Opening the page does not select another home card, start charging or trigger a 
 Detail pages remain protected from automatic card changes and the idle return policy.
 
 The upper plot shows quarter prices in ct/kWh. The lower plot shows proposed
-battery power on the same UTC axis, fixed at -2.5 to +2.5 kW: blue negative bars
-charge, orange positive bars discharge and grey zero bars hold. Yellow marks show
+battery power on the same UTC axis, fixed at -2.5 to +2.5 kW: orange negative bars
+charge, green positive bars discharge and grey zero bars hold. Yellow marks show
 sunshine independently of battery power. A white selection cursor appears in both
 plots; a slider or plot tap selects an interval and displays its price, action,
 power and expected ending SoC. Partial quarters and following-day date labels use
@@ -406,7 +406,7 @@ target builds cover the change; local LVGL and responsive web previews use test 
 The display and web overview place a compact strategy chart directly below the
 price bars. Both plots use exactly the same UTC viewport: the selected calendar
 day (including 23/25-hour DST days) or the rolling noon-to-noon price window.
-Blue segments mean charging, orange means discharging, and grey means holding.
+Orange segments mean charging, green means discharging, and grey means holding.
 The green line uses a separate 0–100% scale for predicted state of charge;
 yellow marks retain the separate sunshine forecast. A white marker shows now.
 Only overlapping proposal intervals are rendered. Partial boundary quarters
@@ -438,7 +438,7 @@ a physical visual/touch check. No charging Flow was triggered for this rollout.
 The strategy strip on the display now has 32 px for the predicted SoC line
 (previously 20 px), while the web uses 60 px (previously 35 px). Both retain a
 fixed 0–100% scale so small changes are not exaggerated. Five larger time labels
-avoid overlap. A compact blue/orange/grey/yellow legend identifies charge,
+avoid overlap. A compact orange/green/grey/yellow legend identifies charge,
 discharge, hold and sunshine.
 
 The overview battery card no longer repeats the forecast timeline. It keeps live
@@ -548,7 +548,7 @@ The web follows the same rule and retains same-day history across fetch failures
 Yesterday's data is hidden after local midnight. Old samples are never joined
 to now across a gap longer than fifteen minutes.
 
-The overview uses one full-height graph for both concepts: faint blue/orange/grey
+The overview uses one full-height graph for both concepts: faint orange/green/grey
 background bands indicate proposed charge/discharge/hold, while the solid measured
 and dashed forecast SoC lines share its full 0–100% height. Sunshine stays yellow.
 A startup regression test checks the production boot list and both time-sync
@@ -786,3 +786,16 @@ indicator shows feedback adjustments. `execution.chargeWindow` additionally
 publishes the target percentage, UTC deadline, remaining Wh, unconstrained
 request (capped at 1 kW) and deadline-risk flag for diagnostics. The existing
 20% terminal planning target and 2% operating floor are preserved.
+
+### Consistent battery action colors (30 October 2026)
+
+Overview strategy areas, detail power bars, action legends and current/next
+action text now share the live icon palette: orange charging, green discharging,
+gray holding and yellow sunshine. The measured/forecast SoC line remains green
+on its own percentage scale; legends distinguish that line from action areas
+and power bars. Both display sizes and the web use the same interpretation.
+
+The overview legend and the next-transition text below the battery card are
+included, as are selected and measured actions on battery detail. Live detail
+text uses the same ±25 W standby band as the shared header and battery card.
+These presentation changes do not change the Homey planner or battery commands.

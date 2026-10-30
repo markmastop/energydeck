@@ -272,7 +272,7 @@ widgets:
     y: 470
     text: '+2.5'
     text_font: montserrat_10
-    text_color: 11122862
+    text_color: 0x48BD70
     width: 34
     long_mode: DOT
     text_align: RIGHT
@@ -292,7 +292,7 @@ widgets:
     y: 602
     text: '-2.5'
     text_font: montserrat_10
-    text_color: 11122862
+    text_color: 0xF29A38
     width: 34
     long_mode: DOT
     text_align: RIGHT
@@ -314,7 +314,7 @@ widgets:
     y: 644
     text: ${battery_detail_legend}
     text_font: montserrat_10
-    text_color: 11122862
+    text_color: 0x48BD70
     width: 404
     long_mode: DOT
 - label:

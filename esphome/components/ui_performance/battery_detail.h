@@ -5,6 +5,10 @@
 #include <algorithm>
 
 namespace energydeck {
+// Forecast fills and action labels share the live battery's charge/discharge colors.
+inline uint32_t battery_action_color(int action, uint32_t hold = 0x617064) {
+  return action == 1 ? 0xF29A38 : action == 2 ? 0x48BD70 : hold;
+}
 // Price and strategy plots must use the same UTC viewport, including DST days.
 struct BatteryStrategyWindow {
   int64_t from, until;

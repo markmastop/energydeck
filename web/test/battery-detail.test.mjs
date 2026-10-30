@@ -55,7 +55,7 @@ test('past prices and measured SoC share the full elapsed-time viewport without 
 test('detail renderer places the slider at now on the full chart and separates historical readouts',async()=>{
   const translations=JSON.parse(await readFile(new URL('../public/translations.json',import.meta.url),'utf8')).nl;
   const elements=new Map();
-  const make=()=>({attrs:{},events:{},textContent:'',children:[],setAttribute(k,v){this.attrs[k]=v;},
+  const make=()=>({attrs:{},events:{},dataset:{},textContent:'',children:[],setAttribute(k,v){this.attrs[k]=v;},
     addEventListener(k,v){this.events[k]=v;},replaceChildren(...nodes){this.children=nodes;},
     getBoundingClientRect(){return {left:0,width:720};}});
   const previous=globalThis.document;
@@ -72,6 +72,10 @@ test('detail renderer places the slider at now on the full chart and separates h
     assert.ok(Math.abs(lines[0].attrs.x1-(62+578*(epoch-start)/(epoch+960-start)))<.01);
     assert.match(elements.get('battery-detail-selected').textContent,/verwacht vermogen/);
     assert.match(elements.get('battery-detail-live').textContent,/Ontladen.*632 W.*50%/);
+    assert.equal(elements.get('battery-detail-live').dataset.batteryAction,'discharge');
+    assert.equal(elements.get('battery-detail-selected').dataset.batteryAction,'charge');
+    assert.ok(svg.children.some(n=>n.attrs.fill==='#f29a38'),'Charge power bars share the orange charging palette');
+    assert.ok(svg.children.some(n=>n.attrs.fill==='#48bd70'),'Discharge power bars use green');
     const timeline=batteryDetailTimeline(batteryDetailModel(plan,now),battery.history,null,now,epoch-450);
     assert.equal(timeline.part,null);assert.equal(timeline.measured,50.5);
     view.reset();assert.deepEqual(svg.children,[]);

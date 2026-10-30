@@ -171,6 +171,7 @@ The ESP display is the reference for household features, values and interaction 
 | --- | --- |
 | Shared current price, sunrise/sunset, net/gas/source meters and heating/car/battery status on every page | One shared header above Overview, Energy, Sonos and Climate; the same data feeds all views. |
 | Live battery icon and status text | Orange while charging below −25 W, green while discharging above 25 W; standby is muted. The icon and SOC fill are gray for unknown readings. Actual charging is orange for both battery and car. |
+| Battery plan graphs, action labels and legends | Orange charging, green discharging, gray holding and yellow sunshine. The measured/forecast SOC line retains its own green percentage scale. |
 | Net direction with a 50 W deadband and 10-second mode hold | Same thresholds; the label becomes neutral while a direction change is pending. |
 | Gas rate above 0.005 m³/h, otherwise today's total with yesterday underneath | Same stable mode selection, units and secondary values. |
 | Solar/battery priority and signed power arcs | Battery takes priority when discharging above 50 W or solar is at/below 50 W; 10-second hold, immediate missing-source removal, ±5 kW per arc half. Negative export/battery charging fills left from the top marker. |

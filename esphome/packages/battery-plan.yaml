@@ -225,6 +225,8 @@ script:
             return "";
           };
           id(battery_control_message) = known && p.execution_known ? reason_text(p.execution_reason) : "";
+          set_style_text_color(id(battery_goal_label), lv_color_hex(0xA9B8AE), LV_PART_MAIN);
+          set_style_text_color(id(battery_plan_label), lv_color_hex(0xA9B8AE), LV_PART_MAIN);
           if (known && p.version == 2) {
             const int index = p.current(time.timestamp);
             const auto &current = p.intervals[index];
@@ -242,12 +244,16 @@ script:
             const int actual_action = p.execution_known ? (p.execution_watts < 0 ? 1 : p.execution_watts > 0 ? 2 : 0) : current.action;
             state += " | "; state += action_text(actual_action);
             set_text(id(battery_goal_label), p.execution_known && p.execution_paused ? "${battery_control_paused}" : state.c_str());
-            set_style_text_color(id(battery_goal_label), lv_color_hex(p.at_risk ? 0xEA665F : 0xA9B8AE), LV_PART_MAIN);
+            set_style_text_color(id(battery_goal_label), lv_color_hex(p.at_risk ? 0xEA665F : energydeck::battery_action_color(actual_action, 0xA9B8AE)), LV_PART_MAIN);
             if (p.execution_known && p.execution_reason != "following") set_text(id(battery_plan_label), id(battery_control_message).c_str());
-            else if (p.at_risk) set_text(id(battery_plan_label), "${battery_forward_risk}");
+            else if (p.at_risk) {
+              set_text(id(battery_plan_label), "${battery_forward_risk}");
+              set_style_text_color(id(battery_plan_label), lv_color_hex(0xEA665F), LV_PART_MAIN);
+            }
             else if (next) {
               std::string label = action_text(next->action); label += " ${battery_strategy_from} "; label += stamp(next->from, true);
               set_text(id(battery_plan_label), label.c_str());
+              set_style_text_color(id(battery_plan_label), lv_color_hex(energydeck::battery_action_color(next->action, 0xA9B8AE)), LV_PART_MAIN);
             } else set_text(id(battery_plan_label), "${battery_forward_no_next}");
             return;
           }
@@ -266,7 +272,10 @@ script:
           else set_text(id(battery_goal_label), "--");
           if (!known) set_text(id(battery_plan_label), "${battery_plan_unavailable}");
           else if (!p.enabled) set_text(id(battery_plan_label), "${battery_plan_off}");
-          else if (p.phase == "grid-top-up") set_text_fmt(id(battery_plan_label), "${battery_plan_topup}", p.top_up_w / 1000);
+          else if (p.phase == "grid-top-up") {
+            set_text_fmt(id(battery_plan_label), "${battery_plan_topup}", p.top_up_w / 1000);
+            set_style_text_color(id(battery_plan_label), lv_color_hex(energydeck::battery_action_color(1)), LV_PART_MAIN);
+          }
           else if (p.phase == "full-reserve") set_text_fmt(id(battery_plan_label), "${battery_plan_reserve}", deadline);
           else if (p.phase == "normal") set_text(id(battery_plan_label), "${battery_plan_normal}");
           else set_text_fmt(id(battery_plan_label), "${battery_plan_solar}", std::isfinite(p.start) ? start : "--:--");

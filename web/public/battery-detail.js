@@ -1,6 +1,6 @@
 import {batterySunshine} from './sunshine.js';
 import {priceDayBounds} from './charts.js';
-import {batteryPlanView, batterySocView, forwardClock} from './battery-plan.js';
+import {batteryPlanView, batterySocView, batteryActionColor, forwardClock} from './battery-plan.js';
 
 // Both plots use UTC bounds from the controller, including partial quarters and
 // repeated DST hours. Unknown/stale proposals never become an empty zero graph.
@@ -60,11 +60,13 @@ export function initializeBatteryDetail({t,format}) {
     last={battery,prices,sunshine};
     const m=batteryDetailModel(battery?.plan,now,selected),live=battery?.power;
     const clock=epoch=>forwardClock(epoch,now,document.documentElement.lang||'nl');
-    $('battery-detail-live').textContent=`${t('batteryMeasuredNow')}: ${t(live>20?'batteryActiondischarge':live < -20?'batteryActioncharge':'batteryActionhold')} · ${format(live===null?null:Math.abs(live),0)} W · ${format(battery?.percentage,0)}%`;
+    const liveAction=live>25?'discharge':live < -25?'charge':'hold';
+    $('battery-detail-live').textContent=`${t('batteryMeasuredNow')}: ${t('batteryAction'+liveAction)} · ${format(live===null?null:Math.abs(live),0)} W · ${format(battery?.percentage,0)}%`;
+    $('battery-detail-live').dataset.batteryAction=Number.isFinite(live)?liveAction:'';
     $('battery-detail-status').textContent=m?t(m.plan.mode==='shadow'?'batteryShadow':'batteryActivePlan'):t('batteryPlanUnavailable');
     if(m?.plan.execution) $('battery-detail-status').textContent+=` · ${t('batteryControl'+m.plan.execution.reason)}`;
     slider.disabled=!m;
-    if(!m){svg.replaceChildren();$('battery-detail-selected').textContent=t('batteryPlanUnavailable');$('battery-detail-note').textContent='';return;}
+    if(!m){svg.replaceChildren();$('battery-detail-selected').textContent=t('batteryPlanUnavailable');$('battery-detail-selected').dataset.batteryAction='';$('battery-detail-note').textContent='';return;}
     const history=battery?.history,timeline=batteryDetailTimeline(m,history,prices,now,selected);
     const {from,at,part:q}=timeline;
     viewportFrom=from;
@@ -74,6 +76,7 @@ export function initializeBatteryDetail({t,format}) {
     const expected=q?`${t(`batteryAction${q.action}`)} · ${t('batteryExpectedPower')} ${format(Math.abs(q.powerW)/1000)} kW · ${format(q.socFrom+(q.socTo-q.socFrom)*(at-q.from)/(q.until-q.from),0)}%`:
       timeline.measured!==null?`${t('batteryMeasured')}: ${format(timeline.measured,0)}%`:t('batteryHistoryMissing');
     $('battery-detail-selected').textContent=`${chosen} · ${expected}`;
+    $('battery-detail-selected').dataset.batteryAction=q?.action || '';
     $('battery-detail-note').textContent=[m.plan.inputQuality==='provisional'?t('batteryAssumptions'):t('batteryCalibrated'),m.plan.atRisk?t('batteryTargetRisk'):'',q && q.ev!==false?t('batteryEvProtected'):''].filter(Boolean).join(' · ');
     const x=epoch=>62+(epoch-from)/(m.until-from)*578;
     const py=price=>192-(price-timeline.minimum)/(timeline.maximum-timeline.minimum)*140;
@@ -96,7 +99,7 @@ export function initializeBatteryDetail({t,format}) {
     }
     if(from<m.from && !timeline.bars.some(q=>q.from<m.from))label(70,80,t('batteryPriceHistoryMissing'));
     for(const part of m.plan.intervals){
-      const left=x(part.from),width=Math.max(.5,x(part.until)-left-.7),color=part.action==='charge'?'var(--blue)':part.action==='discharge'?'#e7a052':'#617064';
+      const left=x(part.from),width=Math.max(.5,x(part.until)-left-.7),color=batteryActionColor(part.action);
       marks.push(node('rect',{x:left,y:Math.min(wy(part.powerW),wy(0)),width,height:Math.max(1,Math.abs(wy(part.powerW)-wy(0))),fill:color}));
       const sun=batterySunshine(sunshine,part.from,part.until,part.sun,now.getTime());
       if(sun!==null)marks.push(node('rect',{x:left,y:259,width:sun>0?Math.max(1,width*sun):width,height:sun>0?6:2,fill:sun>0?'#FFD35A':'#617064'}));

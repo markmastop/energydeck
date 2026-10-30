@@ -492,7 +492,11 @@ h2 {
   color:var(--muted);
 }
 .battery-energy { margin-top:8px; }
-#battery-goal { color:var(--green); }
+#battery-goal { color:var(--battery-action-color,var(--green)); }
+[data-battery-action] { color:var(--battery-action-color,var(--muted)); }
+[data-battery-action="charge"] { --battery-action-color:var(--orange); }
+[data-battery-action="discharge"] { --battery-action-color:var(--green); }
+[data-battery-action="hold"],[data-battery-action=""] { --battery-action-color:var(--muted); }
 .battery-plan { margin-top:18px; }
 .battery-plan-heading { min-height:24px; flex-wrap:wrap; }
 #battery-plan-rate { white-space:nowrap; }

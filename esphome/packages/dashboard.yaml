@@ -1520,13 +1520,13 @@ lvgl:
                   y: 247
                   text: "${battery_action_charge}"
                   text_font: montserrat_10
-                  text_color: 0x3AA7D8
+                  text_color: 0xF29A38
               - label:
                   x: 124
                   y: 247
                   text: "${battery_action_discharge}"
                   text_font: montserrat_10
-                  text_color: 0xE7A052
+                  text_color: 0x48BD70
               - label:
                   x: 214
                   y: 247

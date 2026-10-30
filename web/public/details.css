@@ -351,8 +351,8 @@ dialog p { font-size: 14px; line-height: 1.6; color: var(--muted); }
 #price-chart .strategy-percent { font-size:10px; }
 .strategy-legend { display:flex; flex-wrap:wrap; gap:8px 16px; margin-top:6px; font-size:.72rem; }
 .strategy-legend span::before { content:""; display:inline-block; width:12px; height:3px; margin:0 5px 3px 0; background:currentColor; }
-.strategy-legend .charge { color:#3aa7d8; }
-.strategy-legend .discharge { color:#e7a052; }
+.strategy-legend .charge { color:var(--orange); }
+.strategy-legend .discharge { color:var(--green); }
 .strategy-legend .hold { color:var(--muted); }
 .strategy-legend .sun { color:#ffd35a; }
 #page-overview .battery-plan-heading { flex-direction:column; align-items:flex-start; gap:6px; }

@@ -3,7 +3,7 @@ import { initializeDetails } from './details.js';
 import { priceWindow, priceQuarter, priceTime } from './charts.js';
 import { dayComparison, overviewRooms, carIconColor } from './display.js';
 import { createLiveUpdates } from './live.js';
-import { batteryPlanView, batteryStrategyView, batterySocView, planClock } from './battery-plan.js';
+import { batteryPlanView, batteryStrategyView, batterySocView, batteryActionColor, planClock } from './battery-plan.js';
 import { batterySunshine } from './sunshine.js';
 import { renderForwardBattery } from './battery-forward.js';
 
@@ -150,6 +150,8 @@ function render() {
   text('battery-energy', plan && data.battery.percentage !== null ? `${format(plan.capacityKwh * data.battery.percentage / 100)} / ${format(plan.capacityKwh)} kWh` : '—');
   if (plan?.version === 2) renderForwardBattery(view, t, now);
   else {
+    $('battery-goal').dataset.batteryAction = '';
+    $('battery-plan-status').dataset.batteryAction = plan?.enabled && ['grid-top-up','solar-and-reserve'].includes(plan.phase) ? 'charge' : '';
     text('battery-goal', plan?.enabled ? `${t('batteryGoal')} ${planClock(plan.deadlineMinute)}` : '—');
     text('battery-plan-status', `${t(view.label).replace('{time}', planClock(plan?.deadlineMinute ?? null))}${view.label === 'batteryPlanSolar' && plan?.startMinute !== null ? ` ${planClock(plan.startMinute)}` : ''}`);
     text('battery-plan-rate', plan?.enabled ? `${t('batteryPlanRate')} ${format(plan.topUpW / 1000)} kW` : '');
@@ -279,7 +281,7 @@ function drawChart(today, quarter) {
     for (const soc of [0, 100]) chart.append(svgNode('text', {x:0, y:sy(soc)+3, class:'strategy-percent'}, `${soc}%`));
     for (const q of strategy?.segments || []) {
       const w = Math.max(.5, x(q.until) - x(q.from));
-      const color = q.action === 'charge' ? '#3aa7d8' : q.action === 'discharge' ? '#e7a052' : '#617064';
+      const color = batteryActionColor(q.action);
       const phase = svgNode('rect', {x:x(q.from), y:239, width:w, height:76, fill:color, opacity:.18});
       phase.append(svgNode('title', {}, `${priceTime(q.from*1000)} · ${t(`batteryAction${q.action}`)} · ${format(q.socFrom)}–${format(q.socTo)}%`));
       chart.append(phase);

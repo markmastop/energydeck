@@ -80,8 +80,13 @@ script:
           const bool history_known=clock.is_valid() && history.available(clock.year*10000+clock.month*100+clock.day_of_month,clock.timestamp);
           chart.draw(valid ? &p : nullptr, clock.timestamp, id(battery_detail_selected), actual, history_known ? &history : nullptr,
                      state.battery.valid(millis()) ? state.battery.value : NAN, &id(battery_detail_prices), id(battery_detail_price_revision), &id(weather_sunshine));
-          if (state.battery.valid(millis()) && std::isfinite(actual)) set_text_fmt(id(battery_detail_live), "${battery_detail_measured}", actual>20 ? "${battery_action_discharge}" : actual < -20 ? "${battery_action_charge}" : "${battery_action_hold}", std::abs(actual), state.battery.value);
-          else set_text(id(battery_detail_live), "${battery_unavailable}");
+          set_style_text_color(id(battery_detail_live), lv_color_hex(0xA9B8AE), LV_PART_MAIN);
+          set_style_text_color(id(battery_detail_predicted), lv_color_hex(0xA9B8AE), LV_PART_MAIN);
+          if (state.battery.valid(millis()) && std::isfinite(actual)) {
+            const int action=actual>25 ? 2 : actual < -25 ? 1 : 0;
+            set_text_fmt(id(battery_detail_live), "${battery_detail_measured}", action==2 ? "${battery_action_discharge}" : action==1 ? "${battery_action_charge}" : "${battery_action_hold}", std::abs(actual), state.battery.value);
+            set_style_text_color(id(battery_detail_live), lv_color_hex(energydeck::battery_action_color(action, 0xA9B8AE)), LV_PART_MAIN);
+          } else set_text(id(battery_detail_live), "${battery_unavailable}");
           if (!valid) {
             set_text(id(battery_detail_status), "${battery_plan_unavailable}");
             set_text(id(battery_detail_chosen), "${battery_plan_unavailable}");
@@ -107,9 +112,13 @@ script:
             const auto &q=p.intervals[index];
             const char *action=q.action==1 ? "${battery_action_charge}" : q.action==2 ? "${battery_action_discharge}" : "${battery_action_hold}";
             set_text_fmt(id(battery_detail_predicted), "${battery_detail_predicted}", action, std::abs(q.watts)/1000, energydeck::BatteryStrategyWindow::soc(q,selected));
+            set_style_text_color(id(battery_detail_predicted), lv_color_hex(energydeck::battery_action_color(q.action, 0xA9B8AE)), LV_PART_MAIN);
           } else {
             const float soc=energydeck::BatteryDetailGeometry::measured_soc(history_known ? &history : nullptr,selected);
-            if(std::isfinite(soc)) set_text_fmt(id(battery_detail_predicted), "${battery_detail_historical}", soc);
+            if(std::isfinite(soc)) {
+              set_text_fmt(id(battery_detail_predicted), "${battery_detail_historical}", soc);
+              set_style_text_color(id(battery_detail_predicted), lv_color_hex(0x48BD70), LV_PART_MAIN);
+            }
             else set_text(id(battery_detail_predicted), "${battery_detail_history_missing}");
           }
           set_text(id(battery_detail_status), p.shadow ? "${battery_detail_assumptions}" : "${battery_forward_active}");

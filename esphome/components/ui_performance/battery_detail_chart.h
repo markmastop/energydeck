@@ -29,7 +29,7 @@ class BatteryStrategyChart {
       const auto &q = p->intervals[i]; int64_t a, b;
       if (!window.clip(q, a, b)) continue;
       const int x = window.x(a, w), width = window.x(b, w) - x;
-      rect(phases_[i], x, 0, width, height, q.action == 1 ? 0x3AA7D8 : q.action == 2 ? 0xE7A052 : 0x617064, LV_OPA_20);
+      rect(phases_[i], x, 0, width, height, battery_action_color(q.action), LV_OPA_20);
       // Share the weather forecast; retain the plan's longer-range coverage.
       const float weather = sunshine ? sunshine->fraction(std::max<int64_t>(a, now), b, now) : NAN;
       const float sun = std::isfinite(weather) ? weather : q.sun;
@@ -104,7 +104,7 @@ class BatteryDetailChart {
         if (!prices_[i]) { prices_[i] = rectangle(price_parent_); power_[i] = rectangle(power_parent_); }
         const int py = g.price_y(q.price, h), zero = g.price_y(0, h), wy = g.power_y(q.watts, h), wz = g.power_y(0, h);
         place(prices_[i], left, std::min(py, zero), width, std::max(1, std::abs(py - zero)), color(q.price));
-        place(power_[i], left, std::min(wy, wz), width, std::max(1, std::abs(wy - wz)), q.action == 1 ? 0x3AA7D8 : q.action == 2 ? 0xE7A052 : 0x617064);
+        place(power_[i], left, std::min(wy, wz), width, std::max(1, std::abs(wy - wz)), battery_action_color(q.action));
         if (sun_[i]) lv_obj_add_flag(sun_[i], LV_OBJ_FLAG_HIDDEN);
         const float weather = sunshine ? sunshine->fraction(std::max(q.from, now), q.until, now) : NAN;
         const float sun = std::isfinite(weather) ? weather : q.sun;

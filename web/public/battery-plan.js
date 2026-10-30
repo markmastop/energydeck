@@ -1,5 +1,10 @@
 // Read-only contract shared with battery_plan.h. Never infer controller state
 // from battery power or show a stale plan as current during manual overrides.
+// The same action palette labels present execution and future plan intervals.
+export function batteryActionColor(action) {
+  return action === 'charge' ? '#f29a38' : action === 'discharge' ? '#48bd70' : '#617064';
+}
+
 export function batteryPlan(raw, now = new Date()) {
   let value;
   try { value = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch { return null; }

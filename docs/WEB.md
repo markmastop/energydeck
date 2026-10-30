@@ -283,3 +283,14 @@ Tests use fake speakers/Homey responses for device commands, including lost writ
 The web app is buildless. On a Docker-capable host, verify `docker compose build`, `docker compose up -d` and `docker compose ps` health. Do not share unredacted `docker compose config` output: interpolation can expose secrets.
 
 Regenerate app/favicons with `.venv/bin/python scripts/generate-web-icons.py` (Pillow required), and export the display's embedded station JPEGs with `python3 scripts/export-web-stations.py`. Phone icons use full-bleed backgrounds so each OS can apply its own mask. Station logos identify their respective broadcasters, which retain ownership.
+
+## Battery color deployment (2026-10-30)
+
+The production Coolify webhook deployment of `57ce8a2` succeeded. Live `app.js`,
+`display.js`, `styles.css` and `sw.js` matched the committed files byte for byte,
+including shell cache `energydeck-shell-v51`. The health endpoint returned
+HTTP 200 and an unauthenticated session request correctly returned HTTP 401.
+Both physical displays received the matching firmware; see the
+[verified rollout](SMART_HEADER.md#battery-color-rollout-to-both-displays-and-web-2026-10-30).
+Synthetic web previews verified the orange charging and green discharging
+icon/status text; authenticated production rendering was not inspected.

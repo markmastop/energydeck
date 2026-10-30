@@ -250,3 +250,32 @@ so this hardware-only rollout needs no web source change. Prior simulator,
 web and simulated timeout/navigation checks cover the feature logic. Serial
 boot, physical touch and a full five-minute wait were not observed in this
 wireless rollout. No playback, charging or thermostat commands were issued.
+
+## Battery color rollout to both displays and web (2026-10-30)
+
+The user-authorized rollout installed `8960b53` and `57ce8a2`: the live battery
+icon and status text are orange while charging, green while discharging and
+muted in standby. Both ESP configurations share the updated implementation.
+
+| Display | Build time (Amsterdam) | Configuration hash | OTA image size |
+| --- | --- | --- | --- |
+| 5-inch (`energydeck.local`) | 2026-10-30 11:24:23 | `33787ca5` | 2,098,752 B |
+| 7-inch (`energydeck-7.local`) | 2026-10-30 11:25:58 | `23d318c0` | 2,098,768 B |
+
+Both target builds and setup-stack checks passed: 2,720 B against a 4,096 B
+budget. ESPHome reported successful OTA uploads for both devices. Fresh mDNS
+records matched the expected configuration hashes and both OTA ports were
+reachable after reboot. A fresh check at 11:28:47 Amsterdam time confirmed both
+hashes and OTA endpoints again, 75 seconds after the final upload. Physical panel
+pixels and touch were not inspected.
+
+The matching Coolify webhook deployment of `57ce8a2` succeeded, starting at
+11:26:53 Amsterdam time and completing in 27 seconds. Production `app.js`,
+`display.js`, `styles.css` and `sw.js` returned HTTP 200 and matched the committed
+files byte for byte, including shell cache `energydeck-shell-v51`. The health
+endpoint returned HTTP 200; an unauthenticated session request correctly
+returned HTTP 401. Authenticated production rendering was not inspected.
+
+Earlier implementation checks passed all 111 web tests, the display simulator
+build, native energy-state checks and synthetic web/production-LVGL color
+previews. This rollout issued no charging, battery-control or thermostat command.
